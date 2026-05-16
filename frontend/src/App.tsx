@@ -21,6 +21,7 @@ import AICoach from './components/AICoach';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import PlansPage from './components/PlansPage';
 import LegalPages from './components/legal/LegalPages';
+import AudioEnginePanel from './components/AudioEnginePanel';
 import { authApi, getAccessToken } from './services/api';
 import type { AuthUser, QuotaInfo } from './types';
 
@@ -55,6 +56,7 @@ function ViewContent() {
         {currentView === 'analytics' && <AnalyticsDashboard />}
         {currentView === 'plans' && <PlansPage />}
         {currentView === 'legal' && <LegalPages />}
+        {currentView === 'audio' && <AudioEnginePanel />}
       </motion.div>
     </AnimatePresence>
   );
@@ -68,10 +70,7 @@ export default function App() {
 
   useEffect(() => {
     const token = getAccessToken();
-    if (!token) {
-      setAuthChecked(true);
-      return;
-    }
+    if (!token) { setAuthChecked(true); return; }
     authApi.me()
       .then((res) => {
         const { id, email, name, plan, quota } = res.data.data;
@@ -98,37 +97,22 @@ export default function App() {
           <LoadingScreen onComplete={() => setLoaded(true)} />
         )}
       </AnimatePresence>
-
       {!auth.isAuthenticated && (
-        <motion.div
-          key="login"
-          className="w-full h-full"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
+        <motion.div key="login" className="w-full h-full" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <LoginScreen />
         </motion.div>
       )}
-
       {auth.isAuthenticated && loaded && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.4 }}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}
           className="flex w-full h-full overflow-hidden"
         >
           <Sidebar />
           <div className="flex-1 flex flex-col overflow-hidden min-w-0">
             <Header />
-            <main className="flex-1 overflow-hidden">
-              <ViewContent />
-            </main>
+            <main className="flex-1 overflow-hidden"><ViewContent /></main>
           </div>
-
           <AnimatePresence>
-            {showOnboarding && (
-              <Onboarding onComplete={() => setShowOnboarding(false)} />
-            )}
+            {showOnboarding && <Onboarding onComplete={() => setShowOnboarding(false)} />}
           </AnimatePresence>
         </motion.div>
       )}
