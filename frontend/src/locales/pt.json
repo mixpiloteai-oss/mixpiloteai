@@ -7,7 +7,13 @@
     "live": "Modo Ao Vivo",
     "chat": "Chat IA",
     "packs": "Packs",
-    "daw": "Ponte DAW"
+    "daw": "Ponte DAW",
+    "coach": "Coach IA",
+    "analytics": "Análises",
+    "plans": "Planos",
+    "legal": "Legal",
+    "audio": "Motor de Áudio",
+    "launcher": "Lançador de Clips"
   },
   "auth": {
     "signIn": "Entrar",
