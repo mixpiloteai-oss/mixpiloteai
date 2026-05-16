@@ -17,7 +17,9 @@
     "pianoRoll": "Piano Roll",
     "arrangement": "Arrangement",
     "mixer": "Mixer",
-    "spectrum": "Spectrum"
+    "spectrum": "Spectrum",
+    "routing": "Audio Routing",
+    "vst": "VST Plugins"
   },
   "auth": {
     "signIn": "Sign In",
@@ -63,99 +65,104 @@
     "tracks": "Tracks",
     "routing": "Signal Routing",
     "fxChain": "FX Chain",
-    "applyToProject": "Apply to Project",
-    "saveTemplate": "Save Template"
+    "complexity": "Complexity",
+    "description": "Description"
   },
-  "packs": {
-    "title": "Packs Browser",
-    "community": "Community",
-    "builtin": "Built-in",
-    "search": "Search packs...",
-    "trending": "Trending",
-    "newest": "Newest",
-    "topRated": "Top Rated",
-    "free": "Free",
-    "download": "Download",
-    "downloaded": "Downloaded",
-    "preview": "Preview",
-    "by": "by",
-    "downloads": "downloads",
-    "uploadPack": "Upload Pack",
-    "myPacks": "My Packs",
-    "categories": {
-      "all": "All",
-      "templates": "Templates",
-      "fxRacks": "FX Racks",
-      "drumKits": "Drum Kits",
-      "liveScenes": "Live Scenes",
-      "presets": "Presets",
-      "chains": "Chains",
-      "aiWorkflows": "AI Workflows"
-    }
-  },
-  "daw": {
-    "title": "DAW Bridge",
-    "subtitle": "Universal DAW Compatibility",
-    "selectDaw": "Select your DAW",
-    "exportPresets": "Export Presets",
-    "importPresets": "Import Presets",
-    "midiMapping": "MIDI Mapping",
-    "compatible": "Compatible",
-    "templates": "Templates",
-    "export": "Export",
-    "import": "Import",
-    "guide": "Setup Guide"
+  "tracks": {
+    "title": "Track Organizer",
+    "addTrack": "Add Track",
+    "noTracks": "No tracks yet",
+    "filter": "Filter",
+    "sort": "Sort",
+    "bpm": "BPM",
+    "key": "Key",
+    "genre": "Genre",
+    "mood": "Mood"
   },
   "mix": {
     "title": "Mix Assistant",
-    "analyse": "Analyse Mix",
+    "analyse": "Analyse",
     "analysing": "Analysing...",
-    "score": "Mix Score",
-    "conflicts": "Frequency Conflicts",
     "suggestions": "Suggestions",
-    "apply": "Apply",
+    "conflicts": "Conflicts",
     "applyAll": "Apply All",
-    "loudness": "Loudness",
-    "spectrum": "Spectrum"
+    "apply": "Apply",
+    "score": "Mix Score",
+    "lufs": "LUFS",
+    "peak": "Peak",
+    "dynamicRange": "Dynamic Range"
   },
   "live": {
     "title": "Live Mode",
-    "scenes": "Scenes",
-    "pads": "Pads",
-    "launch": "Launch",
+    "start": "Start Session",
     "stop": "Stop",
     "record": "Record",
     "bpm": "BPM",
-    "tapTempo": "Tap",
-    "master": "Master"
+    "genre": "Genre",
+    "participants": "Participants"
   },
   "chat": {
-    "title": "AI Assistant",
-    "placeholder": "Ask about production, FX chains, mix tips...",
+    "title": "AI Chat",
+    "placeholder": "Ask about mixing, sound design, music theory...",
     "send": "Send",
     "clear": "Clear",
-    "online": "ONLINE",
-    "quota": "AI requests",
-    "quotaExceeded": "Daily AI quota reached. Upgrade your plan to continue.",
-    "backendDown": "Failed to reach NEUROTEK AI backend. Is it running?"
+    "thinking": "Thinking..."
   },
-  "quota": {
-    "plan": "Plan",
-    "used": "Used",
-    "limit": "Limit",
-    "remaining": "Remaining",
-    "upgrade": "Upgrade Plan",
-    "resetAt": "Resets at midnight",
-    "quotaReached": "Daily quota reached"
+  "packs": {
+    "title": "Packs Browser",
+    "search": "Search packs...",
+    "filter": "Filter",
+    "download": "Download",
+    "preview": "Preview",
+    "free": "Free",
+    "premium": "Premium"
   },
-  "license": {
-    "valid": "License Valid",
-    "invalid": "License Invalid",
-    "expired": "License Expired",
-    "deviceLimit": "Device limit reached",
-    "verify": "Verify License",
-    "activating": "Activating...",
-    "activated": "License Activated"
+  "daw": {
+    "title": "DAW Bridge",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "sync": "Sync",
+    "status": "Status",
+    "connected": "Connected",
+    "disconnected": "Disconnected"
+  },
+  "coach": {
+    "title": "AI Coach",
+    "start": "Start Lesson",
+    "progress": "Progress",
+    "achievements": "Achievements"
+  },
+  "analytics": {
+    "title": "Analytics",
+    "overview": "Overview",
+    "sessions": "Sessions",
+    "tracks": "Tracks",
+    "aiUsage": "AI Usage"
+  },
+  "plans": {
+    "title": "Plans",
+    "free": "Free",
+    "creator": "Creator",
+    "studio": "Studio",
+    "upgrade": "Upgrade",
+    "current": "Current Plan"
+  },
+  "legal": {
+    "title": "Legal",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "cookies": "Cookie Policy"
+  },
+  "audio": {
+    "title": "Audio Engine",
+    "bpm": "BPM",
+    "play": "Play",
+    "stop": "Stop",
+    "record": "Record",
+    "masterVolume": "Master Volume",
+    "latency": "Latency",
+    "sampleRate": "Sample Rate",
+    "spectrum": "Spectrum"
   },
   "common": {
     "save": "Save",
@@ -166,25 +173,9 @@
     "loading": "Loading...",
     "error": "Error",
     "success": "Success",
-    "signOut": "Sign Out",
-    "settings": "Settings",
-    "language": "Language",
-    "version": "Version"
-  },
-  "onboarding": {
-    "welcome": "Welcome to NEUROTEK AI",
-    "subtitle": "The future of AI-assisted music production",
-    "step1Title": "Choose Your Style",
-    "step1Desc": "Select your main genre to personalize your AI assistant",
-    "step2Title": "Set Your BPM",
-    "step2Desc": "Configure your default tempo range",
-    "step3Title": "Connect Your DAW",
-    "step3Desc": "Optional: Link NEUROTEK AI to your production software",
-    "step4Title": "You're Ready",
-    "step4Desc": "Start creating with AI-powered assistance",
-    "skip": "Skip",
+    "confirm": "Confirm",
+    "back": "Back",
     "next": "Next",
-    "finish": "Get Started",
-    "back": "Back"
+    "search": "Search"
   }
 }

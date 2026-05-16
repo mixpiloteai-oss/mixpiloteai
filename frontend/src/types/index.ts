@@ -20,7 +20,8 @@ export type ViewType =
   | 'dashboard' | 'templates' | 'tracks' | 'mix' | 'live'
   | 'chat' | 'packs' | 'daw' | 'coach' | 'analytics'
   | 'plans' | 'legal' | 'audio' | 'launcher' | 'onboarding'
-  | 'piano-roll' | 'arrangement' | 'mixer' | 'spectrum';
+  | 'piano-roll' | 'arrangement' | 'mixer' | 'spectrum'
+  | 'routing' | 'vst';
 
 // ─── Piano Roll / Sequencer ──────────────────────────────────
 export interface Note {

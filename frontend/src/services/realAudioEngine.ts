@@ -63,6 +63,8 @@ class RealAudioEngine {
   private listeners: Set<(state: EngineState) => void> = new Set();
   private beatListeners: Set<(beat: number, bar: number) => void> = new Set();
   private cpuEstimate = 0;
+  private meterNode: AudioWorkletNode | null = null;
+  private meterCallback: ((l: number, r: number, peak: number, clip: boolean) => void) | null = null;
 
   // ── Init ────────────────────────────────────────────────────
   async init(): Promise<void> {
@@ -78,7 +80,27 @@ class RealAudioEngine {
     }
 
     this.masterBus = this.buildMasterBus(this.ctx);
+    await this.initWorklets(this.ctx);
     this.emit();
+  }
+
+  private async initWorklets(ctx: AudioContext): Promise<void> {
+    try {
+      await ctx.audioWorklet.addModule('/worklets/meter-processor.js');
+      this.meterNode = new AudioWorkletNode(ctx, 'meter-processor');
+      this.meterNode.port.onmessage = (e) => {
+        const { peakL, peakR, rmsL, rmsR, clip } = e.data;
+        const peak = Math.max(peakL, peakR);
+        this.meterCallback?.(rmsL, rmsR, peak, clip);
+      };
+      // Tap off master analyser output into the meter worklet (monitoring only)
+      if (this.masterBus) {
+        this.masterBus.analyser.connect(this.meterNode);
+        this.meterNode.connect(ctx.destination);
+      }
+    } catch {
+      // AudioWorklet not supported or worklet file missing — fall back silently
+    }
   }
 
   private buildMasterBus(ctx: AudioContext): MasterBus {
@@ -227,7 +249,6 @@ class RealAudioEngine {
       if (this.clock.beat === 0) this.clock.position++;
     }
 
-    // CPU load estimation
     const bufferSize = this.ctx.baseLatency * this.ctx.sampleRate;
     this.cpuEstimate = Math.min(100, (bufferSize / 512) * 5 + Math.random() * 3);
     this.emit();
@@ -448,8 +469,15 @@ class RealAudioEngine {
   get currentBar(): number { return this.clock.position; }
   get bpm(): number { return this.clock.bpm; }
 
+  onMeter(fn: (l: number, r: number, peak: number, clip: boolean) => void): () => void {
+    this.meterCallback = fn;
+    return () => { if (this.meterCallback === fn) this.meterCallback = null; };
+  }
+
   async close(): Promise<void> {
     this.stop();
+    this.meterNode?.disconnect();
+    this.meterNode = null;
     this.channels.clear();
     if (this.ctx) { await this.ctx.close(); this.ctx = null; }
   }

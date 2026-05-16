@@ -27,6 +27,8 @@ import PianoRollPanel from './components/PianoRollPanel';
 import ArrangementPanel from './components/ArrangementPanel';
 import MixerPanel from './components/MixerPanel';
 import SpectrumAnalyzer from './components/SpectrumAnalyzer';
+import AudioRoutingPanel from './components/AudioRoutingPanel';
+import VSTHostingPanel from './components/VSTHostingPanel';
 import { authApi, getAccessToken } from './services/api';
 import type { AuthUser, QuotaInfo } from './types';
 
@@ -67,6 +69,8 @@ function ViewContent() {
         {currentView === 'arrangement' && <ArrangementPanel />}
         {currentView === 'mixer' && <MixerPanel />}
         {currentView === 'spectrum' && <SpectrumAnalyzer />}
+        {currentView === 'routing' && <AudioRoutingPanel />}
+        {currentView === 'vst' && <VSTHostingPanel />}
       </motion.div>
     </AnimatePresence>
   );
