@@ -7,7 +7,13 @@
     "live": "ライブモード",
     "chat": "AIチャット",
     "packs": "パック",
-    "daw": "DAWブリッジ"
+    "daw": "DAWブリッジ",
+    "coach": "AIコーチ",
+    "analytics": "分析",
+    "plans": "プラン",
+    "legal": "法的情報",
+    "audio": "オーディオエンジン",
+    "launcher": "クリップランチャー"
   },
   "auth": {
     "signIn": "サインイン",

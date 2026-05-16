@@ -7,7 +7,13 @@
     "live": "现场模式",
     "chat": "AI聊天",
     "packs": "资源包",
-    "daw": "DAW桥接"
+    "daw": "DAW桥接",
+    "coach": "AI教练",
+    "analytics": "分析",
+    "plans": "计划",
+    "legal": "法律",
+    "audio": "音频引擎",
+    "launcher": "片段启动器"
   },
   "auth": {
     "signIn": "登录",

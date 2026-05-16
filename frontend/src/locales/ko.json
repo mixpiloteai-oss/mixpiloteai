@@ -7,7 +7,13 @@
     "live": "라이브 모드",
     "chat": "AI 채팅",
     "packs": "팩",
-    "daw": "DAW 브릿지"
+    "daw": "DAW 브릿지",
+    "coach": "AI 코치",
+    "analytics": "분석",
+    "plans": "플랜",
+    "legal": "법적",
+    "audio": "오디오 엔진",
+    "launcher": "클립 런처"
   },
   "auth": {
     "signIn": "로그인",
