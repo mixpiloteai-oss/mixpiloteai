@@ -17,7 +17,9 @@
     "pianoRoll": "Piano Roll",
     "arrangement": "Arrangement",
     "mixer": "Mixeur",
-    "spectrum": "Spectre"
+    "spectrum": "Spectre",
+    "routing": "Routage Audio",
+    "vst": "Plugins VST"
   },
   "auth": {
     "signIn": "Connexion",
