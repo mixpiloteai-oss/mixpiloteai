@@ -7,7 +7,13 @@
     "live": "Mode Live",
     "chat": "Chat IA",
     "packs": "Packs",
-    "daw": "Pont DAW"
+    "daw": "Pont DAW",
+    "coach": "Coach IA",
+    "analytics": "Analytiques",
+    "plans": "Plans",
+    "legal": "Légal",
+    "audio": "Moteur Audio",
+    "launcher": "Clip Launcher"
   },
   "auth": {
     "signIn": "Connexion",

@@ -7,7 +7,13 @@
     "live": "Live-Modus",
     "chat": "KI-Chat",
     "packs": "Packs",
-    "daw": "DAW-Brücke"
+    "daw": "DAW-Brücke",
+    "coach": "KI Coach",
+    "analytics": "Analytik",
+    "plans": "Pläne",
+    "legal": "Rechtliches",
+    "audio": "Audio Engine",
+    "launcher": "Clip Launcher"
   },
   "auth": {
     "signIn": "Anmelden",
