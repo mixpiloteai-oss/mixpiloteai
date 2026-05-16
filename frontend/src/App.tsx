@@ -23,6 +23,10 @@ import PlansPage from './components/PlansPage';
 import LegalPages from './components/legal/LegalPages';
 import AudioEnginePanel from './components/AudioEnginePanel';
 import ClipLauncherPanel from './components/ClipLauncherPanel';
+import PianoRollPanel from './components/PianoRollPanel';
+import ArrangementPanel from './components/ArrangementPanel';
+import MixerPanel from './components/MixerPanel';
+import SpectrumAnalyzer from './components/SpectrumAnalyzer';
 import { authApi, getAccessToken } from './services/api';
 import type { AuthUser, QuotaInfo } from './types';
 
@@ -59,6 +63,10 @@ function ViewContent() {
         {currentView === 'legal' && <LegalPages />}
         {currentView === 'audio' && <AudioEnginePanel />}
         {currentView === 'launcher' && <ClipLauncherPanel />}
+        {currentView === 'piano-roll' && <PianoRollPanel />}
+        {currentView === 'arrangement' && <ArrangementPanel />}
+        {currentView === 'mixer' && <MixerPanel />}
+        {currentView === 'spectrum' && <SpectrumAnalyzer />}
       </motion.div>
     </AnimatePresence>
   );

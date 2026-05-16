@@ -8,6 +8,7 @@ import {
   LayoutDashboard, Files, Music2, SlidersHorizontal, Radio, Bot,
   ChevronLeft, ChevronRight, Zap, Circle, LogOut, Package, Cpu,
   GraduationCap, BarChart2, CreditCard, Scale, Waves, LayoutGrid,
+  Keyboard, AlignLeft, Sliders, Activity,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store/appStore';
@@ -27,6 +28,10 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'live',       labelKey: 'nav.live',       icon: <Radio size={18} />,           badge: 'LIVE', color: '#ef4444' },
   { id: 'audio',      labelKey: 'nav.audio',      icon: <Waves size={18} />,           badge: 'NEW',  color: '#06b6d4' },
   { id: 'launcher',   labelKey: 'nav.launcher',   icon: <LayoutGrid size={18} />,      color: '#ef4444' },
+  { id: 'piano-roll', labelKey: 'nav.pianoRoll',  icon: <Keyboard size={18} />,        badge: 'NEW',  color: '#a78bfa' },
+  { id: 'arrangement',labelKey: 'nav.arrangement',icon: <AlignLeft size={18} />,       badge: 'NEW',  color: '#10b981' },
+  { id: 'mixer',      labelKey: 'nav.mixer',      icon: <Sliders size={18} />,         badge: 'NEW',  color: '#f59e0b' },
+  { id: 'spectrum',   labelKey: 'nav.spectrum',   icon: <Activity size={18} />,        color: '#06b6d4' },
   { id: 'chat',       labelKey: 'nav.chat',       icon: <Bot size={18} />,             color: '#ec4899' },
   { id: 'coach',      labelKey: 'nav.coach',      icon: <GraduationCap size={18} />,   color: '#7c3aed' },
   { id: 'packs',      labelKey: 'nav.packs',      icon: <Package size={18} />,         color: '#10b981' },

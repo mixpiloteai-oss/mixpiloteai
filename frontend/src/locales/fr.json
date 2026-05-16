@@ -13,7 +13,11 @@
     "plans": "Plans",
     "legal": "Légal",
     "audio": "Moteur Audio",
-    "launcher": "Clip Launcher"
+    "launcher": "Clip Launcher",
+    "pianoRoll": "Piano Roll",
+    "arrangement": "Arrangement",
+    "mixer": "Mixeur",
+    "spectrum": "Spectre"
   },
   "auth": {
     "signIn": "Connexion",
