@@ -16,7 +16,7 @@ services:
       # JWT_SECRET            — min 64 chars random string
       # JWT_REFRESH_SECRET    — min 64 chars random string
       # INTERNAL_SERVICE_TOKEN
-      # CORS_ORIGINS          — https://your-app.vercel.app
+      # CORS_ORIGINS          — https://mixpiloteai.vercel.app
       - key: CLAUDE_MODEL
         value: claude-opus-4-7
       - key: JWT_EXPIRES_IN
