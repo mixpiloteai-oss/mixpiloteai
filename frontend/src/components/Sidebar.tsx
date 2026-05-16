@@ -18,6 +18,10 @@ import {
   LogOut,
   Package,
   Cpu,
+  GraduationCap,
+  BarChart2,
+  CreditCard,
+  Scale,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store/appStore';
@@ -34,19 +38,33 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard', labelKey: 'nav.dashboard', icon: <LayoutDashboard size={18} />, color: '#7c3aed' },
-  { id: 'templates', labelKey: 'nav.templates', icon: <Files size={18} />, color: '#06b6d4' },
-  { id: 'tracks', labelKey: 'nav.tracks', icon: <Music2 size={18} />, color: '#f59e0b' },
-  { id: 'mix', labelKey: 'nav.mix', icon: <SlidersHorizontal size={18} />, color: '#10b981' },
-  { id: 'live', labelKey: 'nav.live', icon: <Radio size={18} />, badge: 'LIVE', color: '#ef4444' },
-  { id: 'chat', labelKey: 'nav.chat', icon: <Bot size={18} />, color: '#ec4899' },
-  { id: 'packs', labelKey: 'nav.packs', icon: <Package size={18} />, color: '#10b981' },
-  { id: 'daw', labelKey: 'nav.daw', icon: <Cpu size={18} />, color: '#f59e0b' },
+  { id: 'dashboard',  labelKey: 'nav.dashboard',  icon: <LayoutDashboard size={18} />, color: '#7c3aed' },
+  { id: 'templates',  labelKey: 'nav.templates',  icon: <Files size={18} />,           color: '#06b6d4' },
+  { id: 'tracks',     labelKey: 'nav.tracks',     icon: <Music2 size={18} />,          color: '#f59e0b' },
+  { id: 'mix',        labelKey: 'nav.mix',        icon: <SlidersHorizontal size={18} />, color: '#10b981' },
+  { id: 'live',       labelKey: 'nav.live',       icon: <Radio size={18} />,           badge: 'LIVE', color: '#ef4444' },
+  { id: 'chat',       labelKey: 'nav.chat',       icon: <Bot size={18} />,             color: '#ec4899' },
+  { id: 'coach',      labelKey: 'nav.coach',      icon: <GraduationCap size={18} />,   color: '#7c3aed' },
+  { id: 'packs',      labelKey: 'nav.packs',      icon: <Package size={18} />,         color: '#10b981' },
+  { id: 'daw',        labelKey: 'nav.daw',        icon: <Cpu size={18} />,             color: '#f59e0b' },
+  { id: 'analytics',  labelKey: 'nav.analytics',  icon: <BarChart2 size={18} />,       color: '#7c3aed' },
+  { id: 'plans',      labelKey: 'nav.plans',      icon: <CreditCard size={18} />,      color: '#06b6d4' },
+  { id: 'legal',      labelKey: 'nav.legal',      icon: <Scale size={18} />,           color: '#6b7280' },
 ];
 
 export function Sidebar() {
   const { t } = useTranslation();
   const { currentView, setView, sidebarCollapsed, toggleSidebar, activeProject, audioEngine, auth, clearAuth } = useAppStore();
+
+  // Handle neurotek:navigate custom events dispatched from child components
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const view = (e as CustomEvent<string>).detail as ViewType;
+      if (view) setView(view);
+    };
+    window.addEventListener('neurotek:navigate', handler);
+    return () => window.removeEventListener('neurotek:navigate', handler);
+  }, [setView]);
 
   async function handleLogout() {
     try { await authApi.logout(); } catch { /* ignore */ }
@@ -215,7 +233,7 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Quota panel (non-collapsed only) */}
+      {/* Quota panel */}
       <AnimatePresence>
         {!sidebarCollapsed && (
           <motion.div
@@ -236,7 +254,6 @@ export function Sidebar() {
       >
         {!sidebarCollapsed ? (
           <>
-            {/* User row */}
             {auth.user && (
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
