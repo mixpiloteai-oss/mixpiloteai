@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: neurotek-ai-backend
+    runtime: node
+    region: frankfurt
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      # Set these in the Render dashboard (secrets):
+      # CLAUDE_API_KEY        — your Anthropic key
+      # JWT_SECRET            — min 64 chars random string
+      # JWT_REFRESH_SECRET    — min 64 chars random string
+      # INTERNAL_SERVICE_TOKEN
+      # CORS_ORIGINS          — https://your-app.vercel.app
+      - key: CLAUDE_MODEL
+        value: claude-opus-4-7
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 30d
+      - key: QUOTA_FREE_DAILY
+        value: 20
+      - key: QUOTA_PRO_DAILY
+        value: 200
+      - key: QUOTA_STUDIO_DAILY
+        value: 9999
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 60000
+      - key: RATE_LIMIT_MAX_FREE
+        value: 5
+      - key: RATE_LIMIT_MAX_PRO
+        value: 30
+      - key: RATE_LIMIT_MAX_STUDIO
+        value: 100
+    healthCheckPath: /health
