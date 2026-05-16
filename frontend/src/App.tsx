@@ -17,6 +17,10 @@ import { AIChatPanel } from './components/AIChatPanel';
 import { PacksBrowser } from './components/PacksBrowser';
 import { DAWBridge } from './components/DAWBridge';
 import { Onboarding } from './components/Onboarding';
+import AICoach from './components/AICoach';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
+import PlansPage from './components/PlansPage';
+import LegalPages from './components/legal/LegalPages';
 import { authApi, getAccessToken } from './services/api';
 import type { AuthUser, QuotaInfo } from './types';
 
@@ -47,6 +51,10 @@ function ViewContent() {
         {currentView === 'chat' && <AIChatPanel />}
         {currentView === 'packs' && <PacksBrowser />}
         {currentView === 'daw' && <DAWBridge />}
+        {currentView === 'coach' && <AICoach />}
+        {currentView === 'analytics' && <AnalyticsDashboard />}
+        {currentView === 'plans' && <PlansPage />}
+        {currentView === 'legal' && <LegalPages />}
       </motion.div>
     </AnimatePresence>
   );
@@ -58,7 +66,6 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const { auth, setAuth } = useAppStore();
 
-  // Re-hydrate auth from stored token on startup
   useEffect(() => {
     const token = getAccessToken();
     if (!token) {
@@ -69,13 +76,10 @@ export default function App() {
       .then((res) => {
         const { id, email, name, plan, quota } = res.data.data;
         setAuth({ id, email, name, plan } as AuthUser, quota as QuotaInfo);
-        // Check if onboarding has been completed
         const onboardingDone = localStorage.getItem('nt_onboarding_complete');
         if (!onboardingDone) setShowOnboarding(true);
       })
-      .catch(() => {
-        // Token invalid/expired — stay on login screen
-      })
+      .catch(() => {})
       .finally(() => setAuthChecked(true));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -89,14 +93,12 @@ export default function App() {
 
   return (
     <div className="w-full h-full flex overflow-hidden" style={{ background: '#0a0a0f' }}>
-      {/* Loading screen (first boot) */}
       <AnimatePresence>
         {!loaded && auth.isAuthenticated && (
           <LoadingScreen onComplete={() => setLoaded(true)} />
         )}
       </AnimatePresence>
 
-      {/* Login screen */}
       {!auth.isAuthenticated && (
         <motion.div
           key="login"
@@ -108,7 +110,6 @@ export default function App() {
         </motion.div>
       )}
 
-      {/* Main app — only shown after auth + loading */}
       {auth.isAuthenticated && loaded && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -124,7 +125,6 @@ export default function App() {
             </main>
           </div>
 
-          {/* Onboarding overlay */}
           <AnimatePresence>
             {showOnboarding && (
               <Onboarding onComplete={() => setShowOnboarding(false)} />
