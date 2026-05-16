@@ -7,7 +7,7 @@ import clsx from 'clsx';
 import {
   LayoutDashboard, Files, Music2, SlidersHorizontal, Radio, Bot,
   ChevronLeft, ChevronRight, Zap, Circle, LogOut, Package, Cpu,
-  GraduationCap, BarChart2, CreditCard, Scale, Waves,
+  GraduationCap, BarChart2, CreditCard, Scale, Waves, LayoutGrid,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store/appStore';
@@ -26,6 +26,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'mix',        labelKey: 'nav.mix',        icon: <SlidersHorizontal size={18} />, color: '#10b981' },
   { id: 'live',       labelKey: 'nav.live',       icon: <Radio size={18} />,           badge: 'LIVE', color: '#ef4444' },
   { id: 'audio',      labelKey: 'nav.audio',      icon: <Waves size={18} />,           badge: 'NEW',  color: '#06b6d4' },
+  { id: 'launcher',   labelKey: 'nav.launcher',   icon: <LayoutGrid size={18} />,      color: '#ef4444' },
   { id: 'chat',       labelKey: 'nav.chat',       icon: <Bot size={18} />,             color: '#ec4899' },
   { id: 'coach',      labelKey: 'nav.coach',      icon: <GraduationCap size={18} />,   color: '#7c3aed' },
   { id: 'packs',      labelKey: 'nav.packs',      icon: <Package size={18} />,         color: '#10b981' },

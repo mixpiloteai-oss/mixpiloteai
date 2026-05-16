@@ -50,4 +50,5 @@ export type ViewType =
   | 'plans'
   | 'legal'
   | 'audio'
+  | 'launcher'
   | 'onboarding';

@@ -22,6 +22,7 @@ import AnalyticsDashboard from './components/AnalyticsDashboard';
 import PlansPage from './components/PlansPage';
 import LegalPages from './components/legal/LegalPages';
 import AudioEnginePanel from './components/AudioEnginePanel';
+import ClipLauncherPanel from './components/ClipLauncherPanel';
 import { authApi, getAccessToken } from './services/api';
 import type { AuthUser, QuotaInfo } from './types';
 
@@ -57,6 +58,7 @@ function ViewContent() {
         {currentView === 'plans' && <PlansPage />}
         {currentView === 'legal' && <LegalPages />}
         {currentView === 'audio' && <AudioEnginePanel />}
+        {currentView === 'launcher' && <ClipLauncherPanel />}
       </motion.div>
     </AnimatePresence>
   );
