@@ -22,6 +22,11 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 
+// ─── Desktop modules ─────────────────────────────────────────────────────────
+const autosave      = require('./src/autosaveManager');
+const audioDevices  = require('./src/audioDeviceManager');
+const settings      = require('./src/desktopSettings');
+
 // ─── Dev / Prod detection ────────────────────────────────────────────────────
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -247,6 +252,25 @@ ipcMain.handle('offline-delete', (_e, id)       => require('./src/offlineStore')
 ipcMain.handle('save-setting',   (_e, key, val) => require('./src/offlineStore').saveSettings(key, val));
 ipcMain.handle('load-setting',   (_e, key)      => require('./src/offlineStore').loadSettings(key));
 
+// ─── Autosave IPC ─────────────────────────────────────────────────────────────
+ipcMain.handle('autosave-set-data',       (_e, data) => { autosave.setPendingData(data); return true; });
+ipcMain.handle('autosave-save-now',       (_e, data) => { autosave.saveVersioned(data); autosave.writeCheckpoint(data); return true; });
+ipcMain.handle('autosave-load-latest',    ()         => autosave.loadLatestAutosave());
+ipcMain.handle('autosave-list-versions',  ()         => autosave.listAutosaveVersions());
+ipcMain.handle('autosave-get-status',     ()         => autosave.getStatus());
+ipcMain.handle('crash-check',             ()         => ({ wasCrash: autosave.wasCrash(), checkpoint: autosave.readCheckpoint() }));
+ipcMain.handle('crash-clear-checkpoint',  ()         => { autosave.clearCheckpoint(); return true; });
+
+// ─── Audio device IPC ────────────────────────────────────────────────────────
+ipcMain.handle('get-audio-devices',    () => audioDevices.getAudioDevices());
+ipcMain.handle('get-latency-profiles', () => audioDevices.getLatencyProfiles());
+
+// ─── Desktop settings IPC ────────────────────────────────────────────────────
+ipcMain.handle('settings-get',    (_e, key)      => settings.get(key));
+ipcMain.handle('settings-set',    (_e, key, val) => settings.set(key, val));
+ipcMain.handle('settings-get-all',()             => settings.getAll());
+ipcMain.handle('settings-reset',  (_e, key)      => settings.reset(key));
+
 // ─── Backend process (dev only) ───────────────────────────────────────────────
 function startBackend() {
   if (!isDev) return;
@@ -260,10 +284,35 @@ function startBackend() {
 
 // ─── App lifecycle ─────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
+  // Crash recovery: detect if previous session didn't exit cleanly
+  const hadCrash = autosave.wasCrash();
+  const crashCheckpoint = hadCrash ? autosave.readCheckpoint() : null;
+
   startBackend();
   createWindow();
   createTray();
   registerShortcuts();
+
+  // Start autosave after window is ready
+  const autosaveInterval = settings.get('autosaveIntervalMs') ?? 30000;
+  mainWindow.once('ready-to-show', () => {
+    autosave.start(mainWindow, autosaveInterval);
+    // Notify renderer if crash recovery data is available
+    if (hadCrash && crashCheckpoint) {
+      setTimeout(() => sendToRenderer('crash-recovery-available', {
+        hasData: true,
+        timestamp: Date.now(),
+      }), 2000);
+    }
+  });
+
+  // Save window bounds on resize/move
+  mainWindow.on('resize', () => {
+    if (!mainWindow.isMaximized()) settings.set('windowBounds', mainWindow.getBounds());
+  });
+  mainWindow.on('move', () => {
+    if (!mainWindow.isMaximized()) settings.set('windowBounds', mainWindow.getBounds());
+  });
 
   powerMonitor.on('suspend',    () => sendToRenderer('power-event', 'suspend'));
   powerMonitor.on('resume',     () => sendToRenderer('power-event', 'resume'));
@@ -284,6 +333,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  autosave.stop(); // flush pending autosave and clear session lock
   globalShortcut.unregisterAll();
   if (backendProcess) backendProcess.kill();
 });

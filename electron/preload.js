@@ -36,6 +36,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveSetting:   (key, val) => ipcRenderer.invoke('save-setting', key, val),
   loadSetting:   (key)      => ipcRenderer.invoke('load-setting', key),
 
+  // ── Autosave ─────────────────────────────────────────────
+  autosaveSetData:       (data)     => ipcRenderer.invoke('autosave-set-data', data),
+  autosaveSaveNow:       (data)     => ipcRenderer.invoke('autosave-save-now', data),
+  autosaveLoadLatest:    ()         => ipcRenderer.invoke('autosave-load-latest'),
+  autosaveListVersions:  ()         => ipcRenderer.invoke('autosave-list-versions'),
+  autosaveGetStatus:     ()         => ipcRenderer.invoke('autosave-get-status'),
+
+  // ── Crash recovery ───────────────────────────────────────
+  crashCheck:            ()         => ipcRenderer.invoke('crash-check'),
+  crashClearCheckpoint:  ()         => ipcRenderer.invoke('crash-clear-checkpoint'),
+
+  // ── Audio devices ─────────────────────────────────────────
+  getAudioDevices:       ()         => ipcRenderer.invoke('get-audio-devices'),
+  getLatencyProfiles:    ()         => ipcRenderer.invoke('get-latency-profiles'),
+
+  // ── Desktop settings ─────────────────────────────────────
+  settingsGet:           (key)      => ipcRenderer.invoke('settings-get', key),
+  settingsSet:           (key, val) => ipcRenderer.invoke('settings-set', key, val),
+  settingsGetAll:        ()         => ipcRenderer.invoke('settings-get-all'),
+  settingsReset:         (key)      => ipcRenderer.invoke('settings-reset', key),
+
   // ── Event listeners from main process ────────────────────
   onNav: (cb) => ipcRenderer.on('nav', (_event, view) => cb(view)),
   onOpenSettings: (cb) => ipcRenderer.on('open-settings', () => cb()),
@@ -43,6 +64,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateAvailable: (cb) => ipcRenderer.on('update-available', (_event, info) => cb(info)),
   onTriggerSave: (cb) => ipcRenderer.on('trigger-save', () => cb()),
   onTriggerLoad: (cb) => ipcRenderer.on('trigger-load', () => cb()),
+  onAutosaveComplete: (cb) => ipcRenderer.on('autosave-complete', (_event, info) => cb(info)),
+  onCrashRecoveryAvailable: (cb) => ipcRenderer.on('crash-recovery-available', (_event, info) => cb(info)),
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
 
   // ── Platform info (sync, safe) ───────────────────────────
