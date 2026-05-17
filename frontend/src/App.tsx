@@ -38,6 +38,8 @@ const MixerPanel         = lazy(() => import('./components/MixerPanel'));
 const SpectrumAnalyzer   = lazy(() => import('./components/SpectrumAnalyzer'));
 const AudioRoutingPanel  = lazy(() => import('./components/AudioRoutingPanel'));
 const VSTHostingPanel    = lazy(() => import('./components/VSTHostingPanel'));
+const AIProductionPanel  = lazy(() => import('./components/AIProductionPanel'));
+const SampleBrowserPanel = lazy(() => import('./components/SampleBrowserPanel'));
 const LoginScreen        = lazy(() => import('./components/auth/LoginScreen').then(m => ({ default: m.LoginScreen })));
 
 const pageVariants = {
@@ -57,33 +59,34 @@ function ViewFallback() {
 function ViewRouter({ view }: { view: ViewType }) {
   return (
     <Suspense fallback={<ViewFallback />}>
-      {view === 'dashboard'   && <Dashboard />}
-      {view === 'templates'   && <TemplateGenerator />}
-      {view === 'tracks'      && <TrackOrganizer />}
-      {view === 'mix'         && <MixAssistant />}
-      {view === 'live'        && <LiveMode />}
-      {view === 'chat'        && <AIChatPanel />}
-      {view === 'packs'       && <PacksBrowser />}
-      {view === 'daw'         && <DAWBridge />}
-      {view === 'coach'       && <AICoach />}
-      {view === 'analytics'   && <AnalyticsDashboard />}
-      {view === 'plans'       && <PlansPage />}
-      {view === 'legal'       && <LegalPages />}
-      {view === 'audio'       && <AudioEnginePanel />}
-      {view === 'launcher'    && <ClipLauncherPanel />}
-      {view === 'piano-roll'  && <PianoRollPanel />}
-      {view === 'arrangement' && <ArrangementPanel />}
-      {view === 'mixer'       && <MixerPanel />}
-      {view === 'spectrum'    && <SpectrumAnalyzer />}
-      {view === 'routing'     && <AudioRoutingPanel />}
-      {view === 'vst'         && <VSTHostingPanel />}
+      {view === 'dashboard'      && <Dashboard />}
+      {view === 'templates'      && <TemplateGenerator />}
+      {view === 'tracks'         && <TrackOrganizer />}
+      {view === 'mix'            && <MixAssistant />}
+      {view === 'live'           && <LiveMode />}
+      {view === 'chat'           && <AIChatPanel />}
+      {view === 'packs'          && <PacksBrowser />}
+      {view === 'daw'            && <DAWBridge />}
+      {view === 'coach'          && <AICoach />}
+      {view === 'analytics'      && <AnalyticsDashboard />}
+      {view === 'plans'          && <PlansPage />}
+      {view === 'legal'          && <LegalPages />}
+      {view === 'audio'          && <AudioEnginePanel />}
+      {view === 'launcher'       && <ClipLauncherPanel />}
+      {view === 'piano-roll'     && <PianoRollPanel />}
+      {view === 'arrangement'    && <ArrangementPanel />}
+      {view === 'mixer'          && <MixerPanel />}
+      {view === 'spectrum'       && <SpectrumAnalyzer />}
+      {view === 'routing'        && <AudioRoutingPanel />}
+      {view === 'vst'            && <VSTHostingPanel />}
+      {view === 'ai-production'  && <AIProductionPanel />}
+      {view === 'sample-browser' && <SampleBrowserPanel />}
     </Suspense>
   );
 }
 
 function ViewContent() {
   const currentView = useAppStore((s) => s.currentView);
-
   return (
     <AnimatePresence mode="wait">
       <motion.div
@@ -140,7 +143,6 @@ export default function App() {
     <ToastProvider>
       <div className="w-full h-full flex flex-col overflow-hidden" style={{ background: '#0a0a0f' }}>
         <OfflineBanner />
-
         <div className="flex flex-1 overflow-hidden">
           <AnimatePresence>
             {!loaded && isAuthenticated && (
@@ -158,9 +160,7 @@ export default function App() {
 
           {isAuthenticated && loaded && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.4 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}
               className="flex w-full h-full overflow-hidden"
             >
               <AppShortcuts />

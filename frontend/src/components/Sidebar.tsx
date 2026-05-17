@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Files, Music2, SlidersHorizontal, Radio, Bot,
   ChevronLeft, ChevronRight, Zap, Circle, LogOut, Package, Cpu,
   GraduationCap, BarChart2, CreditCard, Scale, Waves, LayoutGrid,
-  Keyboard, AlignLeft, Sliders, Activity, Network, Plug,
+  Keyboard, AlignLeft, Sliders, Activity, Network, Plug, Sparkles, HardDrive,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store/appStore';
@@ -21,26 +21,28 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard',  labelKey: 'nav.dashboard',  icon: <LayoutDashboard size={18} />, color: '#7c3aed' },
-  { id: 'templates',  labelKey: 'nav.templates',  icon: <Files size={18} />,           color: '#06b6d4' },
-  { id: 'tracks',     labelKey: 'nav.tracks',     icon: <Music2 size={18} />,          color: '#f59e0b' },
-  { id: 'mix',        labelKey: 'nav.mix',        icon: <SlidersHorizontal size={18} />, color: '#10b981' },
-  { id: 'live',       labelKey: 'nav.live',       icon: <Radio size={18} />,           badge: 'LIVE', color: '#ef4444' },
-  { id: 'audio',      labelKey: 'nav.audio',      icon: <Waves size={18} />,           badge: 'NEW',  color: '#06b6d4' },
-  { id: 'launcher',   labelKey: 'nav.launcher',   icon: <LayoutGrid size={18} />,      color: '#ef4444' },
-  { id: 'piano-roll', labelKey: 'nav.pianoRoll',  icon: <Keyboard size={18} />,        badge: 'NEW',  color: '#a78bfa' },
-  { id: 'arrangement',labelKey: 'nav.arrangement',icon: <AlignLeft size={18} />,       badge: 'NEW',  color: '#10b981' },
-  { id: 'mixer',      labelKey: 'nav.mixer',      icon: <Sliders size={18} />,         badge: 'NEW',  color: '#f59e0b' },
-  { id: 'spectrum',   labelKey: 'nav.spectrum',   icon: <Activity size={18} />,        color: '#06b6d4' },
-  { id: 'routing',    labelKey: 'nav.routing',    icon: <Network size={18} />,         badge: 'NEW',  color: '#ec4899' },
-  { id: 'vst',        labelKey: 'nav.vst',        icon: <Plug size={18} />,            badge: 'NEW',  color: '#06b6d4' },
-  { id: 'chat',       labelKey: 'nav.chat',       icon: <Bot size={18} />,             color: '#ec4899' },
-  { id: 'coach',      labelKey: 'nav.coach',      icon: <GraduationCap size={18} />,   color: '#7c3aed' },
-  { id: 'packs',      labelKey: 'nav.packs',      icon: <Package size={18} />,         color: '#10b981' },
-  { id: 'daw',        labelKey: 'nav.daw',        icon: <Cpu size={18} />,             color: '#f59e0b' },
-  { id: 'analytics',  labelKey: 'nav.analytics',  icon: <BarChart2 size={18} />,       color: '#7c3aed' },
-  { id: 'plans',      labelKey: 'nav.plans',      icon: <CreditCard size={18} />,      color: '#06b6d4' },
-  { id: 'legal',      labelKey: 'nav.legal',      icon: <Scale size={18} />,           color: '#6b7280' },
+  { id: 'dashboard',     labelKey: 'nav.dashboard',     icon: <LayoutDashboard size={18} />, color: '#7c3aed' },
+  { id: 'templates',     labelKey: 'nav.templates',     icon: <Files size={18} />,           color: '#06b6d4' },
+  { id: 'tracks',        labelKey: 'nav.tracks',        icon: <Music2 size={18} />,          color: '#f59e0b' },
+  { id: 'mix',           labelKey: 'nav.mix',           icon: <SlidersHorizontal size={18} />, color: '#10b981' },
+  { id: 'live',          labelKey: 'nav.live',          icon: <Radio size={18} />,           badge: 'LIVE', color: '#ef4444' },
+  { id: 'audio',         labelKey: 'nav.audio',         icon: <Waves size={18} />,           badge: 'NEW',  color: '#06b6d4' },
+  { id: 'launcher',      labelKey: 'nav.launcher',      icon: <LayoutGrid size={18} />,      color: '#ef4444' },
+  { id: 'piano-roll',    labelKey: 'nav.pianoRoll',     icon: <Keyboard size={18} />,        badge: 'NEW',  color: '#a78bfa' },
+  { id: 'arrangement',   labelKey: 'nav.arrangement',   icon: <AlignLeft size={18} />,       badge: 'NEW',  color: '#10b981' },
+  { id: 'mixer',         labelKey: 'nav.mixer',         icon: <Sliders size={18} />,         badge: 'NEW',  color: '#f59e0b' },
+  { id: 'spectrum',      labelKey: 'nav.spectrum',      icon: <Activity size={18} />,        color: '#06b6d4' },
+  { id: 'routing',       labelKey: 'nav.routing',       icon: <Network size={18} />,         badge: 'NEW',  color: '#ec4899' },
+  { id: 'vst',           labelKey: 'nav.vst',           icon: <Plug size={18} />,            badge: 'NEW',  color: '#06b6d4' },
+  { id: 'ai-production', labelKey: 'nav.aiProduction',  icon: <Sparkles size={18} />,        badge: 'AI',   color: '#ef4444' },
+  { id: 'sample-browser',labelKey: 'nav.sampleBrowser', icon: <HardDrive size={18} />,       badge: 'NEW',  color: '#f59e0b' },
+  { id: 'chat',          labelKey: 'nav.chat',          icon: <Bot size={18} />,             color: '#ec4899' },
+  { id: 'coach',         labelKey: 'nav.coach',         icon: <GraduationCap size={18} />,   color: '#7c3aed' },
+  { id: 'packs',         labelKey: 'nav.packs',         icon: <Package size={18} />,         color: '#10b981' },
+  { id: 'daw',           labelKey: 'nav.daw',           icon: <Cpu size={18} />,             color: '#f59e0b' },
+  { id: 'analytics',     labelKey: 'nav.analytics',     icon: <BarChart2 size={18} />,       color: '#7c3aed' },
+  { id: 'plans',         labelKey: 'nav.plans',         icon: <CreditCard size={18} />,      color: '#06b6d4' },
+  { id: 'legal',         labelKey: 'nav.legal',         icon: <Scale size={18} />,           color: '#6b7280' },
 ];
 
 export function Sidebar() {

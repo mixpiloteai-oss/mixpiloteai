@@ -19,7 +19,9 @@
     "mixer": "Mixer",
     "spectrum": "Spectrum",
     "routing": "Audio Routing",
-    "vst": "VST Plugins"
+    "vst": "VST Plugins",
+    "aiProduction": "AI Production",
+    "sampleBrowser": "Sample Browser"
   },
   "auth": {
     "signIn": "Sign In",

@@ -21,7 +21,7 @@ export type ViewType =
   | 'chat' | 'packs' | 'daw' | 'coach' | 'analytics'
   | 'plans' | 'legal' | 'audio' | 'launcher' | 'onboarding'
   | 'piano-roll' | 'arrangement' | 'mixer' | 'spectrum'
-  | 'routing' | 'vst';
+  | 'routing' | 'vst' | 'ai-production' | 'sample-browser';
 
 // ─── Piano Roll / Sequencer ──────────────────────────────────
 export interface Note {
