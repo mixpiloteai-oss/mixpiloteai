@@ -8,7 +8,7 @@ import clsx from 'clsx';
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'cyan';
 export type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onAnimationStart' | 'onDragStart' | 'onDragEnd' | 'onDrag'> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
@@ -70,7 +70,7 @@ export function Button({
         className
       )}
       disabled={isDisabled}
-      {...(props as any)}
+      {...props}
     >
       {loading ? (
         <svg className="animate-spin h-4 w-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

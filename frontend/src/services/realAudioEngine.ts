@@ -3,7 +3,7 @@
 // AudioContext, beat clock, channel strips, master bus
 // ============================================================
 
-export type TrackType = 'kick' | 'bass' | 'melody' | 'fx' | 'percussion' | 'pad' | 'acid';
+export type TrackType = 'kick' | 'bass' | 'melody' | 'fx' | 'percussion' | 'pad' | 'acid' | 'master' | 'arp' | 'vocal';
 
 export interface ChannelStrip {
   id: string;
@@ -93,7 +93,6 @@ class RealAudioEngine {
         const peak = Math.max(peakL, peakR);
         this.meterCallback?.(rmsL, rmsR, peak, clip);
       };
-      // Tap off master analyser output into the meter worklet (monitoring only)
       if (this.masterBus) {
         this.masterBus.analyser.connect(this.meterNode);
         this.meterNode.connect(ctx.destination);
@@ -273,7 +272,6 @@ class RealAudioEngine {
     this.emit();
   }
 
-  // ── Audio playback helpers ──────────────────────────────────
   async loadBuffer(url: string): Promise<AudioBuffer | null> {
     if (!this.ctx) return null;
     try {
@@ -303,7 +301,6 @@ class RealAudioEngine {
     return src;
   }
 
-  // ── Synthesis helpers (kick/bass/rumble) ───────────────────
   synthesisKick(
     channelId: string,
     opts: { freq?: number; decay?: number; distortion?: number } = {},
@@ -402,7 +399,6 @@ class RealAudioEngine {
     osc.stop(now + duration + 0.1);
   }
 
-  // ── Analyser data ───────────────────────────────────────────
   getMasterSpectrum(): Float32Array | null {
     if (!this.masterBus) return null;
     const buf = new Float32Array(this.masterBus.analyser.frequencyBinCount);
@@ -430,7 +426,6 @@ class RealAudioEngine {
     return peak;
   }
 
-  // ── Event system ────────────────────────────────────────────
   onStateChange(fn: (state: EngineState) => void): () => void {
     this.listeners.add(fn);
     return () => this.listeners.delete(fn);

@@ -3,6 +3,7 @@
 // ============================================================
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
+import { useShallow } from 'zustand/react/shallow';
 import type {
   AppState,
   Project,
@@ -167,3 +168,11 @@ export const useAppStore = create<AppState>()(
       })),
   }))
 );
+
+// ── Granular selectors (prevent unnecessary re-renders) ───
+export const useCurrentView      = () => useAppStore((s) => s.currentView);
+export const useActiveProject    = () => useAppStore((s) => s.activeProject);
+export const useAudioEngineState = () => useAppStore((s) => s.audioEngine);
+export const useNotifications    = () => useAppStore((s) => s.notifications);
+export const useAuthState        = () => useAppStore(useShallow((s) => s.auth));
+export const useIsLoading        = () => useAppStore((s) => ({ isLoading: s.isLoading, loadingMessage: s.loadingMessage }));
