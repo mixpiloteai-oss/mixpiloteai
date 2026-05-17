@@ -12,6 +12,7 @@ import React, {
 import { motion } from 'framer-motion';
 import { Play, Square, ZoomIn, ZoomOut, Trash2, Music2 } from 'lucide-react';
 import { audioEngine } from '../services/realAudioEngine';
+import { useHistoryStore } from '../store/historyStore';
 
 // ── Constants ────────────────────────────────────────────────
 const KEY_WIDTH = 52;
@@ -83,6 +84,7 @@ export default function PianoRollPanel() {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playhead, setPlayhead] = useState<number>(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [clipboard, setClipboard] = useState<Note[]>([]);
 
   // ── Refs ───────────────────────────────────────────────────
   const containerRef = useRef<HTMLDivElement>(null);
@@ -99,6 +101,8 @@ export default function PianoRollPanel() {
   const quantizeRef = useRef<number>(quantize);
   const toolRef = useRef<typeof tool>(tool);
   const playheadRef = useRef<number>(playhead);
+  const lengthBarsRef = useRef<number>(lengthBars);
+  const clipboardRef = useRef<Note[]>(clipboard);
 
   useEffect(() => { notesRef.current = notes; }, [notes]);
   useEffect(() => { selectedIdsRef.current = selectedIds; }, [selectedIds]);
@@ -108,6 +112,8 @@ export default function PianoRollPanel() {
   useEffect(() => { quantizeRef.current = quantize; }, [quantize]);
   useEffect(() => { toolRef.current = tool; }, [tool]);
   useEffect(() => { playheadRef.current = playhead; }, [playhead]);
+  useEffect(() => { lengthBarsRef.current = lengthBars; }, [lengthBars]);
+  useEffect(() => { clipboardRef.current = clipboard; }, [clipboard]);
 
   const dragRef = useRef<DragState>({
     mode: 'none',
@@ -528,6 +534,91 @@ export default function PianoRollPanel() {
     drawKeys();
   }, [scrollY, drawKeys]);
 
+  // ── Keyboard shortcuts ────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      // Don't fire on text inputs
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      const isMod = e.ctrlKey || e.metaKey;
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const sel = selectedIdsRef.current;
+        if (sel.size === 0) return;
+        e.preventDefault();
+        useHistoryStore.getState().checkpoint('Delete selected');
+        setNotes(prev => prev.filter(n => !sel.has(n.id)));
+        setSelectedIds(new Set());
+        return;
+      }
+
+      if (isMod && e.key === 'a') {
+        e.preventDefault();
+        setSelectedIds(new Set(notesRef.current.map(n => n.id)));
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSelectedIds(new Set());
+        return;
+      }
+
+      if (isMod && e.key === 'c') {
+        e.preventDefault();
+        const sel = selectedIdsRef.current;
+        const toCopy = notesRef.current.filter(n => sel.has(n.id));
+        if (toCopy.length === 0) return;
+        // Normalize: offset so earliest beat = 0
+        const minBeat = Math.min(...toCopy.map(n => n.beat));
+        const normalized = toCopy.map(n => ({ ...n, beat: n.beat - minBeat }));
+        setClipboard(normalized);
+        return;
+      }
+
+      if (isMod && e.key === 'v') {
+        e.preventDefault();
+        const cb = clipboardRef.current;
+        if (cb.length === 0) return;
+        useHistoryStore.getState().checkpoint('Paste notes');
+        const insertBeat = playheadRef.current;
+        const pasted: Note[] = cb.map(n => ({
+          ...n,
+          id: uid(),
+          beat: n.beat + insertBeat,
+        }));
+        setNotes(prev => [...prev, ...pasted]);
+        setSelectedIds(new Set(pasted.map(n => n.id)));
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // ── Ruler click-to-seek ───────────────────────────────────────
+  const handleRulerMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const canvas = rulerCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const sx = scrollXRef.current;
+    const z = zoomRef.current;
+    const beat = (x + sx) / (80 * z);
+    const maxBeats = lengthBarsRef.current * BEATS_PER_BAR;
+    const clamped = Math.max(0, Math.min(maxBeats, beat));
+    setPlayhead(clamped);
+  }, []);
+
   // ── Mouse: Note grid ─────────────────────────────────────────
   const handleGridMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     e.preventDefault();
@@ -551,6 +642,7 @@ export default function PianoRollPanel() {
     if (e.button === 2 || currentTool === 'erase') {
       // Delete note
       if (hitNote) {
+        useHistoryStore.getState().checkpoint('Delete note');
         setNotes(prev => prev.filter(n => n.id !== hitNote.id));
         setSelectedIds(prev => {
           const next = new Set(prev);
@@ -584,6 +676,8 @@ export default function PianoRollPanel() {
       const noteRight = noteX + hitNote.duration * bw;
       const nearRight = x >= noteRight - 5;
 
+      useHistoryStore.getState().checkpoint(nearRight ? 'Resize note' : 'Move note');
+
       dragRef.current = {
         mode: nearRight ? 'resize' : 'move',
         noteId: hitNote.id,
@@ -597,6 +691,7 @@ export default function PianoRollPanel() {
       };
     } else {
       // Create new note
+      useHistoryStore.getState().checkpoint('Add note');
       const rawBeat = xToBeat(x, sx, z);
       const snappedBeat = snap(rawBeat, q);
       const pitch = Math.max(MIN_PITCH, Math.min(MAX_PITCH, yToPitch(y, sy)));
@@ -762,8 +857,20 @@ export default function PianoRollPanel() {
     setPlayhead(0);
   }, []);
 
+  // ── Toolbar actions ───────────────────────────────────────────
+  const handleSelectAll = useCallback(() => {
+    setSelectedIds(new Set(notesRef.current.map(n => n.id)));
+  }, []);
+
+  const handleDeleteSelected = useCallback(() => {
+    const sel = selectedIdsRef.current;
+    if (sel.size === 0) return;
+    useHistoryStore.getState().checkpoint('Delete selected');
+    setNotes(prev => prev.filter(n => !sel.has(n.id)));
+    setSelectedIds(new Set());
+  }, []);
+
   // ── Render ────────────────────────────────────────────────────
-  const totalBeats = lengthBars * BEATS_PER_BAR;
 
   return (
     <div
@@ -870,6 +977,52 @@ export default function PianoRollPanel() {
 
         <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.08)' }} />
 
+        {/* Select All + Delete Selected */}
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleSelectAll}
+          title="Select All (Ctrl+A)"
+          style={{
+            padding: '4px 9px',
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: 0.5,
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: 5,
+            color: '#94a3b8',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          SEL ALL
+        </motion.button>
+
+        <motion.button
+          whileHover={{ scale: selectedIds.size > 0 ? 1.05 : 1 }}
+          whileTap={{ scale: selectedIds.size > 0 ? 0.95 : 1 }}
+          onClick={handleDeleteSelected}
+          title="Delete Selected (Delete)"
+          disabled={selectedIds.size === 0}
+          style={{
+            padding: '4px 9px',
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: 0.5,
+            background: selectedIds.size > 0 ? 'rgba(244,63,94,0.15)' : 'rgba(255,255,255,0.02)',
+            border: `1px solid ${selectedIds.size > 0 ? 'rgba(244,63,94,0.4)' : 'rgba(255,255,255,0.06)'}`,
+            borderRadius: 5,
+            color: selectedIds.size > 0 ? '#f43f5e' : '#334155',
+            cursor: selectedIds.size > 0 ? 'pointer' : 'default',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          DEL SEL
+        </motion.button>
+
+        <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.08)' }} />
+
         {/* Quantize grid selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={{ fontSize: 10, color: '#64748b', letterSpacing: 1 }}>GRID</span>
@@ -964,6 +1117,31 @@ export default function PianoRollPanel() {
           </motion.button>
         </div>
 
+        {/* Clipboard badge */}
+        {clipboard.length > 0 && (
+          <>
+            <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.08)' }} />
+            <div
+              title={`${clipboard.length} note${clipboard.length !== 1 ? 's' : ''} in clipboard (Ctrl+V to paste)`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '3px 8px',
+                background: 'rgba(6,182,212,0.1)',
+                border: '1px solid rgba(6,182,212,0.3)',
+                borderRadius: 5,
+                fontSize: 11,
+                color: '#06b6d4',
+                whiteSpace: 'nowrap',
+                cursor: 'default',
+              }}
+            >
+              {'\u{1F4CB}'} {clipboard.length}
+            </div>
+          </>
+        )}
+
         <div style={{ flex: 1 }} />
 
         {/* Note count */}
@@ -1007,7 +1185,8 @@ export default function PianoRollPanel() {
           <div style={{ flex: 1, overflow: 'hidden', height: HEADER_H }}>
             <canvas
               ref={rulerCanvasRef}
-              style={{ display: 'block' }}
+              style={{ display: 'block', cursor: 'col-resize' }}
+              onMouseDown={handleRulerMouseDown}
             />
           </div>
         </div>
