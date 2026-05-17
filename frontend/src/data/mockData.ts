@@ -10,6 +10,8 @@ import type {
   LiveSession,
   PadCell,
   Scene,
+  TemplateTrack,
+  RoutingNode,
 } from '../types';
 
 function genWaveform(length = 64): number[] {
@@ -18,52 +20,58 @@ function genWaveform(length = 64): number[] {
 
 const mentalcoreTracks: Track[] = [
   {
-    id: 't1', name: 'KICK MASTER', type: 'kick', volume: 110, pan: 0,
-    muted: false, soloed: false, color: '#ef4444', bpm: 200, key: 'C',
+    id: 't1', name: 'KICK MASTER', type: 'kick', genre: 'mentalcore', mood: 'aggressive',
+    volume: 110, pan: 0, muted: false, soloed: false, color: '#ef4444', bpm: 200, key: 'C',
+    duration: 0, createdAt: '2024-11-10T14:32:00Z', tags: ['kick', 'mentalcore'],
     fx: [
-      { name: 'Transient Shaper', type: 'compressor', enabled: true, params: { attack: 0, sustain: -6 } },
-      { name: 'Distortion', type: 'distortion', enabled: true, params: { drive: 75, mix: 0.4 } },
+      { id: 'fx-t1-1', name: 'Transient Shaper', type: 'compressor', enabled: true, params: { attack: 0, sustain: -6 } },
+      { id: 'fx-t1-2', name: 'Distortion', type: 'distortion', enabled: true, params: { drive: 75, mix: 0.4 } },
     ],
     waveformData: genWaveform(), clipCount: 32, order: 0,
   },
   {
-    id: 't2', name: 'MENTAL BASS', type: 'bass', volume: 100, pan: 0,
-    muted: false, soloed: false, color: '#f59e0b', bpm: 200, key: 'C',
+    id: 't2', name: 'MENTAL BASS', type: 'bass', genre: 'mentalcore', mood: 'aggressive',
+    volume: 100, pan: 0, muted: false, soloed: false, color: '#f59e0b', bpm: 200, key: 'C',
+    duration: 0, createdAt: '2024-11-10T14:32:00Z', tags: ['bass', 'mentalcore'],
     fx: [
-      { name: 'OTT Compressor', type: 'compressor', enabled: true, params: { depth: 0.8, time: 0.3 } },
-      { name: 'Saturator', type: 'distortion', enabled: true, params: { drive: 40 } },
-      { name: 'Sub Boost EQ', type: 'eq', enabled: true, params: { freq: 60, gain: 4 } },
+      { id: 'fx-t2-1', name: 'OTT Compressor', type: 'compressor', enabled: true, params: { depth: 0.8, time: 0.3 } },
+      { id: 'fx-t2-2', name: 'Saturator', type: 'distortion', enabled: true, params: { drive: 40 } },
+      { id: 'fx-t2-3', name: 'Sub Boost EQ', type: 'eq', enabled: true, params: { freq: 60, gain: 4 } },
     ],
     waveformData: genWaveform(), clipCount: 16, order: 1,
   },
   {
-    id: 't3', name: 'ACID LEAD', type: 'acid', volume: 85, pan: -10,
-    muted: false, soloed: false, color: '#06b6d4', bpm: 200, key: 'C',
+    id: 't3', name: 'ACID LEAD', type: 'acid', genre: 'mentalcore', mood: 'psychedelic',
+    volume: 85, pan: -10, muted: false, soloed: false, color: '#06b6d4', bpm: 200, key: 'C',
+    duration: 0, createdAt: '2024-11-10T14:32:00Z', tags: ['acid', 'mentalcore'],
     fx: [
-      { name: 'Filter LFO', type: 'filter', enabled: true, params: { cutoff: 2000, resonance: 0.8, rate: 4 } },
-      { name: 'Delay', type: 'delay', enabled: true, params: { time: '1/8', feedback: 0.3, mix: 0.25 } },
+      { id: 'fx-t3-1', name: 'Filter LFO', type: 'filter', enabled: true, params: { cutoff: 2000, resonance: 0.8, rate: 4 } },
+      { id: 'fx-t3-2', name: 'Delay', type: 'delay', enabled: true, params: { time: '1/8', feedback: 0.3, mix: 0.25 } },
     ],
     waveformData: genWaveform(), clipCount: 8, order: 2,
   },
   {
-    id: 't4', name: 'PSYCH FX', type: 'fx', volume: 70, pan: 20,
-    muted: false, soloed: false, color: '#10b981',
+    id: 't4', name: 'PSYCH FX', type: 'fx', genre: 'mentalcore', mood: 'psychedelic',
+    volume: 70, pan: 20, muted: false, soloed: false, color: '#10b981', bpm: 200, key: 'C',
+    duration: 0, createdAt: '2024-11-10T14:32:00Z', tags: ['fx', 'reverb'],
     fx: [
-      { name: 'Reverb Space', type: 'reverb', enabled: true, params: { size: 0.9, damp: 0.4, mix: 0.5 } },
+      { id: 'fx-t4-1', name: 'Reverb Space', type: 'reverb', enabled: true, params: { size: 0.9, damp: 0.4, mix: 0.5 } },
     ],
     waveformData: genWaveform(), clipCount: 4, order: 3,
   },
   {
-    id: 't5', name: 'HI-HAT ROLL', type: 'percussion', volume: 80, pan: 15,
-    muted: false, soloed: false, color: '#ec4899',
+    id: 't5', name: 'HI-HAT ROLL', type: 'percussion', genre: 'mentalcore', mood: 'aggressive',
+    volume: 80, pan: 15, muted: false, soloed: false, color: '#ec4899', bpm: 200, key: 'C',
+    duration: 0, createdAt: '2024-11-10T14:32:00Z', tags: ['hihat', 'percussion'],
     fx: [], waveformData: genWaveform(), clipCount: 64, order: 4,
   },
   {
-    id: 't6', name: 'MASTER BUS', type: 'master', volume: 100, pan: 0,
-    muted: false, soloed: false, color: '#7c3aed',
+    id: 't6', name: 'MASTER BUS', type: 'master', genre: 'mentalcore', mood: 'aggressive',
+    volume: 100, pan: 0, muted: false, soloed: false, color: '#7c3aed', bpm: 200, key: 'C',
+    duration: 0, createdAt: '2024-11-10T14:32:00Z', tags: ['master'],
     fx: [
-      { name: 'Multiband Comp', type: 'compressor', enabled: true, params: { threshold: -6, ratio: 4 } },
-      { name: 'Limiter', type: 'limiter', enabled: true, params: { ceiling: -0.3, release: 50 } },
+      { id: 'fx-t6-1', name: 'Multiband Comp', type: 'compressor', enabled: true, params: { threshold: -6, ratio: 4 } },
+      { id: 'fx-t6-2', name: 'Limiter', type: 'limiter', enabled: true, params: { ceiling: -0.3, release: 50 } },
     ],
     waveformData: genWaveform(), clipCount: 1, order: 5,
   },
@@ -71,33 +79,37 @@ const mentalcoreTracks: Track[] = [
 
 const hardtekTracks: Track[] = [
   {
-    id: 'h1', name: 'TEK KICK', type: 'kick', volume: 115, pan: 0,
-    muted: false, soloed: false, color: '#ef4444', bpm: 145,
+    id: 'h1', name: 'TEK KICK', type: 'kick', genre: 'hardtek', mood: 'aggressive',
+    volume: 115, pan: 0, muted: false, soloed: false, color: '#ef4444', bpm: 145, key: 'C',
+    duration: 0, createdAt: '2024-11-08T10:00:00Z', tags: ['kick', 'hardtek'],
     fx: [
-      { name: 'Clipper', type: 'distortion', enabled: true, params: { ceiling: 0.9 } },
-      { name: 'Sub EQ', type: 'eq', enabled: true, params: { freq: 55, gain: 6, q: 0.7 } },
+      { id: 'fx-h1-1', name: 'Clipper', type: 'distortion', enabled: true, params: { ceiling: 0.9 } },
+      { id: 'fx-h1-2', name: 'Sub EQ', type: 'eq', enabled: true, params: { freq: 55, gain: 6, q: 0.7 } },
     ],
     waveformData: genWaveform(), clipCount: 32, order: 0,
   },
   {
-    id: 'h2', name: 'HARDTEK BASS', type: 'bass', volume: 95, pan: 0,
-    muted: false, soloed: false, color: '#f59e0b', bpm: 145,
+    id: 'h2', name: 'HARDTEK BASS', type: 'bass', genre: 'hardtek', mood: 'aggressive',
+    volume: 95, pan: 0, muted: false, soloed: false, color: '#f59e0b', bpm: 145, key: 'C',
+    duration: 0, createdAt: '2024-11-08T10:00:00Z', tags: ['bass', 'hardtek'],
     fx: [
-      { name: 'Distortion', type: 'distortion', enabled: true, params: { drive: 60 } },
+      { id: 'fx-h2-1', name: 'Distortion', type: 'distortion', enabled: true, params: { drive: 60 } },
     ],
     waveformData: genWaveform(), clipCount: 16, order: 1,
   },
   {
-    id: 'h3', name: 'TEK LEAD', type: 'melody', volume: 80, pan: -5,
-    muted: false, soloed: false, color: '#06b6d4', bpm: 145,
+    id: 'h3', name: 'TEK LEAD', type: 'melody', genre: 'hardtek', mood: 'dark',
+    volume: 80, pan: -5, muted: false, soloed: false, color: '#06b6d4', bpm: 145, key: 'C',
+    duration: 0, createdAt: '2024-11-08T10:00:00Z', tags: ['melody', 'hardtek'],
     fx: [
-      { name: 'Delay', type: 'delay', enabled: true, params: { time: '1/4', feedback: 0.4 } },
+      { id: 'fx-h3-1', name: 'Delay', type: 'delay', enabled: true, params: { time: '1/4', feedback: 0.4 } },
     ],
     waveformData: genWaveform(), clipCount: 8, order: 2,
   },
   {
-    id: 'h4', name: 'PERC LOOP', type: 'percussion', volume: 85, pan: 0,
-    muted: false, soloed: false, color: '#ec4899',
+    id: 'h4', name: 'PERC LOOP', type: 'percussion', genre: 'hardtek', mood: 'tribal',
+    volume: 85, pan: 0, muted: false, soloed: false, color: '#ec4899', bpm: 145, key: 'C',
+    duration: 0, createdAt: '2024-11-08T10:00:00Z', tags: ['percussion', 'hardtek'],
     fx: [], waveformData: genWaveform(), clipCount: 32, order: 3,
   },
 ];
@@ -185,6 +197,73 @@ export const mockProjects: Project[] = [
   },
 ];
 
+const tmpl1Tracks: TemplateTrack[] = [
+  { name: 'KICK LAYER 1', type: 'kick', color: '#ef4444', volumeDefault: 110,
+    suggestedFX: [
+      { name: 'Transient', type: 'compressor', enabled: true, params: { attack: 0, sustain: -6 } },
+      { name: 'Saturator', type: 'distortion', enabled: true, params: { drive: 80 } },
+    ],
+    notes: 'Use a punchy 909-style kick, layer with sub-heavy 808' },
+  { name: 'KICK LAYER 2 (sub)', type: 'kick', color: '#dc2626', volumeDefault: 90,
+    suggestedFX: [
+      { name: 'Sub EQ', type: 'eq', enabled: true, params: { freq: 50, gain: 8 } },
+      { name: 'Limiter', type: 'limiter', enabled: true, params: { ceiling: 0.0 } },
+    ] },
+  { name: 'MENTAL BASS', type: 'bass', color: '#f59e0b', volumeDefault: 95,
+    suggestedFX: [
+      { name: 'OTT', type: 'compressor', enabled: true, params: { depth: 0.7 } },
+      { name: 'Dist', type: 'distortion', enabled: true, params: { drive: 45 } },
+    ],
+    notes: 'Sidechain heavily to kick.' },
+  { name: 'ACID 303', type: 'acid', color: '#06b6d4', volumeDefault: 80,
+    suggestedFX: [
+      { name: 'Filter Sweep', type: 'filter', enabled: true, params: { cutoff: 1800, res: 0.85 } },
+      { name: '1/8 Delay', type: 'delay', enabled: true, params: { time: '1/8', feedback: 0.35 } },
+    ],
+    notes: 'Program classic 303 acid patterns. Resonance is key.' },
+  { name: 'PSYCH FX LAYER', type: 'fx', color: '#10b981', volumeDefault: 65,
+    suggestedFX: [
+      { name: 'Big Reverb', type: 'reverb', enabled: true, params: { size: 0.95, mix: 0.55 } },
+    ] },
+  { name: 'HH ROLLS', type: 'percussion', color: '#ec4899', volumeDefault: 75,
+    suggestedFX: [], notes: '1/32 rolls with velocity automation' },
+];
+
+const tmpl1Routing: RoutingNode[] = [
+  { id: 'r1', label: 'KICK GROUP', type: 'bus', color: '#ef4444', children: ['r2', 'r3'] },
+  { id: 'r2', label: 'Kick Layer 1', type: 'track', color: '#ef4444', children: [] },
+  { id: 'r3', label: 'Kick Layer 2', type: 'track', color: '#dc2626', children: [] },
+  { id: 'r4', label: 'BASS BUS', type: 'bus', color: '#f59e0b', children: ['r5'] },
+  { id: 'r5', label: 'Mental Bass', type: 'track', color: '#f59e0b', children: [] },
+  { id: 'r6', label: 'MASTER', type: 'master', color: '#7c3aed', children: ['r1', 'r4'] },
+];
+
+const tmpl2Tracks: TemplateTrack[] = [
+  { name: 'TRIBE KICK', type: 'kick', color: '#ef4444', volumeDefault: 105,
+    suggestedFX: [
+      { name: 'Compressor', type: 'compressor', enabled: true, params: { threshold: -12, ratio: 6 } },
+    ],
+    notes: 'Slightly muffled, organic feel.' },
+  { name: 'TRIBAL PERC', type: 'percussion', color: '#ec4899', volumeDefault: 90,
+    suggestedFX: [], notes: 'Stack djembe, conga and bongo samples.' },
+  { name: 'DEEP BASS', type: 'bass', color: '#f59e0b', volumeDefault: 100,
+    suggestedFX: [
+      { name: 'Warmth Sat', type: 'distortion', enabled: true, params: { drive: 20, mix: 0.3 } },
+    ] },
+  { name: 'TRIBAL LOOP FX', type: 'fx', color: '#10b981', volumeDefault: 60,
+    suggestedFX: [
+      { name: 'Flanger', type: 'filter', enabled: true, params: { rate: 0.5 } },
+      { name: 'Reverb', type: 'reverb', enabled: true, params: { size: 0.7, mix: 0.4 } },
+    ] },
+];
+
+const tmpl2Routing: RoutingNode[] = [
+  { id: 'r1', label: 'DRUMS BUS', type: 'bus', color: '#ef4444', children: ['r2', 'r3'] },
+  { id: 'r2', label: 'Tribe Kick', type: 'track', color: '#ef4444', children: [] },
+  { id: 'r3', label: 'Tribal Perc', type: 'track', color: '#ec4899', children: [] },
+  { id: 'r4', label: 'MASTER', type: 'master', color: '#7c3aed', children: ['r1'] },
+];
+
 export const mockTemplates: Template[] = [
   {
     id: 'tmpl1',
@@ -195,45 +274,8 @@ export const mockTemplates: Template[] = [
     description: 'Full mentalcore production template with layered kick, screaming acid lead and psychedelic FX chain.',
     aiConfidence: 0.94,
     generatedAt: new Date().toISOString(),
-    tracks: [
-      { name: 'KICK LAYER 1', type: 'kick', color: '#ef4444', volumeDefault: 110,
-        suggestedFX: [
-          { name: 'Transient', type: 'compressor', enabled: true, params: { attack: 0, sustain: -6 } },
-          { name: 'Saturator', type: 'distortion', enabled: true, params: { drive: 80 } },
-        ],
-        notes: 'Use a punchy 909-style kick, layer with sub-heavy 808' },
-      { name: 'KICK LAYER 2 (sub)', type: 'kick', color: '#dc2626', volumeDefault: 90,
-        suggestedFX: [
-          { name: 'Sub EQ', type: 'eq', enabled: true, params: { freq: 50, gain: 8 } },
-          { name: 'Limiter', type: 'limiter', enabled: true, params: { ceiling: 0.0 } },
-        ] },
-      { name: 'MENTAL BASS', type: 'bass', color: '#f59e0b', volumeDefault: 95,
-        suggestedFX: [
-          { name: 'OTT', type: 'compressor', enabled: true, params: { depth: 0.7 } },
-          { name: 'Dist', type: 'distortion', enabled: true, params: { drive: 45 } },
-        ],
-        notes: 'Sidechain heavily to kick.' },
-      { name: 'ACID 303', type: 'acid', color: '#06b6d4', volumeDefault: 80,
-        suggestedFX: [
-          { name: 'Filter Sweep', type: 'filter', enabled: true, params: { cutoff: 1800, res: 0.85 } },
-          { name: '1/8 Delay', type: 'delay', enabled: true, params: { time: '1/8', feedback: 0.35 } },
-        ],
-        notes: 'Program classic 303 acid patterns. Resonance is key.' },
-      { name: 'PSYCH FX LAYER', type: 'fx', color: '#10b981', volumeDefault: 65,
-        suggestedFX: [
-          { name: 'Big Reverb', type: 'reverb', enabled: true, params: { size: 0.95, mix: 0.55 } },
-        ] },
-      { name: 'HH ROLLS', type: 'percussion', color: '#ec4899', volumeDefault: 75,
-        suggestedFX: [], notes: '1/32 rolls with velocity automation' },
-    ],
-    routing: [
-      { id: 'r1', label: 'KICK GROUP', type: 'bus', color: '#ef4444', children: ['r2', 'r3'] },
-      { id: 'r2', label: 'Kick Layer 1', type: 'track', color: '#ef4444', children: [] },
-      { id: 'r3', label: 'Kick Layer 2', type: 'track', color: '#dc2626', children: [] },
-      { id: 'r4', label: 'BASS BUS', type: 'bus', color: '#f59e0b', children: ['r5'] },
-      { id: 'r5', label: 'Mental Bass', type: 'track', color: '#f59e0b', children: [] },
-      { id: 'r6', label: 'MASTER', type: 'master', color: '#7c3aed', children: ['r1', 'r4'] },
-    ],
+    tracks: tmpl1Tracks,
+    routing: tmpl1Routing,
   },
   {
     id: 'tmpl2',
@@ -244,30 +286,8 @@ export const mockTemplates: Template[] = [
     description: 'Raw tribal tekno with layered percussion, deep bass, and hypnotic loops.',
     aiConfidence: 0.91,
     generatedAt: new Date().toISOString(),
-    tracks: [
-      { name: 'TRIBE KICK', type: 'kick', color: '#ef4444', volumeDefault: 105,
-        suggestedFX: [
-          { name: 'Compressor', type: 'compressor', enabled: true, params: { threshold: -12, ratio: 6 } },
-        ],
-        notes: 'Slightly muffled, organic feel.' },
-      { name: 'TRIBAL PERC', type: 'percussion', color: '#ec4899', volumeDefault: 90,
-        suggestedFX: [], notes: 'Stack djembe, conga and bongo samples.' },
-      { name: 'DEEP BASS', type: 'bass', color: '#f59e0b', volumeDefault: 100,
-        suggestedFX: [
-          { name: 'Warmth Sat', type: 'distortion', enabled: true, params: { drive: 20, mix: 0.3 } },
-        ] },
-      { name: 'TRIBAL LOOP FX', type: 'fx', color: '#10b981', volumeDefault: 60,
-        suggestedFX: [
-          { name: 'Flanger', type: 'filter', enabled: true, params: { rate: 0.5 } },
-          { name: 'Reverb', type: 'reverb', enabled: true, params: { size: 0.7, mix: 0.4 } },
-        ] },
-    ],
-    routing: [
-      { id: 'r1', label: 'DRUMS BUS', type: 'bus', color: '#ef4444', children: ['r2', 'r3'] },
-      { id: 'r2', label: 'Tribe Kick', type: 'track', color: '#ef4444', children: [] },
-      { id: 'r3', label: 'Tribal Perc', type: 'track', color: '#ec4899', children: [] },
-      { id: 'r4', label: 'MASTER', type: 'master', color: '#7c3aed', children: ['r1'] },
-    ],
+    tracks: tmpl2Tracks,
+    routing: tmpl2Routing,
   },
 ];
 
@@ -344,6 +364,7 @@ export const mockMixAnalysis: MixAnalysis = {
   ],
   loudness: { integrated: -6.2, shortTerm: -5.8, truePeak: -0.1, lra: 4.2 },
   score: 72,
+  analyzedAt: new Date().toISOString(),
 };
 
 function makePad(id: string, row: number, col: number, label: string, color: string, active = false): PadCell {
@@ -381,6 +402,7 @@ export const mockLiveSession: LiveSession = {
   scenes: liveScenes,
   pads: livePads,
   masterBpm: 200,
+  bpm: 200,
   isRecording: false,
 };
 

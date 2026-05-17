@@ -101,11 +101,11 @@ export interface ProjectSave {
 
 // ─── App State ───────────────────────────────────────────────
 export interface TrackFX {
-  id: string;
+  id?: string;
   name: string;
   type: string;
   enabled: boolean;
-  params?: Record<string, number>;
+  params?: Record<string, number | string>;
 }
 
 export interface VuMeterState {
@@ -144,6 +144,23 @@ export interface Track {
   tags: string[];
 }
 
+export interface RoutingNode {
+  id: string;
+  label: string;
+  type: 'bus' | 'track' | 'master' | string;
+  color: string;
+  children: string[];
+}
+
+export interface TemplateTrack {
+  name?: string;
+  type?: TrackType;
+  color?: string;
+  volumeDefault?: number;
+  suggestedFX?: Array<{ name: string; type: string; enabled: boolean; params?: Record<string, number | string> }>;
+  notes?: string;
+}
+
 export interface Template {
   id: string;
   name: string;
@@ -152,9 +169,11 @@ export interface Template {
   bpm: number;
   description: string;
   previewUrl?: string;
-  tags: string[];
-  tracks: Partial<Track>[];
-  routing?: string[];
+  tags?: string[];
+  tracks: TemplateTrack[];
+  routing?: RoutingNode[];
+  aiConfidence?: number;
+  generatedAt?: string;
 }
 
 export type SubscriptionPlan = 'free' | 'creator' | 'studio' | 'learning';
@@ -165,7 +184,7 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
   attachments?: string[];
-  codeBlock?: string;
+  codeBlock?: { language: string; code: string };
   suggestions?: string[];
 }
 
@@ -175,7 +194,7 @@ export interface AudioEngineState {
   position: number;
   masterVolume: number;
   masterVu: VuMeterState;
-  trackVu: Record<string, number>;
+  trackVu: Record<string, VuMeterState>;
   spectrum: SpectrumBand[];
   latency: number;
   sampleRate: number;
@@ -192,12 +211,17 @@ export interface AppNotification {
 }
 
 export interface MixConflict {
-  id: string;
-  type: string;
-  priority: 'low' | 'medium' | 'high';
-  title: string;
-  description: string;
+  id?: string;
+  type?: string;
+  priority?: 'low' | 'medium' | 'high';
+  title?: string;
+  description?: string;
   autoApplyable?: boolean;
+  trackA?: string;
+  trackB?: string;
+  frequency?: number;
+  severity?: 'low' | 'medium' | 'high';
+  suggestion?: string;
 }
 
 export interface MixSuggestion {
@@ -207,19 +231,27 @@ export interface MixSuggestion {
   title: string;
   description: string;
   autoApplyable?: boolean;
+  trackId?: string;
+}
+
+export interface LoudnessInfo {
+  integrated: number;
+  shortTerm?: number;
+  truePeak: number;
+  lra: number;
 }
 
 export interface MixAnalysis {
-  trackId: string;
-  lufs: number;
-  peak: number;
-  dynamicRange: number;
-  frequencyBalance: Record<string, number>;
+  trackId?: string;
+  lufs?: number;
+  peak?: number;
+  dynamicRange?: number;
+  frequencyBalance?: Record<string, number>;
   suggestions: MixSuggestion[];
   conflicts: MixConflict[];
   score?: number;
-  loudness?: number;
-  analyzedAt: string;
+  loudness?: LoudnessInfo;
+  analyzedAt?: string;
 }
 
 export interface PadCell {
@@ -229,25 +261,29 @@ export interface PadCell {
   isActive?: boolean;
   isEmpty?: boolean;
   trackId?: string;
+  row?: number;
+  col?: number;
 }
 
 export interface Scene {
   id: string;
   name: string;
   color: string;
-  pads: PadCell[];
+  pads: string[];
+  isPlaying?: boolean;
 }
 
 export interface LiveSession {
-  id: string;
-  hostId: string;
-  participants: string[];
-  bpm: number;
-  genre: Genre;
-  startedAt: string;
+  id?: string;
+  hostId?: string;
+  participants?: string[];
+  bpm?: number;
+  genre?: Genre;
+  startedAt?: string;
   isRecording: boolean;
   pads?: PadCell[];
   scenes?: Scene[];
+  masterBpm?: number;
 }
 
 export interface AuthUser {
@@ -312,8 +348,20 @@ export interface Project {
   tracks: Track[];
   coverColor: string;
   isStarred: boolean;
-  isPublic: boolean;
+  isPublic?: boolean;
   timeSaved?: number;
+  duration?: number;
+  tags?: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PlanInfo {
+  id: string;
+  name: string;
+  price: number;
+  billing?: string;
+  features: string[];
+  popular?: boolean;
+  cta: string;
 }
