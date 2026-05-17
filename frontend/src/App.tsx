@@ -41,6 +41,7 @@ const VSTHostingPanel    = lazy(() => import('./components/VSTHostingPanel'));
 const AIProductionPanel  = lazy(() => import('./components/AIProductionPanel'));
 const SampleBrowserPanel = lazy(() => import('./components/SampleBrowserPanel'));
 const LoginScreen        = lazy(() => import('./components/auth/LoginScreen').then(m => ({ default: m.LoginScreen })));
+const DebugPanel         = lazy(() => import('./components/desktop/DebugPanel'));
 
 const pageVariants = {
   initial: { opacity: 0, y: 8 },
@@ -81,6 +82,7 @@ function ViewRouter({ view }: { view: ViewType }) {
       {view === 'vst'            && <VSTHostingPanel />}
       {view === 'ai-production'  && <AIProductionPanel />}
       {view === 'sample-browser' && <SampleBrowserPanel />}
+      {view === 'debug'          && <DebugPanel />}
     </Suspense>
   );
 }

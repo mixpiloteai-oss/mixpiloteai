@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Files, Music2, SlidersHorizontal, Radio, Bot,
   ChevronLeft, ChevronRight, Zap, Circle, LogOut, Package, Cpu,
   GraduationCap, BarChart2, CreditCard, Scale, Waves, LayoutGrid,
-  Keyboard, AlignLeft, Sliders, Activity, Network, Plug, Sparkles, HardDrive,
+  Keyboard, AlignLeft, Sliders, Activity, Network, Plug, Sparkles, HardDrive, Bug,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../store/appStore';
@@ -128,7 +128,12 @@ export function Sidebar() {
       </AnimatePresence>
 
       <nav className="flex-1 p-3 space-y-1 mt-2 overflow-y-auto scroll-area">
-        {NAV_ITEMS.map((item) => {
+        {[
+          ...NAV_ITEMS,
+          ...(typeof window !== 'undefined' && !!window.electronAPI
+            ? [{ id: 'debug' as const, labelKey: 'nav.debug', icon: <Bug size={18} />, color: '#10b981' }]
+            : []),
+        ].map((item) => {
           const isActive = currentView === item.id;
           return (
             <button key={item.id} onClick={() => setView(item.id)}
@@ -146,7 +151,7 @@ export function Sidebar() {
                     className="flex-1 flex items-center justify-between min-w-0"
                   >
                     <span className="text-sm font-medium truncate">{t(item.labelKey)}</span>
-                    {item.badge && (
+                    {'badge' in item && item.badge && (
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: `${item.color}25`, color: item.color }}>{item.badge}</span>
                     )}
                   </motion.div>

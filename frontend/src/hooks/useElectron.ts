@@ -157,6 +157,27 @@ declare global {
       onAutosaveComplete: (cb: (info: { time: number }) => void) => void;
       onCrashRecoveryAvailable: (cb: (info: { hasData: boolean; timestamp: number }) => void) => void;
       removeAllListeners: (channel: string) => void;
+      // Debug
+      debugGetBuildInfo: () => Promise<{
+        version: string; buildDate: string; platform: string; arch: string;
+        electron: string; node: string; chrome: string; isDev: boolean; channel: string;
+      }>;
+      debugGetPerfStats: () => Promise<{
+        cpuPercent: number; memUsedMB: number; memTotalMB: number; memPercent: number;
+        processMemMB: number; uptimeSec: number; pid: number; cpuCount: number; cpuModel: string;
+      }>;
+      debugListCrashLogs: () => Promise<Array<{
+        timestamp: string; type: string; message: string; stack: string; system: string;
+      }>>;
+      debugClearCrashLogs: () => Promise<number>;
+      debugOpenDevTools: () => Promise<void>;
+      debugGetAppPaths: () => Promise<{
+        userData: string; logs: string; temp: string; downloads: string; appPath: string; crashDir: string;
+      }>;
+      onPerfStats: (cb: (stats: {
+        cpuPercent: number; memUsedMB: number; memTotalMB: number; memPercent: number;
+        processMemMB: number; uptimeSec: number; pid: number; cpuCount: number; cpuModel: string;
+      }) => void) => void;
       // Platform
       platform: string;
       isElectron: boolean;

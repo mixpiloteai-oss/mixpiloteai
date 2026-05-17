@@ -21,7 +21,8 @@
     "routing": "Audio Routing",
     "vst": "VST Plugins",
     "aiProduction": "AI Production",
-    "sampleBrowser": "Sample Browser"
+    "sampleBrowser": "Sample Browser",
+    "debug": "Debug"
   },
   "auth": {
     "signIn": "Sign In",

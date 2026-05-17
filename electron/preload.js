@@ -79,6 +79,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   audioCachePrune:     ()              => ipcRenderer.invoke('audio-cache-prune'),
   audioCacheClear:     ()              => ipcRenderer.invoke('audio-cache-clear'),
 
+  // ── Diagnostics / Debug ───────────────────────────────────
+  debugGetBuildInfo:    ()                  => ipcRenderer.invoke('debug-get-build-info'),
+  debugGetPerfStats:    ()                  => ipcRenderer.invoke('debug-get-perf-stats'),
+  debugListCrashLogs:   ()                  => ipcRenderer.invoke('debug-list-crash-logs'),
+  debugClearCrashLogs:  ()                  => ipcRenderer.invoke('debug-clear-crash-logs'),
+  debugWriteCrashLog:   (type, msg, ctx)    => ipcRenderer.invoke('debug-write-crash-log', type, msg, ctx),
+  debugGetCrashDir:     ()                  => ipcRenderer.invoke('debug-crash-dir'),
+  debugOpenDevTools:    ()                  => ipcRenderer.invoke('debug-open-devtools'),
+  debugGetAppPaths:     ()                  => ipcRenderer.invoke('debug-get-app-paths'),
+  onPerfStats: (cb)    => ipcRenderer.on('perf-stats', (_event, stats) => cb(stats)),
+
   // ── Platform info (sync, safe) ───────────────────────────
   platform: process.platform,
   isElectron: true,

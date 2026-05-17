@@ -1,13 +1,14 @@
 {
-  "name": "mixpiloteai-desktop",
-  "version": "1.0.0",
-  "description": "MixPilote AI — Full-featured Electron desktop application for music production",
+  "name": "neurotek-ai",
+  "version": "1.0.0-beta.1",
+  "description": "NeuroTek AI — Professional AI Music Production Desktop App",
   "main": "main.js",
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_ENV=development electron .",
     "build": "electron-builder",
-    "build:win": "electron-builder --win",
+    "build:win": "electron-builder --win --x64",
+    "build:win:portable": "electron-builder --win portable --x64",
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux"
   },
@@ -24,13 +25,18 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.mixpiloteai.app",
-    "productName": "MixPilote AI",
+    "appId": "ai.neurotek.desktop",
+    "productName": "NeuroTek AI",
+    "copyright": "Copyright © 2025 NeuroTek AI. All rights reserved.",
+    "asar": true,
+    "compression": "maximum",
     "files": [
       "main.js",
       "preload.js",
       "src/**",
-      "../frontend/dist/**"
+      "!src/**/*.test.js",
+      "../frontend/dist/**",
+      "!../frontend/dist/**/*.map"
     ],
     "directories": {
       "output": "release",
@@ -39,19 +45,61 @@
     "extraMetadata": {
       "main": "main.js"
     },
+    "fileAssociations": [
+      {
+        "ext": "ntai",
+        "name": "NeuroTek AI Project",
+        "description": "NeuroTek AI music production project",
+        "mimeType": "application/x-neurotek-ai"
+      }
+    ],
+    "protocols": [
+      {
+        "name": "NeuroTek AI",
+        "schemes": ["neurotek"]
+      }
+    ],
     "win": {
-      "target": "nsis",
-      "icon": "assets/icon.ico"
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "assets/icon.ico",
+      "publisherName": "NeuroTek AI",
+      "verifyUpdateCodeSignature": false,
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "NeuroTek AI",
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false,
+      "menuCategory": "NeuroTek AI",
+      "artifactName": "NeuroTek-AI-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "NeuroTek-AI-Portable-${version}.${ext}"
     },
     "mac": {
-      "target": "dmg",
+      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
       "icon": "assets/icon.icns",
-      "category": "public.app-category.music"
+      "category": "public.app-category.music",
+      "darkModeSupport": true,
+      "artifactName": "NeuroTek-AI-${version}.${ext}"
     },
     "linux": {
-      "target": "AppImage",
+      "target": [{ "target": "AppImage", "arch": ["x64"] }],
       "icon": "assets/icon.png",
-      "category": "Audio"
-    }
+      "category": "Audio",
+      "artifactName": "NeuroTek-AI-${version}.${ext}"
+    },
+    "publish": null
   }
 }

@@ -27,6 +27,9 @@ const autosave      = require('./src/autosaveManager');
 const audioDevices  = require('./src/audioDeviceManager');
 const settings      = require('./src/desktopSettings');
 const audioCache    = require('./src/audioCacheManager');
+const crashLogger   = require('./src/crashLogger');
+const perfMonitor   = require('./src/performanceMonitor');
+const buildInfo     = require('./src/buildInfo');
 
 // ─── Dev / Prod detection ────────────────────────────────────────────────────
 const isDev = process.env.NODE_ENV === 'development';
@@ -283,6 +286,27 @@ ipcMain.handle('audio-cache-list',         ()                  => audioCache.lis
 ipcMain.handle('audio-cache-prune',        ()                  => audioCache.prune());
 ipcMain.handle('audio-cache-clear',        ()                  => audioCache.clearAll());
 
+// ─── Diagnostics / Debug IPC ──────────────────────────────────────────────────
+ipcMain.handle('debug-get-build-info',   () => buildInfo.getBuildInfo());
+ipcMain.handle('debug-get-perf-stats',   () => perfMonitor.getStats());
+ipcMain.handle('debug-list-crash-logs',  () => crashLogger.listCrashLogs());
+ipcMain.handle('debug-clear-crash-logs', () => crashLogger.clearCrashLogs());
+ipcMain.handle('debug-write-crash-log',  (_e, type, msg, ctx) => crashLogger.writeCrashLog(type, msg, ctx ?? {}));
+ipcMain.handle('debug-crash-dir',        () => crashLogger.getCrashDir());
+
+ipcMain.handle('debug-open-devtools', () => {
+  mainWindow?.webContents.openDevTools({ mode: 'detach' });
+});
+
+ipcMain.handle('debug-get-app-paths', () => ({
+  userData:  app.getPath('userData'),
+  logs:      app.getPath('logs'),
+  temp:      app.getPath('temp'),
+  downloads: app.getPath('downloads'),
+  appPath:   app.getAppPath(),
+  crashDir:  crashLogger.getCrashDir(),
+}));
+
 // ─── Backend process (dev only) ───────────────────────────────────────────────
 function startBackend() {
   if (!isDev) return;
@@ -294,9 +318,12 @@ function startBackend() {
   backendProcess.on('error', (err) => console.error('[Backend]', err.message));
 }
 
+// ─── Unhandled error logging ──────────────────────────────────────────────────
+process.on('uncaughtException',  (err) => { console.error('[Main] Uncaught:', err); crashLogger.writeCrashLog('uncaught-exception', err); });
+process.on('unhandledRejection', (err) => { console.error('[Main] Rejection:', err); crashLogger.writeCrashLog('unhandled-rejection', err); });
+
 // ─── App lifecycle ─────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
-  // Crash recovery: detect if previous session didn't exit cleanly
   const hadCrash = autosave.wasCrash();
   const crashCheckpoint = hadCrash ? autosave.readCheckpoint() : null;
 
@@ -305,11 +332,10 @@ app.whenReady().then(() => {
   createTray();
   registerShortcuts();
 
-  // Start autosave after window is ready
   const autosaveInterval = settings.get('autosaveIntervalMs') ?? 30000;
   mainWindow.once('ready-to-show', () => {
     autosave.start(mainWindow, autosaveInterval);
-    // Notify renderer if crash recovery data is available
+    perfMonitor.start(sendToRenderer, 3000);
     if (hadCrash && crashCheckpoint) {
       setTimeout(() => sendToRenderer('crash-recovery-available', {
         hasData: true,
@@ -318,7 +344,6 @@ app.whenReady().then(() => {
     }
   });
 
-  // Save window bounds on resize/move
   mainWindow.on('resize', () => {
     if (!mainWindow.isMaximized()) settings.set('windowBounds', mainWindow.getBounds());
   });
@@ -345,7 +370,8 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
-  autosave.stop(); // flush pending autosave and clear session lock
+  autosave.stop();
+  perfMonitor.stop();
   globalShortcut.unregisterAll();
   if (backendProcess) backendProcess.kill();
 });
