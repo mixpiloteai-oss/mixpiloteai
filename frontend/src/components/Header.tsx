@@ -4,56 +4,38 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Play,
-  Pause,
-  Square,
-  SkipBack,
-  Mic,
-  Bell,
-  Settings,
-  ChevronDown,
-  Gauge,
-  Activity,
+  Play, Pause, Square, SkipBack, Bell, Settings, Undo2, Redo2,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAppStore } from '../store/appStore';
 import { useAudioEngine } from '../hooks/useAudioEngine';
+import { useHistory } from '../hooks/useHistory';
 import { VuMeter } from './ui/VuMeter';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
 export function Header() {
   const { activeProject, notifications, setView } = useAppStore();
   const { playbackState, bpm, masterVu, play, pause, stop } = useAudioEngine();
+  const { canUndo, canRedo, lastLabel, nextLabel, undo, redo } = useHistory();
   const [showNotifs, setShowNotifs] = useState(false);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const isPlaying = playbackState === 'playing';
-  const isPaused = playbackState === 'paused';
+  const isPaused  = playbackState === 'paused';
 
   return (
     <header
       className="flex-shrink-0 flex items-center gap-4 px-4 py-2.5 relative z-10"
-      style={{
-        background: 'rgba(10,10,15,0.95)',
-        borderBottom: '1px solid rgba(255,255,255,0.05)',
-        height: 56,
-      }}
+      style={{ background: 'rgba(10,10,15,0.95)', borderBottom: '1px solid rgba(255,255,255,0.05)', height: 56 }}
     >
       {/* Project info */}
       <div className="flex items-center gap-2 min-w-0 flex-1">
         {activeProject ? (
           <>
-            <div
-              className="w-7 h-7 rounded flex-shrink-0"
-              style={{ background: activeProject.coverColor }}
-            />
+            <div className="w-7 h-7 rounded flex-shrink-0" style={{ background: activeProject.coverColor }} />
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-text-primary truncate leading-tight">
-                {activeProject.name}
-              </h2>
-              <p className="text-[10px] text-text-muted capitalize leading-tight">
-                {activeProject.genre} · {activeProject.key}
-              </p>
+              <h2 className="text-sm font-semibold text-text-primary truncate leading-tight">{activeProject.name}</h2>
+              <p className="text-[10px] text-text-muted capitalize leading-tight">{activeProject.genre} · {activeProject.key}</p>
             </div>
           </>
         ) : (
@@ -63,17 +45,13 @@ export function Header() {
 
       {/* Transport controls */}
       <div className="flex items-center gap-2">
-        <button
-          onClick={stop}
+        <button onClick={stop}
           className="w-7 h-7 rounded flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
-          title="Stop"
+          title="Return to start"
         >
           <SkipBack size={14} />
         </button>
-
-        <motion.button
-          whileTap={{ scale: 0.93 }}
-          onClick={isPlaying ? pause : play}
+        <motion.button whileTap={{ scale: 0.93 }} onClick={isPlaying ? pause : play}
           className="w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-150"
           style={{
             background: isPlaying ? 'rgba(239,68,68,0.15)' : 'rgba(124,58,237,0.15)',
@@ -84,13 +62,31 @@ export function Header() {
         >
           {isPlaying ? <Pause size={14} /> : <Play size={14} />}
         </motion.button>
-
-        <button
-          onClick={stop}
+        <button onClick={stop}
           className="w-7 h-7 rounded flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
           title="Stop"
         >
           <Square size={13} />
+        </button>
+      </div>
+
+      {/* Undo / Redo */}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={undo} disabled={!canUndo}
+          title={canUndo ? `Undo: ${lastLabel}` : 'Nothing to undo'}
+          className="w-7 h-7 rounded flex items-center justify-center transition-colors disabled:opacity-30"
+          style={{ color: canUndo ? '#a78bfa' : '#475569' }}
+        >
+          <Undo2 size={13} />
+        </button>
+        <button
+          onClick={redo} disabled={!canRedo}
+          title={canRedo ? `Redo: ${nextLabel}` : 'Nothing to redo'}
+          className="w-7 h-7 rounded flex items-center justify-center transition-colors disabled:opacity-30"
+          style={{ color: canRedo ? '#06b6d4' : '#475569' }}
+        >
+          <Redo2 size={13} />
         </button>
       </div>
 
@@ -102,9 +98,7 @@ export function Header() {
         <span className="text-[9px] text-text-muted uppercase tracking-wider">BPM</span>
         <span className="text-lg font-bold font-mono leading-tight" style={{
           background: 'linear-gradient(135deg, #a78bfa, #06b6d4)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text',
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
         }}>
           {bpm}
         </span>
@@ -137,9 +131,7 @@ export function Header() {
           className="w-2 h-2 rounded-full"
           style={{ background: isPlaying ? '#10b981' : isPaused ? '#f59e0b' : '#475569' }}
         />
-        <span className="text-[10px] text-text-muted uppercase font-mono hidden sm:block">
-          {playbackState}
-        </span>
+        <span className="text-[10px] text-text-muted uppercase font-mono hidden sm:block">{playbackState}</span>
       </div>
 
       {/* Language Switcher */}
@@ -156,21 +148,15 @@ export function Header() {
         >
           <Bell size={16} />
           {unreadCount > 0 && (
-            <span
-              className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center"
-              style={{ background: '#ef4444', color: '#fff' }}
-            >
+            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center" style={{ background: '#ef4444', color: '#fff' }}>
               {unreadCount}
             </span>
           )}
         </button>
-
         <AnimatePresence>
           {showNotifs && (
             <motion.div
-              initial={{ opacity: 0, y: -8, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.95 }}
+              initial={{ opacity: 0, y: -8, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.95 }}
               className="absolute right-0 top-full mt-2 w-72 rounded-xl shadow-card z-50 overflow-hidden"
               style={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.08)' }}
             >
@@ -182,23 +168,11 @@ export function Header() {
                   <p className="text-xs text-text-muted p-4 text-center">No notifications</p>
                 ) : (
                   notifications.slice(0, 8).map((n) => (
-                    <div
-                      key={n.id}
-                      className={clsx(
-                        'p-3 border-b border-white/5 text-xs',
-                        !n.read && 'bg-white/2'
-                      )}
-                    >
+                    <div key={n.id} className={clsx('p-3 border-b border-white/5 text-xs', !n.read && 'bg-white/2')}>
                       <div className="flex items-start gap-2">
-                        <div
-                          className="w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0"
-                          style={{
-                            background:
-                              n.type === 'success' ? '#10b981' :
-                              n.type === 'error' ? '#ef4444' :
-                              n.type === 'warning' ? '#f59e0b' : '#7c3aed',
-                          }}
-                        />
+                        <div className="w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0" style={{
+                          background: n.type === 'success' ? '#10b981' : n.type === 'error' ? '#ef4444' : n.type === 'warning' ? '#f59e0b' : '#7c3aed',
+                        }} />
                         <p className="text-text-secondary">{n.message}</p>
                       </div>
                     </div>

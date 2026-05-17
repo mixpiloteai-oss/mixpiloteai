@@ -4,6 +4,7 @@
 import { useEffect, useRef } from 'react';
 import { useAppStore } from '../store/appStore';
 import { useAudioEngine } from './useAudioEngine';
+import { useHistoryStore } from '../store/historyStore';
 
 type ShortcutMap = Record<string, () => void>;
 
@@ -19,12 +20,17 @@ function buildKey(e: KeyboardEvent): string {
 export function useKeyboardShortcuts() {
   const { setView, toggleSidebar } = useAppStore();
   const { play, pause, stop, playbackState } = useAudioEngine();
+  const { undo, redo } = useHistoryStore();
   const shortcutsRef = useRef<ShortcutMap>({});
 
   shortcutsRef.current = {
     // Transport
     'space': () => playbackState === 'playing' ? pause() : play(),
     'escape': stop,
+
+    // History
+    'mod+z':       undo,
+    'mod+shift+z': redo,
 
     // Navigation
     'mod+1': () => setView('dashboard'),
@@ -42,7 +48,6 @@ export function useKeyboardShortcuts() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
-      // Don't fire shortcuts when typing in input/textarea
       if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable) return;
 
       const key = buildKey(e);

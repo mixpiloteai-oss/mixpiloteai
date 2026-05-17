@@ -19,6 +19,7 @@ import type {
   QuotaInfo,
 } from '../types';
 import { mockProjects, mockChatMessages, mockMixAnalysis, mockLiveSession } from '../data/mockData';
+import { initHistoryBridge } from './historyStore';
 
 const initialAudioEngine: AudioEngineState = {
   playbackState: 'stopped',
@@ -38,7 +39,7 @@ const initialAudioEngine: AudioEngineState = {
 
 export const useAppStore = create<AppState>()(
   subscribeWithSelector((set, get) => ({
-    // ── State ──────────────────────────────────────────────
+    // ── State ──────────────────────────────────────────
     auth: { user: null, isAuthenticated: false, quota: null },
     currentView: 'dashboard' as ViewType,
     projects: mockProjects,
@@ -53,7 +54,7 @@ export const useAppStore = create<AppState>()(
     mixAnalysis: mockMixAnalysis,
     liveSession: mockLiveSession,
 
-    // ── Actions ──────────────────────────────────────────
+    // ── Actions ────────────────────────────────────────
     setView: (view: ViewType) => set({ currentView: view }),
 
     setActiveProject: (project: Project | null) =>
@@ -167,6 +168,21 @@ export const useAppStore = create<AppState>()(
             : state.activeProject,
       })),
   }))
+);
+
+// ── Wire history bridge ─────────────────────────────────
+initHistoryBridge(
+  () => {
+    const { projects, activeProject, mixAnalysis } = useAppStore.getState();
+    return { projects, activeProject, mixAnalysis };
+  },
+  (snap) => {
+    useAppStore.setState({
+      projects:      snap.projects,
+      activeProject: snap.activeProject,
+      mixAnalysis:   snap.mixAnalysis,
+    });
+  },
 );
 
 // ── Granular selectors (prevent unnecessary re-renders) ───
