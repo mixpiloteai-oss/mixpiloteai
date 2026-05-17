@@ -46,7 +46,7 @@ export function Dashboard() {
 
   const stats = useMemo(() => {
     const totalTracks = projects.reduce((s, p) => s + p.tracks.length, 0);
-    const totalTimeSaved = projects.reduce((s, p) => s + p.timeSaved, 0);
+    const totalTimeSaved = projects.reduce((s, p) => s + (p.timeSaved ?? 0), 0);
     const starredCount = projects.filter((p) => p.isStarred).length;
     return { totalTracks, totalTimeSaved, starredCount };
   }, [projects]);

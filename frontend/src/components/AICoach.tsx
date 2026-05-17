@@ -6,7 +6,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Lock, ChevronRight, Loader2, User, Bot, Music, Zap, AlertCircle } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
-import api from '../services/api';
+import { apiClient as api } from '../services/api';
 
 type CoachGenre = 'mentalcore' | 'hardtek' | 'tribe' | 'acidcore' | 'hardtechno' | 'general';
 type SkillLevel = 'beginner' | 'intermediate' | 'advanced';

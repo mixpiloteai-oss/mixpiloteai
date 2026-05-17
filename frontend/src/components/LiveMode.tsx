@@ -108,7 +108,7 @@ export function LiveMode() {
       if (!liveSession) return;
       setLiveSession({
         ...liveSession,
-        pads: liveSession.pads.map((p) =>
+        pads: (liveSession.pads ?? []).map((p) =>
           p.id === padId ? { ...p, isActive: !p.isActive } : p
         ),
       });
@@ -119,14 +119,16 @@ export function LiveMode() {
   const launchScene = useCallback(
     (sceneId: string) => {
       if (!liveSession) return;
+      const sessionScenes = liveSession.scenes ?? [];
+      const sessionPads = liveSession.pads ?? [];
       setLiveSession({
         ...liveSession,
-        scenes: liveSession.scenes.map((s) => ({
+        scenes: sessionScenes.map((s) => ({
           ...s,
           isPlaying: s.id === sceneId ? !s.isPlaying : false,
         })),
-        pads: liveSession.pads.map((p) => {
-          const scene = liveSession.scenes.find((s) => s.id === sceneId);
+        pads: sessionPads.map((p) => {
+          const scene = sessionScenes.find((s) => s.id === sceneId);
           if (!scene) return p;
           return { ...p, isActive: scene.pads.includes(p.id) ? !scene.isPlaying : false };
         }),

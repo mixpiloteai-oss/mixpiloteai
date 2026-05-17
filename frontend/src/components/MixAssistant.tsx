@@ -23,9 +23,9 @@ import { VuMeter } from './ui/VuMeter';
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.07 } } };
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 
-const severityColor = { low: '#10b981', medium: '#f59e0b', high: '#ef4444' };
-const priorityColor = { low: '#10b981', medium: '#f59e0b', high: '#ef4444' };
-const suggestionTypeColor = {
+const severityColor: Record<string, string> = { low: '#10b981', medium: '#f59e0b', high: '#ef4444' };
+const priorityColor: Record<string, string> = { low: '#10b981', medium: '#f59e0b', high: '#ef4444' };
+const suggestionTypeColor: Record<string, string> = {
   eq: '#06b6d4',
   compression: '#7c3aed',
   sidechain: '#f59e0b',
@@ -186,7 +186,7 @@ export function MixAssistant() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.08 }}
                 className="p-3 rounded-xl"
-                style={{ background: 'rgba(20,20,32,0.8)', border: `1px solid ${severityColor[conflict.severity]}25` }}
+                style={{ background: 'rgba(20,20,32,0.8)', border: `1px solid ${severityColor[conflict.severity ?? 'low']}25` }}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -196,7 +196,7 @@ export function MixAssistant() {
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <span className="text-[10px] font-mono text-text-muted">{conflict.frequency} Hz</span>
-                    <Badge color={severityColor[conflict.severity]} size="xs">{conflict.severity.toUpperCase()}</Badge>
+                    <Badge color={severityColor[conflict.severity ?? 'low']} size="xs">{(conflict.severity ?? 'low').toUpperCase()}</Badge>
                   </div>
                 </div>
                 <p className="text-xs text-text-secondary leading-relaxed">{conflict.suggestion}</p>
