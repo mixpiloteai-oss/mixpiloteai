@@ -57,6 +57,28 @@ export interface CrashInfo {
   checkpoint: unknown | null;
 }
 
+export interface AudioCacheEntry {
+  key: string;
+  url: string;
+  size: number;
+  mtime: number;
+  hits: number;
+  ext: string;
+  filePath: string;
+}
+
+export interface AudioCacheStats {
+  entryCount: number;
+  totalSizeBytes: number;
+  totalSizeMB: number;
+  maxSizeMB: number;
+  cacheDir: string;
+}
+
+export interface AudioCachePruneResult {
+  pruned: number;
+}
+
 export interface DesktopSettings {
   audioOutputDevice: string;
   audioInputDevice: string;
@@ -115,6 +137,16 @@ declare global {
       settingsSet: (key: string, val: unknown) => Promise<boolean>;
       settingsGetAll: () => Promise<DesktopSettings>;
       settingsReset: (key?: string) => Promise<boolean>;
+      // Audio cache
+      audioCacheIsCached: (url: string) => Promise<boolean>;
+      audioCacheGetPath: (url: string) => Promise<string | null>;
+      audioCacheFetch: (url: string) => Promise<string | null>;
+      audioCacheStore: (url: string, filePath: string) => Promise<boolean>;
+      audioCacheEvict: (url: string) => Promise<boolean>;
+      audioCacheStats: () => Promise<AudioCacheStats>;
+      audioCacheList: () => Promise<AudioCacheEntry[]>;
+      audioCachePrune: () => Promise<AudioCachePruneResult>;
+      audioCacheClear: () => Promise<boolean>;
       // Events
       onNav: (cb: (view: string) => void) => void;
       onOpenSettings: (cb: () => void) => void;
@@ -171,6 +203,15 @@ const webFallbacks = {
   settingsSet: (_key: string, _val: unknown): Promise<boolean> => Promise.resolve(false),
   settingsGetAll: (): Promise<DesktopSettings> => Promise.resolve({} as DesktopSettings),
   settingsReset: (_key?: string): Promise<boolean> => Promise.resolve(false),
+  audioCacheIsCached: (_url: string): Promise<boolean> => Promise.resolve(false),
+  audioCacheGetPath: (_url: string): Promise<string | null> => Promise.resolve(null),
+  audioCacheFetch: (_url: string): Promise<string | null> => Promise.resolve(null),
+  audioCacheStore: (_url: string, _filePath: string): Promise<boolean> => Promise.resolve(false),
+  audioCacheEvict: (_url: string): Promise<boolean> => Promise.resolve(false),
+  audioCacheStats: (): Promise<AudioCacheStats> => Promise.resolve({ entryCount: 0, totalSizeBytes: 0, totalSizeMB: 0, maxSizeMB: 500, cacheDir: '' }),
+  audioCacheList: (): Promise<AudioCacheEntry[]> => Promise.resolve([]),
+  audioCachePrune: (): Promise<AudioCachePruneResult> => Promise.resolve({ pruned: 0 }),
+  audioCacheClear: (): Promise<boolean> => Promise.resolve(false),
   onNav: (_cb: (view: string) => void) => _noop(),
   onOpenSettings: (_cb: () => void) => _noop(),
   onPowerEvent: (_cb: (event: string) => void) => _noop(),
@@ -219,6 +260,15 @@ export function useElectron() {
     settingsSet:                api?.settingsSet                ?? webFallbacks.settingsSet,
     settingsGetAll:             api?.settingsGetAll             ?? webFallbacks.settingsGetAll,
     settingsReset:              api?.settingsReset              ?? webFallbacks.settingsReset,
+    audioCacheIsCached:         api?.audioCacheIsCached         ?? webFallbacks.audioCacheIsCached,
+    audioCacheGetPath:          api?.audioCacheGetPath          ?? webFallbacks.audioCacheGetPath,
+    audioCacheFetch:            api?.audioCacheFetch            ?? webFallbacks.audioCacheFetch,
+    audioCacheStore:            api?.audioCacheStore            ?? webFallbacks.audioCacheStore,
+    audioCacheEvict:            api?.audioCacheEvict            ?? webFallbacks.audioCacheEvict,
+    audioCacheStats:            api?.audioCacheStats            ?? webFallbacks.audioCacheStats,
+    audioCacheList:             api?.audioCacheList             ?? webFallbacks.audioCacheList,
+    audioCachePrune:            api?.audioCachePrune            ?? webFallbacks.audioCachePrune,
+    audioCacheClear:            api?.audioCacheClear            ?? webFallbacks.audioCacheClear,
     onNav:                      api?.onNav                      ?? webFallbacks.onNav,
     onOpenSettings:             api?.onOpenSettings             ?? webFallbacks.onOpenSettings,
     onPowerEvent:               api?.onPowerEvent               ?? webFallbacks.onPowerEvent,

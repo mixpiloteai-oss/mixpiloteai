@@ -26,6 +26,7 @@ const os = require('os');
 const autosave      = require('./src/autosaveManager');
 const audioDevices  = require('./src/audioDeviceManager');
 const settings      = require('./src/desktopSettings');
+const audioCache    = require('./src/audioCacheManager');
 
 // ─── Dev / Prod detection ────────────────────────────────────────────────────
 const isDev = process.env.NODE_ENV === 'development';
@@ -270,6 +271,17 @@ ipcMain.handle('settings-get',    (_e, key)      => settings.get(key));
 ipcMain.handle('settings-set',    (_e, key, val) => settings.set(key, val));
 ipcMain.handle('settings-get-all',()             => settings.getAll());
 ipcMain.handle('settings-reset',  (_e, key)      => settings.reset(key));
+
+// ─── Audio cache IPC ─────────────────────────────────────────────────────────────
+ipcMain.handle('audio-cache-is-cached',    (_e, url)           => audioCache.isCached(url));
+ipcMain.handle('audio-cache-get-path',     (_e, url)           => audioCache.getCachedPath(url));
+ipcMain.handle('audio-cache-fetch',        async (_e, url)     => audioCache.fetchAndCache(url));
+ipcMain.handle('audio-cache-store',        (_e, url, filePath) => audioCache.storeInCache(url, filePath));
+ipcMain.handle('audio-cache-evict',        (_e, url)           => audioCache.evict(url));
+ipcMain.handle('audio-cache-stats',        ()                  => audioCache.getStats());
+ipcMain.handle('audio-cache-list',         ()                  => audioCache.listEntries());
+ipcMain.handle('audio-cache-prune',        ()                  => audioCache.prune());
+ipcMain.handle('audio-cache-clear',        ()                  => audioCache.clearAll());
 
 // ─── Backend process (dev only) ───────────────────────────────────────────────
 function startBackend() {

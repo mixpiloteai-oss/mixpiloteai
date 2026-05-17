@@ -68,6 +68,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onCrashRecoveryAvailable: (cb) => ipcRenderer.on('crash-recovery-available', (_event, info) => cb(info)),
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
 
+  // ── Audio cache ─────────────────────────────────────────────
+  audioCacheIsCached:  (url)           => ipcRenderer.invoke('audio-cache-is-cached', url),
+  audioCacheGetPath:   (url)           => ipcRenderer.invoke('audio-cache-get-path', url),
+  audioCacheFetch:     (url)           => ipcRenderer.invoke('audio-cache-fetch', url),
+  audioCacheStore:     (url, filePath) => ipcRenderer.invoke('audio-cache-store', url, filePath),
+  audioCacheEvict:     (url)           => ipcRenderer.invoke('audio-cache-evict', url),
+  audioCacheStats:     ()              => ipcRenderer.invoke('audio-cache-stats'),
+  audioCacheList:      ()              => ipcRenderer.invoke('audio-cache-list'),
+  audioCachePrune:     ()              => ipcRenderer.invoke('audio-cache-prune'),
+  audioCacheClear:     ()              => ipcRenderer.invoke('audio-cache-clear'),
+
   // ── Platform info (sync, safe) ───────────────────────────
   platform: process.platform,
   isElectron: true,
