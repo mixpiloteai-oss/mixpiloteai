@@ -19,9 +19,10 @@ const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { st
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 
 function RoutingDiagram({ template }: { template: Template }) {
-  const masters = template.routing.filter((n) => n.type === 'master');
-  const buses = template.routing.filter((n) => n.type === 'bus');
-  const tracks = template.routing.filter((n) => n.type === 'track');
+  const routing = template.routing ?? [];
+  const masters = routing.filter((n) => n.type === 'master');
+  const buses = routing.filter((n) => n.type === 'bus');
+  const tracks = routing.filter((n) => n.type === 'track');
 
   return (
     <div className="flex flex-col items-center gap-3 p-4">
@@ -276,12 +277,12 @@ export function TemplateGenerator() {
                       <div className="text-right flex-shrink-0">
                         <div className="text-xs text-text-muted mb-1">AI Confidence</div>
                         <div className="text-2xl font-bold text-emerald-400">
-                          {Math.round(generatedTemplate.aiConfidence * 100)}%
+                          {Math.round((generatedTemplate.aiConfidence ?? 0) * 100)}%
                         </div>
                         <div className="w-20 h-1.5 rounded-full mt-1 ml-auto" style={{ background: 'rgba(255,255,255,0.07)' }}>
                           <div
                             className="h-full rounded-full"
-                            style={{ width: `${generatedTemplate.aiConfidence * 100}%`, background: 'linear-gradient(90deg, #10b981, #06b6d4)' }}
+                            style={{ width: `${(generatedTemplate.aiConfidence ?? 0) * 100}%`, background: 'linear-gradient(90deg, #10b981, #06b6d4)' }}
                           />
                         </div>
                       </div>
@@ -308,12 +309,12 @@ export function TemplateGenerator() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-medium text-text-primary">{track.name}</span>
-                              <TrackTypeBadge type={track.type} />
+                              {track.type && <TrackTypeBadge type={track.type} />}
                             </div>
                             {track.notes && <p className="text-[10px] text-text-muted mt-0.5">{track.notes}</p>}
                           </div>
                           <div className="flex gap-1 flex-wrap justify-end">
-                            {track.suggestedFX.map((fx) => (
+                            {(track.suggestedFX ?? []).map((fx) => (
                               <span
                                 key={fx.name}
                                 className="text-[9px] px-1.5 py-0.5 rounded"

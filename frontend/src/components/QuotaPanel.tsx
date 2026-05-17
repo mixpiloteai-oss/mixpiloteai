@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, Crown, Star, TrendingUp, X, ChevronUp, ChevronDown, Check } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { subscriptionsApi } from '../services/api';
-import type { SubscriptionPlan } from '../types';
+import type { PlanInfo } from '../types';
 
 interface QuotaPanelProps {
   compact?: boolean;
@@ -29,7 +29,7 @@ export function QuotaPanel({ compact = false }: QuotaPanelProps) {
   const { user, quota } = auth;
 
   const [showUpgrade, setShowUpgrade] = useState(false);
-  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [plans, setPlans] = useState<PlanInfo[]>([]);
   const [upgrading, setUpgrading] = useState<string | null>(null);
 
   useEffect(() => {
@@ -150,7 +150,7 @@ export function QuotaPanel({ compact = false }: QuotaPanelProps) {
 
 // ── Upgrade Modal ────────────────────────────────────────────
 interface UpgradeModalProps {
-  plans: SubscriptionPlan[];
+  plans: PlanInfo[];
   currentPlan: string;
   upgrading: string | null;
   onUpgrade: (plan: string) => void;

@@ -71,7 +71,7 @@ function TrackRow({
               <TrackTypeBadge type={track.type} />
             </div>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[10px] text-text-muted">{track.fx.length} FX</span>
+              <span className="text-[10px] text-text-muted">{track.fx?.length ?? 0} FX</span>
               <span className="text-[10px] text-text-muted">·</span>
               <span className="text-[10px] text-text-muted">{track.clipCount} clips</span>
               {track.bpm && <span className="text-[10px] text-text-muted">· {track.bpm} BPM</span>}
@@ -85,7 +85,7 @@ function TrackRow({
           <VuMeter state={vuState} height={28} width={12} segments={8} showPeak={false} mono />
 
           <div className="w-24 hidden lg:block flex-shrink-0">
-            <Slider value={track.volume} min={0} max={127} color={track.color} onChange={onVolumeChange} />
+            <Slider value={track.volume ?? 100} min={0} max={127} color={track.color} onChange={onVolumeChange} />
           </div>
 
           <span className="text-[10px] font-mono text-text-muted w-6 text-right flex-shrink-0">{track.volume}</span>
@@ -131,11 +131,11 @@ function TrackRow({
             >
               <div className="px-4 pb-3 pt-1" style={{ borderTop: `1px solid ${track.color}15` }}>
                 <p className="text-[10px] text-text-muted uppercase tracking-wider mb-2">FX Chain</p>
-                {track.fx.length === 0 ? (
+                {(track.fx?.length ?? 0) === 0 ? (
                   <p className="text-xs text-text-muted">No effects</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {track.fx.map((fx, i) => (
+                    {(track.fx ?? []).map((fx, i) => (
                       <div
                         key={i}
                         className={clsx(
@@ -154,7 +154,7 @@ function TrackRow({
 
                 <div className="mt-3">
                   <Slider
-                    value={track.pan}
+                    value={track.pan ?? 0}
                     min={-64}
                     max={64}
                     color={track.color}
@@ -181,7 +181,7 @@ export function TrackOrganizer() {
   const sortedTracks = [...tracks].sort((a, b) => {
     if (sortBy === 'type') return trackTypeOrder.indexOf(a.type) - trackTypeOrder.indexOf(b.type);
     if (sortBy === 'name') return a.name.localeCompare(b.name);
-    return a.order - b.order;
+    return (a.order ?? 0) - (b.order ?? 0);
   });
 
   const handleMute = useCallback(

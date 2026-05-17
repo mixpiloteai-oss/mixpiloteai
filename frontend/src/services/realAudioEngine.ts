@@ -327,7 +327,7 @@ class RealAudioEngine {
 
     if (distortion > 0) {
       const wave = this.ctx.createWaveShaper();
-      wave.curve = makeDistortionCurve(distortion * 400);
+      wave.curve = makeDistortionCurve(distortion * 400) as unknown as Float32Array<ArrayBuffer>;
       osc.connect(wave);
       wave.connect(env);
     } else {
