@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a0a2e"/>
+      <stop offset="100%" style="stop-color:#0d1a2c"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a78bfa"/>
+      <stop offset="100%" style="stop-color:#06b6d4"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- Grid pattern -->
+  <g opacity="0.08" stroke="#a78bfa" stroke-width="1">
+    <line x1="128" y1="64" x2="128" y2="448"/>
+    <line x1="256" y1="64" x2="256" y2="448"/>
+    <line x1="384" y1="64" x2="384" y2="448"/>
+    <line x1="64" y1="128" x2="448" y2="128"/>
+    <line x1="64" y1="256" x2="448" y2="256"/>
+    <line x1="64" y1="384" x2="448" y2="384"/>
+  </g>
+  <!-- 4-square logo -->
+  <rect x="100" y="100" width="136" height="136" rx="20" fill="url(#glow)" opacity="0.9"/>
+  <rect x="276" y="100" width="136" height="136" rx="20" fill="url(#glow)" opacity="0.7"/>
+  <rect x="100" y="276" width="136" height="136" rx="20" fill="url(#glow)" opacity="0.7"/>
+  <rect x="276" y="276" width="136" height="136" rx="20" fill="url(#glow)" opacity="0.5"/>
+  <!-- Center accent -->
+  <circle cx="256" cy="256" r="24" fill="#fff" opacity="0.15"/>
+  <circle cx="256" cy="256" r="10" fill="url(#glow)"/>
+</svg>

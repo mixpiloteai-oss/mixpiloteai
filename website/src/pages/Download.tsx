@@ -1,8 +1,14 @@
 import { Link } from 'react-router-dom'
 import './Download.css'
 
+const VERSION = '1.0.0-beta.1'
+const RELEASE_DATE = 'May 14, 2025'
+const INSTALLER_NAME = `NeuroTek-AI-Setup-${VERSION}.exe`
+const INSTALLER_SIZE = '~120 MB'
+const PORTABLE_NAME = `NeuroTek-AI-Portable-${VERSION}.exe`
+
 const installSteps = [
-  { step: '1', icon: '⬇️', title: 'Download the installer', description: 'Click "Download for Windows" above to download the NeuroTekAI-Setup-1.0.0-beta.1.exe installer (~120 MB).' },
+  { step: '1', icon: '⬇️', title: 'Download the installer', description: `Click "Download for Windows" above to download ${INSTALLER_NAME}.` },
   { step: '2', icon: '🛡️', title: 'Run the installer', description: 'Double-click the .exe file. If Windows SmartScreen appears, click "More info" then "Run anyway". We are working on code signing.' },
   { step: '3', icon: '⚙️', title: 'Follow setup wizard', description: 'Choose your install directory and shortcut preferences. The installation takes about 30 seconds.' },
   { step: '4', icon: '🚀', title: 'Launch and create', description: 'Open NeuroTek AI from your desktop or Start menu. Sign in or continue as a guest to start making music immediately.' },
@@ -30,16 +36,16 @@ function Download() {
               </div>
               <div className="dl-version-info">
                 <div className="badge" style={{ marginBottom: '8px' }}><span className="badge-dot" />Latest Stable Beta</div>
-                <div className="dl-version-number">v1.0.0-beta.1</div>
-                <div className="dl-version-meta">Released May 14, 2025 &bull; ~120 MB &bull; .exe installer</div>
+                <div className="dl-version-number">v{VERSION}</div>
+                <div className="dl-version-meta">Released {RELEASE_DATE} &bull; {INSTALLER_SIZE} &bull; NSIS installer</div>
               </div>
               <a href="#" className="btn-primary dl-btn-main">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2v12M6 10l4 4 4-4M2 16h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                Download for Windows (.exe) — Free
+                Download {INSTALLER_NAME}
               </a>
               <a href="#" className="btn-secondary dl-btn-secondary">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2h12v12H2V2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /><path d="M5 8h6M8 5v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                Portable Version (.zip)
+                Portable Version ({PORTABLE_NAME})
               </a>
               <p className="dl-sha-hint">SHA-256 checksum available after download &bull; See <Link to="/changelog">Changelog</Link> for what's new</p>
             </div>
@@ -47,12 +53,12 @@ function Download() {
               <h3 className="dl-other-title">Other Platforms</h3>
               <div className="dl-platform-card dl-platform-disabled">
                 <div className="dl-platform-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" /></svg></div>
-                <div><div className="dl-platform-name">macOS</div><div className="dl-platform-status">Coming Soon</div></div>
+                <div><div className="dl-platform-name">macOS</div><div className="dl-platform-status">In internal testing</div></div>
                 <span className="dl-coming-soon-badge">Soon</span>
               </div>
               <div className="dl-platform-card dl-platform-disabled">
                 <div className="dl-platform-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" /></svg></div>
-                <div><div className="dl-platform-name">Linux</div><div className="dl-platform-status">Coming Soon</div></div>
+                <div><div className="dl-platform-name">Linux</div><div className="dl-platform-status">AppImage — planned 2025</div></div>
                 <span className="dl-coming-soon-badge">Soon</span>
               </div>
               <div className="dl-notify-box">
@@ -130,7 +136,7 @@ function Download() {
             <h2>Ready to start? <span className="gradient-text">It's free.</span></h2>
             <a href="#" className="btn-primary" style={{ fontSize: '16px', padding: '16px 36px' }}>
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 1v10M5 8l4 4 4-4M1 14h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              Download for Windows — Free
+              Download {INSTALLER_NAME}
             </a>
           </div>
         </div>
