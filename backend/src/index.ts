@@ -21,10 +21,35 @@ const PORT = Number(process.env.PORT) || 8080;
 const HOST = '0.0.0.0';
 
 // ── Middleware ───────────────────────────────────────────────
+const STATIC_ORIGINS = [
+  'https://mixpiloteai.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+const extraOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
+  : [];
+
+const allowedOrigins = Array.from(new Set([...STATIC_ORIGINS, ...extraOrigins]));
+
 app.use(cors({
-  origin: (process.env.CORS_ORIGINS ?? 'http://localhost:5173').split(','),
+  origin: (origin, callback) => {
+    // allow server-to-server / curl (no Origin header)
+    if (!origin) return callback(null, true);
+    // allow any *.vercel.app preview deployment
+    if (origin.endsWith('.vercel.app')) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
+// Ensure preflight OPTIONS requests return 200
+app.options('*', cors());
+
 app.use(express.json({ limit: '2mb' }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
