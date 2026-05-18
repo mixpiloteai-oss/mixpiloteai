@@ -7,21 +7,24 @@ import { WifiOff, Wifi } from 'lucide-react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
 export function OfflineBanner() {
-  const { isOnline, wasOffline, reconnecting } = useOnlineStatus();
-  const visible = !isOnline || wasOffline || reconnecting;
+  const { isOnline, wasOffline, reconnecting, backendReachable } = useOnlineStatus();
+  const backendDown = isOnline && backendReachable === false;
+  const visible = !isOnline || wasOffline || reconnecting || backendDown;
 
-  const bgColor = !isOnline
+  const bgColor = !isOnline || backendDown
     ? 'rgba(239,68,68,0.12)'
     : wasOffline
     ? 'rgba(16,185,129,0.12)'
     : 'rgba(245,158,11,0.12)';
 
-  const borderColor = !isOnline ? 'rgba(239,68,68,0.3)' : wasOffline ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)';
-  const textColor = !isOnline ? '#ef4444' : wasOffline ? '#10b981' : '#f59e0b';
+  const borderColor = !isOnline || backendDown ? 'rgba(239,68,68,0.3)' : wasOffline ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)';
+  const textColor = !isOnline || backendDown ? '#ef4444' : wasOffline ? '#10b981' : '#f59e0b';
   const message = reconnecting
     ? 'Reconnecting…'
     : !isOnline
-    ? 'You are offline — changes are saved locally'
+    ? 'You are offline — AI features unavailable'
+    : backendDown
+    ? 'Backend unreachable — AI features unavailable, DAW works offline'
     : 'Connection restored';
 
   return (
