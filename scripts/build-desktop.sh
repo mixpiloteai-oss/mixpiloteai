@@ -1,7 +1,17 @@
 #!/usr/bin/env bash
 # ============================================================
 # NeuroTek AI — Desktop Build Script
-# Usage: ./scripts/build-desktop.sh [win|mac|linux|all]
+#
+# Usage:
+#   ./scripts/build-desktop.sh [win|mac|linux|all]
+#
+# NOTE: Windows (.exe) builds require running on Windows or
+#   triggering the GitHub Actions workflow:
+#   .github/workflows/build-desktop-win.yml
+#
+# On Linux, this produces win-unpacked/ (functional Windows app)
+# but cannot generate the NSIS installer without Wine.
+# Use GitHub Actions for official release builds.
 # ============================================================
 set -euo pipefail
 
@@ -15,19 +25,26 @@ npm run build
 
 echo "[NeuroTek AI] Building Electron ($PLATFORM)..."
 cd "$ROOT_DIR/electron"
-npm ci --prefer-offline
+npm ci --prefer-offline --ignore-scripts
+
+export CSC_IDENTITY_AUTO_DISCOVERY=false
 
 case "$PLATFORM" in
-  win)   npm run build:win ;;
-  mac)   npm run build:mac ;;
-  linux) npm run build:linux ;;
-  all)   npm run build ;;
+  win)
+    npx electron-builder --win --x64
+    echo "[NeuroTek AI] Portable zip packaging..."
+    cd "$ROOT_DIR/electron/release"
+    VERSION=$(node -e "console.log(require('../package.json').version)")
+    zip -r "NeuroTek-AI-Portable-${VERSION}.zip" win-unpacked/ -q 2>/dev/null || true
+    ls -lh *.exe *.zip 2>/dev/null || ls -lh
+    ;;
+  mac)   npx electron-builder --mac ;;
+  linux) npx electron-builder --linux ;;
+  all)   npx electron-builder ;;
   *)
     echo "Unknown platform: $PLATFORM"
-    echo "Usage: $0 [win|mac|linux|all]"
     exit 1
     ;;
 esac
 
-echo "[NeuroTek AI] Build complete. Artifacts in electron/release/"
-ls -lh "$ROOT_DIR/electron/release/" 2>/dev/null || true
+echo "[NeuroTek AI] Done. Artifacts in electron/release/"

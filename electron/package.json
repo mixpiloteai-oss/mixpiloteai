@@ -4,23 +4,26 @@
   "description": "NeuroTek AI — Professional AI Music Production Desktop App",
   "main": "main.js",
   "private": true,
+  "author": "NeuroTek AI <hello@neurotek.ai>",
   "scripts": {
     "dev": "cross-env NODE_ENV=development electron .",
     "build": "electron-builder",
-    "build:win": "electron-builder --win --x64",
-    "build:win:portable": "electron-builder --win portable --x64",
+    "build:win": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --x64",
+    "build:win:portable": "cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable --x64",
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux"
   },
   "dependencies": {
-    "@julusian/midi": "^2.0.1",
-    "electron": "^28.0.0",
     "electron-store": "^8.2.0",
     "node-fetch": "^3.3.2"
+  },
+  "optionalDependencies": {
+    "@julusian/midi": "^3.5.0"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
+    "electron": "^28.0.0",
     "electron-builder": "^24.9.1",
     "wait-on": "^7.2.0"
   },
@@ -30,11 +33,14 @@
     "copyright": "Copyright © 2025 NeuroTek AI. All rights reserved.",
     "asar": true,
     "compression": "maximum",
+    "npmRebuild": false,
     "files": [
       "main.js",
       "preload.js",
       "src/**",
       "!src/**/*.test.js",
+      "node_modules/**",
+      "!node_modules/@julusian/**",
       "../frontend/dist/**",
       "!../frontend/dist/**/*.map"
     ],
@@ -67,7 +73,9 @@
       "icon": "assets/icon.ico",
       "publisherName": "NeuroTek AI",
       "verifyUpdateCodeSignature": false,
-      "requestedExecutionLevel": "asInvoker"
+      "requestedExecutionLevel": "asInvoker",
+      "sign": null,
+      "signingHashAlgorithms": null
     },
     "nsis": {
       "oneClick": false,
