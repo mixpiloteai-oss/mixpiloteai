@@ -1,88 +1,220 @@
-import { useRef } from 'react'
-import { useProjectStore } from '../../store/projectStore'
-import { useTransportStore } from '../../store/transportStore'
-import type { Track, Clip } from '../../types/project'
+import { useCallback }                from 'react'
+import { useArrangementViewStore }    from './useArrangementViewStore'
+import { useProjectStore }            from '../../store/projectStore'
+import TrackHeaders, { HEADER_W }     from './TrackHeaders'
+import TimeRuler                      from './TimeRuler'
+import ArrangementCanvas              from './ArrangementCanvas'
+import type { ARTool, ARSnap }        from './useArrangementViewStore'
 
-const HEADER_W = 200   // px — track header width
-const BAR_W    = 48    // px per bar at zoom 1×
-const TRACK_H  = 64    // px per track
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const RULER_H    = 32
+const TOOLS: { id: ARTool; label: string; key: string }[] = [
+  { id: 'pointer', label: 'Select',  key: 'V' },
+  { id: 'pencil',  label: 'Draw',    key: 'B' },
+  { id: 'split',   label: 'Split',   key: 'C' },
+  { id: 'erase',   label: 'Erase',   key: 'E' },
+]
+const SNAP_OPTIONS: ARSnap[] = ['off', '1/32', '1/16', '1/8', '1/4', '1/2', '1/1', '2/1', '4/1']
+
+// ─── Toolbar button ───────────────────────────────────────────────────────────
+
+function ToolBtn({ id, label, shortcut, active, onClick }: {
+  id:        ARTool
+  label:     string
+  shortcut:  string
+  active:    boolean
+  onClick:   () => void
+}) {
+  return (
+    <button
+      title={`${label} [${shortcut}]`}
+      onClick={onClick}
+      style={{
+        padding:      '2px 9px',
+        borderRadius: 4,
+        fontSize:     10,
+        fontWeight:   active ? 600 : 400,
+        cursor:       'pointer',
+        background:   active ? 'rgba(124,58,237,0.22)' : 'transparent',
+        color:        active ? '#a855f7' : '#475569',
+        border:       `1px solid ${active ? 'rgba(124,58,237,0.40)' : 'transparent'}`,
+        transition:   'all 0.12s',
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
+function Sep() {
+  return <div style={{ width: 1, height: 14, background: '#1c1c2e', margin: '0 4px' }} />
+}
+
+// ─── ArrangementView ─────────────────────────────────────────────────────────
 
 export default function ArrangementView() {
-  const { project, selectedTrackId, selectedClipId, selectTrack, selectClip, toggleMute, toggleSolo, toggleArm } = useProjectStore()
-  const { positionBar, playing } = useTransportStore()
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const { tool, snap, zoomX, scrollX, scrollY, setTool, setSnap, setZoom, setScroll, selectedClipIds, deselectAll } =
+    useArrangementViewStore()
+  const { project, deleteClips, duplicateClips } = useProjectStore()
 
-  const totalWidth = project.totalBars * BAR_W
+  // ── Toolbar actions ───────────────────────────────────────────────────────
+
+  const handleZoomIn  = useCallback(() => {
+    const { zoomX: zx, scrollX: sx } = useArrangementViewStore.getState()
+    setZoom(zx * 1.25)
+    setScroll(sx * 1.25, useArrangementViewStore.getState().scrollY)
+  }, [setZoom, setScroll])
+
+  const handleZoomOut = useCallback(() => {
+    const { zoomX: zx, scrollX: sx } = useArrangementViewStore.getState()
+    const newZx = Math.max(2, zx / 1.25)
+    setZoom(newZx)
+    setScroll(Math.max(0, sx / 1.25), useArrangementViewStore.getState().scrollY)
+  }, [setZoom, setScroll])
+
+  const handleZoomFit = useCallback(() => {
+    const containerW = window.innerWidth - HEADER_W
+    const { totalBars, timeSignatureNumerator } = project
+    const fitZoom = containerW / (totalBars * timeSignatureNumerator)
+    setZoom(fitZoom)
+    setScroll(0, useArrangementViewStore.getState().scrollY)
+  }, [project, setZoom, setScroll])
+
+  const handleDeleteSelected = useCallback(() => {
+    const ids = [...useArrangementViewStore.getState().selectedClipIds]
+    if (ids.length) { deleteClips(ids); deselectAll() }
+  }, [deleteClips, deselectAll])
+
+  const handleDuplicateSelected = useCallback(() => {
+    const ids = [...useArrangementViewStore.getState().selectedClipIds]
+    if (ids.length) duplicateClips(ids)
+  }, [duplicateClips])
+
+  const selCount = selectedClipIds.size
 
   return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ background: '#0a0a0f' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#08080f', overflow: 'hidden' }}>
 
-      {/* Time ruler row */}
-      <div className="flex shrink-0" style={{ height: 28, borderBottom: '1px solid #1c1c2e' }}>
-        {/* Blank corner above headers */}
-        <div style={{ width: HEADER_W, minWidth: HEADER_W, background: '#08080f', borderRight: '1px solid #1c1c2e' }} />
+      {/* ── Toolbar ─────────────────────────────────────────────────────────── */}
+      <div style={{
+        display:       'flex',
+        alignItems:    'center',
+        gap:           6,
+        padding:       '0 12px',
+        height:        36,
+        flexShrink:    0,
+        background:    '#0b0b14',
+        borderBottom:  '1px solid rgba(255,255,255,0.06)',
+      }}>
+        {/* Title */}
+        <span style={{
+          fontSize:      10,
+          fontWeight:    700,
+          letterSpacing: '0.12em',
+          color:         '#2d2d42',
+          textTransform: 'uppercase',
+          marginRight:   4,
+        }}>
+          Arrangement
+        </span>
 
-        {/* Ruler */}
-        <div className="overflow-hidden flex-1 relative" style={{ background: '#08080f' }}>
-          <TimeRuler totalBars={project.totalBars} loopStart={project.loopStart} loopEnd={project.loopEnd} />
+        {/* Tools */}
+        {TOOLS.map(t => (
+          <ToolBtn
+            key={t.id}
+            id={t.id}
+            label={t.label}
+            shortcut={t.key}
+            active={tool === t.id}
+            onClick={() => setTool(t.id)}
+          />
+        ))}
+
+        <Sep />
+
+        {/* Snap */}
+        <span style={{ fontSize: 9, color: '#334155' }}>SNAP</span>
+        <select
+          value={snap}
+          onChange={e => setSnap(e.target.value as ARSnap)}
+          style={{
+            fontSize:     10,
+            padding:      '1px 4px',
+            borderRadius: 4,
+            background:   '#0e0e1c',
+            border:       '1px solid #1c1c2e',
+            color:        '#64748b',
+            outline:      'none',
+            cursor:       'pointer',
+          }}
+        >
+          {SNAP_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+
+        <Sep />
+
+        {/* Zoom */}
+        <span style={{ fontSize: 9, color: '#334155' }}>ZOOM</span>
+        <button onClick={handleZoomOut} style={zoomBtnStyle}>−</button>
+        <div style={{
+          fontSize:  9,
+          color:     '#334155',
+          width:     40,
+          textAlign: 'center',
+          fontFamily:'monospace',
+        }}>
+          {zoomX < 10 ? zoomX.toFixed(1) : Math.round(zoomX)}×
         </div>
+        <button onClick={handleZoomIn}  style={zoomBtnStyle}>+</button>
+        <button onClick={handleZoomFit} style={{ ...zoomBtnStyle, width: 'auto', padding: '0 6px', fontSize: 9 }}>Fit</button>
+
+        <Sep />
+
+        {/* Edit actions */}
+        <button
+          onClick={handleDuplicateSelected}
+          disabled={selCount === 0}
+          title="Duplicate selected [Ctrl+D]"
+          style={{ ...actionBtnStyle, opacity: selCount > 0 ? 1 : 0.35 }}
+        >
+          Dup {selCount > 0 ? `(${selCount})` : ''}
+        </button>
+        <button
+          onClick={handleDeleteSelected}
+          disabled={selCount === 0}
+          title="Delete selected [Delete]"
+          style={{ ...actionBtnStyle, opacity: selCount > 0 ? 1 : 0.35 }}
+        >
+          Del
+        </button>
+
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
+
+        {/* Project stats */}
+        <span style={{ fontSize: 9, color: '#1c1c2e', fontFamily: 'monospace' }}>
+          {project.totalBars} bars · {project.bpm} BPM
+        </span>
       </div>
 
-      {/* Body — headers + lanes */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* ── Body ────────────────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-        {/* Track headers (fixed) */}
-        <div
-          className="shrink-0 overflow-y-auto"
-          style={{ width: HEADER_W, minWidth: HEADER_W, background: '#08080f', borderRight: '1px solid #1c1c2e' }}
-        >
-          {project.tracks.map(track => (
-            <TrackHeader
-              key={track.id}
-              track={track}
-              selected={selectedTrackId === track.id}
-              onSelect={() => selectTrack(track.id)}
-              onMute={() => toggleMute(track.id)}
-              onSolo={() => toggleSolo(track.id)}
-              onArm={() => toggleArm(track.id)}
-            />
-          ))}
-          {/* Add track button */}
-          <button
-            className="w-full h-8 flex items-center justify-center gap-1 text-xs text-studio-muted/50 hover:text-studio-muted transition-colors"
-            style={{ borderTop: '1px solid #1c1c2e' }}
-          >
-            <span>+</span> Add Track
-          </button>
-        </div>
+        {/* Track headers (fixed left) */}
+        <TrackHeaders scrollY={scrollY} rulerHeight={RULER_H} />
 
-        {/* Lane area (scrolls horizontally) */}
-        <div ref={scrollRef} className="flex-1 overflow-auto relative">
-          <div style={{ width: totalWidth, minHeight: '100%', position: 'relative' }}>
-            {/* Playhead */}
-            <Playhead bar={positionBar} playing={playing} />
+        {/* Timeline area (right of headers) */}
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
 
-            {/* Beat grid */}
-            <BeatGrid totalBars={project.totalBars} tracks={project.tracks} />
+          {/* Time ruler (fixed top) */}
+          <div style={{ height: RULER_H, flexShrink: 0, overflow: 'hidden' }}>
+            <TimeRuler height={RULER_H} />
+          </div>
 
-            {/* Clips */}
-            {project.tracks.map((track, i) => (
-              <div
-                key={track.id}
-                className="absolute"
-                style={{ top: i * TRACK_H, height: TRACK_H, left: 0, right: 0 }}
-              >
-                {track.clips.map(clip => (
-                  <ClipBlock
-                    key={clip.id}
-                    clip={clip}
-                    track={track}
-                    selected={selectedClipId === clip.id}
-                    onSelect={() => { selectTrack(track.id); selectClip(clip.id) }}
-                  />
-                ))}
-              </div>
-            ))}
+          {/* Main canvas (fills remaining space) */}
+          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+            <ArrangementCanvas headerWidth={HEADER_W} rulerHeight={RULER_H} />
           </div>
         </div>
       </div>
@@ -90,166 +222,30 @@ export default function ArrangementView() {
   )
 }
 
-function TrackHeader({ track, selected, onSelect, onMute, onSolo, onArm }: {
-  track: Track; selected: boolean
-  onSelect: () => void; onMute: () => void; onSolo: () => void; onArm: () => void
-}) {
-  return (
-    <div
-      onClick={onSelect}
-      className="flex items-center gap-1.5 px-2 cursor-pointer transition-colors shrink-0"
-      style={{
-        height: TRACK_H,
-        borderBottom: '1px solid #1c1c2e',
-        background: selected ? 'rgba(124,58,237,0.06)' : 'transparent',
-        borderLeft: selected ? `2px solid ${track.color}` : '2px solid transparent',
-      }}
-    >
-      {/* Color swatch */}
-      <div className="w-1 h-8 rounded-full shrink-0" style={{ background: track.color }} />
+// ─── Button styles ────────────────────────────────────────────────────────────
 
-      {/* Name + type */}
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium truncate" style={{ color: selected ? '#e2e8f0' : '#94a3b8' }}>{track.name}</p>
-        <p className="text-[10px] uppercase tracking-wide" style={{ color: track.color, opacity: 0.7 }}>{track.type}</p>
-      </div>
-
-      {/* Controls */}
-      <div className="flex items-center gap-0.5">
-        <TrackBtn active={track.muted} onClick={onMute} activeColor="#f59e0b" title="Mute">M</TrackBtn>
-        <TrackBtn active={track.soloed} onClick={onSolo} activeColor="#06b6d4" title="Solo">S</TrackBtn>
-        <TrackBtn active={track.armed} onClick={onArm} activeColor="#ef4444" title="Record Arm">R</TrackBtn>
-      </div>
-    </div>
-  )
+const zoomBtnStyle: React.CSSProperties = {
+  width:         22,
+  height:        22,
+  borderRadius:  3,
+  background:    '#0e0e1c',
+  border:        '1px solid #1c1c2e',
+  color:         '#475569',
+  fontSize:      14,
+  lineHeight:    '20px',
+  cursor:        'pointer',
+  display:       'flex',
+  alignItems:    'center',
+  justifyContent:'center',
+  padding:       0,
 }
 
-function TrackBtn({ children, active, onClick, activeColor, title }: {
-  children: React.ReactNode; active: boolean; onClick: (e: React.MouseEvent) => void; activeColor: string; title: string
-}) {
-  return (
-    <button
-      title={title}
-      onClick={e => { e.stopPropagation(); onClick(e) }}
-      className="w-5 h-5 rounded text-[9px] font-bold transition-all"
-      style={{
-        background: active ? `${activeColor}25` : 'rgba(255,255,255,0.04)',
-        color:      active ? activeColor : '#334155',
-        border:     `1px solid ${active ? activeColor + '50' : 'transparent'}`,
-      }}
-    >
-      {children}
-    </button>
-  )
-}
-
-function ClipBlock({ clip, track, selected, onSelect }: {
-  clip: Clip; track: Track; selected: boolean; onSelect: () => void
-}) {
-  const left   = (clip.startBar - 1) * BAR_W
-  const width  = clip.lengthBars * BAR_W - 2
-  const top    = 6
-  const height = TRACK_H - 12
-
-  return (
-    <div
-      onClick={onSelect}
-      title={clip.name}
-      className="absolute rounded-lg overflow-hidden cursor-pointer transition-all group"
-      style={{
-        left, top, width, height,
-        background:   `${clip.color}18`,
-        border:       `1px solid ${selected ? clip.color : clip.color + '55'}`,
-        boxShadow:    selected ? `0 0 10px ${clip.color}40` : 'none',
-        opacity:      clip.muted || track.muted ? 0.35 : 1,
-      }}
-    >
-      {/* Waveform bars (decorative) */}
-      <div className="absolute inset-0 flex items-end gap-px px-1 pb-1 opacity-40">
-        {Array.from({ length: Math.max(4, clip.lengthBars * 4) }).map((_, i) => (
-          <div key={i} className="flex-1 rounded-t-sm" style={{
-            background: clip.color,
-            height: `${25 + Math.sin(i * 0.8) * 15 + Math.random() * 20}%`,
-          }} />
-        ))}
-      </div>
-      {/* Clip name */}
-      <p className="relative text-[10px] font-medium px-1.5 pt-1 truncate" style={{ color: clip.color }}>
-        {clip.name}
-      </p>
-    </div>
-  )
-}
-
-function TimeRuler({ totalBars, loopStart, loopEnd }: { totalBars: number; loopStart: number; loopEnd: number }) {
-  return (
-    <div className="relative h-full" style={{ width: totalBars * BAR_W }}>
-      {/* Loop region */}
-      <div
-        className="absolute top-0 bottom-0 opacity-20"
-        style={{
-          left:       (loopStart - 1) * BAR_W,
-          width:      (loopEnd - loopStart) * BAR_W,
-          background: 'rgba(124,58,237,0.4)',
-        }}
-      />
-      {/* Bar numbers */}
-      {Array.from({ length: totalBars }).map((_, i) => (
-        <div
-          key={i}
-          className="absolute flex items-center"
-          style={{ left: i * BAR_W, top: 0, height: '100%', width: BAR_W }}
-        >
-          <div style={{ width: 1, height: '60%', background: i % 4 === 0 ? '#2e2e42' : '#1c1c2e' }} />
-          {i % 4 === 0 && (
-            <span className="text-[9px] font-mono pl-1" style={{ color: '#334155' }}>{i + 1}</span>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function BeatGrid({ totalBars, tracks }: { totalBars: number; tracks: Track[] }) {
-  return (
-    <div className="absolute inset-0 pointer-events-none">
-      {Array.from({ length: totalBars }).map((_, i) => (
-        <div
-          key={i}
-          className="absolute top-0 bottom-0"
-          style={{
-            left:        i * BAR_W,
-            width:       1,
-            background:  i % 4 === 0 ? '#1c1c2e' : '#13131f',
-          }}
-        />
-      ))}
-      {tracks.map((_, ti) => (
-        <div
-          key={ti}
-          className="absolute"
-          style={{ top: ti * TRACK_H + TRACK_H - 1, left: 0, right: 0, height: 1, background: '#13131f' }}
-        />
-      ))}
-    </div>
-  )
-}
-
-function Playhead({ bar, playing }: { bar: number; playing: boolean }) {
-  return (
-    <div
-      className="absolute top-0 bottom-0 pointer-events-none z-10"
-      style={{
-        left:      (bar - 1) * BAR_W,
-        width:     2,
-        background: playing ? '#a855f7' : '#475569',
-        boxShadow:  playing ? '0 0 8px rgba(168,85,247,0.6)' : 'none',
-      }}
-    >
-      <div className="w-3 h-3 -ml-[5px] -mt-0.5" style={{
-        background:  playing ? '#a855f7' : '#475569',
-        clipPath: 'polygon(50% 100%, 0 0, 100% 0)',
-      }} />
-    </div>
-  )
+const actionBtnStyle: React.CSSProperties = {
+  padding:      '2px 8px',
+  borderRadius: 4,
+  background:   'transparent',
+  border:       '1px solid #1c1c2e',
+  color:        '#475569',
+  fontSize:     10,
+  cursor:       'pointer',
 }

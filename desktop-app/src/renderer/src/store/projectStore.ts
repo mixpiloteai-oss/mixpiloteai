@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Project, Clip } from '../types/project'
+import type { Project, Clip, Track } from '../types/project'
 
 const TRACK_COLORS = ['#7c3aed','#06b6d4','#f59e0b','#10b981','#ef4444','#8b5cf6','#ec4899','#14b8a6']
 
@@ -87,6 +87,16 @@ interface ProjectStore {
   setTrackGain: (trackId: string, db: number) => void
   setTrackPan: (trackId: string, pan: number) => void
   setProjectName: (name: string) => void
+  // Arrangement actions
+  moveClip: (clipId: string, newStartBar: number, newTrackId: string) => void
+  resizeClip: (clipId: string, newStartBar: number, newLengthBars: number) => void
+  addClip: (clip: Clip) => void
+  deleteClips: (clipIds: string[]) => void
+  splitClip: (clipId: string, atBar: number) => void
+  duplicateClips: (clipIds: string[]) => void
+  addTrack: (track: Track) => void
+  setTrackHeight: (trackId: string, height: number) => void
+  setLoopRegion: (startBar: number, endBar: number) => void
 }
 
 export const useProjectStore = create<ProjectStore>((set) => ({
@@ -118,4 +128,118 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   })),
 
   setProjectName: (name) => set(s => ({ project: { ...s.project, name } })),
+
+  moveClip: (clipId, newStartBar, newTrackId) => set(s => {
+    const tracks = s.project.tracks.map(t => ({
+      ...t,
+      clips: t.clips.filter(c => c.id !== clipId),
+    }))
+    let movedClip: Clip | undefined
+    s.project.tracks.forEach(t => {
+      const found = t.clips.find(c => c.id === clipId)
+      if (found) movedClip = { ...found, startBar: newStartBar, trackId: newTrackId }
+    })
+    if (!movedClip) return {}
+    const finalTracks = tracks.map(t =>
+      t.id === newTrackId ? { ...t, clips: [...t.clips, movedClip!] } : t
+    )
+    return { project: { ...s.project, tracks: finalTracks } }
+  }),
+
+  resizeClip: (clipId, newStartBar, newLengthBars) => set(s => ({
+    project: {
+      ...s.project,
+      tracks: s.project.tracks.map(t => ({
+        ...t,
+        clips: t.clips.map(c =>
+          c.id === clipId ? { ...c, startBar: newStartBar, lengthBars: newLengthBars } : c
+        ),
+      })),
+    },
+  })),
+
+  addClip: (clip) => set(s => ({
+    project: {
+      ...s.project,
+      tracks: s.project.tracks.map(t =>
+        t.id === clip.trackId ? { ...t, clips: [...t.clips, clip] } : t
+      ),
+    },
+  })),
+
+  deleteClips: (clipIds) => set(s => ({
+    project: {
+      ...s.project,
+      tracks: s.project.tracks.map(t => ({
+        ...t,
+        clips: t.clips.filter(c => !clipIds.includes(c.id)),
+      })),
+    },
+  })),
+
+  splitClip: (clipId, atBar) => set(s => {
+    let left: Clip | undefined
+    let right: Clip | undefined
+    s.project.tracks.forEach(t => {
+      const clip = t.clips.find(c => c.id === clipId)
+      if (!clip) return
+      if (atBar <= clip.startBar || atBar >= clip.startBar + clip.lengthBars) return
+      left  = { ...clip, id: `${clip.id}-L`, lengthBars: atBar - clip.startBar }
+      right = { ...clip, id: `${clip.id}-R`, startBar: atBar, lengthBars: clip.startBar + clip.lengthBars - atBar }
+    })
+    if (!left || !right) return {}
+    return {
+      project: {
+        ...s.project,
+        tracks: s.project.tracks.map(t => ({
+          ...t,
+          clips: [
+            ...t.clips.filter(c => c.id !== clipId),
+            ...(t.clips.some(c => c.id === clipId) ? [left!, right!] : []),
+          ],
+        })),
+      },
+    }
+  }),
+
+  duplicateClips: (clipIds) => set(s => {
+    const newClips: Clip[] = []
+    s.project.tracks.forEach(t => {
+      t.clips.forEach(c => {
+        if (clipIds.includes(c.id)) {
+          newClips.push({ ...c, id: `${c.id}-dup-${Date.now()}`, startBar: c.startBar + c.lengthBars })
+        }
+      })
+    })
+    const byTrack = new Map<string, Clip[]>()
+    newClips.forEach(c => {
+      const arr = byTrack.get(c.trackId) ?? []
+      arr.push(c)
+      byTrack.set(c.trackId, arr)
+    })
+    return {
+      project: {
+        ...s.project,
+        tracks: s.project.tracks.map(t => ({
+          ...t,
+          clips: [...t.clips, ...(byTrack.get(t.id) ?? [])],
+        })),
+      },
+    }
+  }),
+
+  addTrack: (track) => set(s => ({
+    project: { ...s.project, tracks: [...s.project.tracks, track] },
+  })),
+
+  setTrackHeight: (trackId, height) => set(s => ({
+    project: {
+      ...s.project,
+      tracks: s.project.tracks.map(t => t.id === trackId ? { ...t, height } : t),
+    },
+  })),
+
+  setLoopRegion: (startBar, endBar) => set(s => ({
+    project: { ...s.project, loopStart: startBar, loopEnd: endBar },
+  })),
 }))
