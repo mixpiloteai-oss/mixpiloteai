@@ -4,7 +4,7 @@ import './Login.css'
 
 type Mode = 'signin' | 'signup' | 'reset'
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'https://neurotek-ai-backend.onrender.com'
+const API_URL = import.meta.env.VITE_API_URL ?? 'https://mixpiloteai-production.up.railway.app'
 
 async function apiPost(path: string, body: object) {
   const res = await fetch(`${API_URL}${path}`, {
