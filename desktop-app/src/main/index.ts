@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, shell, ipcMain, Tray, nativeTheme, globalShortcut, dialog, powerMonitor } from 'electron'
+import { app, BrowserWindow, Menu, shell, ipcMain, dialog, powerMonitor } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import audioModule from './modules/audio'
@@ -9,7 +9,6 @@ import autosaveModule from './modules/autosave'
 import updaterModule from './modules/updater'
 
 let mainWindow: BrowserWindow | null = null
-let tray: Tray | null = null
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({

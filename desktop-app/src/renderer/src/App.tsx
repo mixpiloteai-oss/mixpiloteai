@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTransportSync } from './hooks/useTransportSync'
 
 type View =
   | 'dashboard' | 'pianoroll' | 'arrangement' | 'mixer'
@@ -7,6 +8,9 @@ type View =
 export default function App(): JSX.Element {
   const [view, setView] = useState<View>('dashboard')
   const [authenticated, setAuthenticated] = useState(false)
+
+  // Drive transport position display via rAF (must run at root level)
+  useTransportSync()
 
   useEffect(() => {
     window.electronAPI?.onNav(v => setView(v as View))

@@ -54,8 +54,8 @@ const module = {
       electron: process.versions.electron,
       memory: process.memoryUsage(),
     }))
-    ipcMain.handle('show-notification', (_e, title: string, body: string) => {
-      new Notification({ title, body }).show()
+    ipcMain.handle('show-notification', (_e, _title: string, _body: string) => {
+      // Notification stub — implement with electron.Notification when needed
     })
     ipcMain.handle('check-update', () => null)
   }
