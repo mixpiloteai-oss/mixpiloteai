@@ -37,4 +37,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: website-dist
-          path: website/dist/
+          path: website/out/

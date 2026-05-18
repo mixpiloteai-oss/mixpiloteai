@@ -1,0 +1,104 @@
+{
+  "name": "neurotek-studio",
+  "version": "0.2.0",
+  "description": "Neurotek Studio — AI-Powered Desktop DAW",
+  "private": true,
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "build:win": "npm run build && electron-builder --win --x64",
+    "build:mac": "npm run build && electron-builder --mac",
+    "build:linux": "npm run build && electron-builder --linux",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
+  },
+  "dependencies": {
+    "@electron-toolkit/preload": "^3.0.0",
+    "@electron-toolkit/utils": "^3.0.0",
+    "axios": "^1.7.2",
+    "clsx": "^2.1.1",
+    "electron-store": "^8.2.0",
+    "electron-updater": "^6.1.7",
+    "framer-motion": "^11.3.8",
+    "i18next": "^23.12.2",
+    "i18next-browser-languagedetector": "^8.0.0",
+    "lucide-react": "^0.408.0",
+    "react": "^18.3.1",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
+    "react-dom": "^18.3.1",
+    "react-i18next": "^15.0.1",
+    "zustand": "^4.5.4"
+  },
+  "devDependencies": {
+    "@electron-toolkit/eslint-config-ts": "^2.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "electron": "^31.3.1",
+    "electron-builder": "^24.13.3",
+    "electron-vite": "^2.3.0",
+    "postcss": "^8.4.40",
+    "tailwindcss": "^3.4.7",
+    "typescript": "^5.5.4",
+    "vite": "^5.3.5"
+  },
+  "build": {
+    "appId": "ai.neurotek.studio",
+    "productName": "Neurotek Studio",
+    "copyright": "Copyright © 2025 NeuroTek AI. All rights reserved.",
+    "asar": true,
+    "directories": { "output": "release", "buildResources": "assets" },
+    "files": ["out/**/*"],
+    "fileAssociations": [
+      {
+        "ext": "ntai",
+        "name": "Neurotek Studio Project",
+        "description": "Neurotek Studio music production project",
+        "mimeType": "application/x-neurotek-studio"
+      }
+    ],
+    "protocols": [{ "name": "Neurotek Studio", "schemes": ["neurotek"] }],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "assets/icon.ico",
+      "publisherName": "NeuroTek AI",
+      "verifyUpdateCodeSignature": false,
+      "requestedExecutionLevel": "asInvoker",
+      "sign": null
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Neurotek Studio",
+      "artifactName": "Neurotek-Studio-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Neurotek-Studio-Portable-${version}.${ext}"
+    },
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
+      "icon": "assets/icon.png",
+      "category": "public.app-category.music",
+      "darkModeSupport": true,
+      "artifactName": "Neurotek-Studio-${version}.${ext}"
+    },
+    "linux": {
+      "target": [{ "target": "AppImage", "arch": ["x64"] }],
+      "icon": "assets/icon.png",
+      "category": "Audio",
+      "artifactName": "Neurotek-Studio-${version}.${ext}"
+    },
+    "publish": null
+  }
+}
