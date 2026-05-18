@@ -2,6 +2,9 @@
   "name": "neurotek-ai-backend",
   "version": "0.2.0",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only -r dotenv/config src/index.ts",
     "build": "tsc",
