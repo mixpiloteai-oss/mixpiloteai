@@ -10,6 +10,9 @@ import { OfflineBanner } from './components/OfflineBanner';
 import { LoadingScreen } from './components/LoadingScreen';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
+import { BetaBanner } from './components/BetaBanner';
+import { WelcomeModal } from './components/WelcomeModal';
+import { UpdateChecker } from './components/UpdateChecker';
 import { authApi, getAccessToken } from './services/api';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import type { AuthUser, QuotaInfo, ViewType } from './types';
@@ -168,6 +171,7 @@ export default function App() {
               <AppShortcuts />
               <Sidebar />
               <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+                <BetaBanner />
                 <Header />
                 <main className="flex-1 overflow-hidden">
                   <ViewContent />
@@ -178,6 +182,8 @@ export default function App() {
                   <Onboarding onComplete={() => setShowOnboarding(false)} />
                 </Suspense>
               )}
+              <WelcomeModal />
+              <UpdateChecker />
             </motion.div>
           )}
         </div>
