@@ -90,7 +90,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
   debugGetAppPaths:     ()                  => ipcRenderer.invoke('debug-get-app-paths'),
   onPerfStats: (cb)    => ipcRenderer.on('perf-stats', (_event, stats) => cb(stats)),
 
+  // ── Extra window / app info ──────────────────────────────
+  isMaximized:           ()           => ipcRenderer.invoke('is-maximized'),
+  getVSTPlugins:         ()           => ipcRenderer.invoke('get-vst-plugins'),
+  getPerformanceMetrics: ()           => ipcRenderer.invoke('get-performance-metrics'),
+  getAudioSettings:      ()           => ipcRenderer.invoke('get-audio-settings'),
+  setAudioSettings:      (s)          => ipcRenderer.invoke('set-audio-settings', s),
+  openFileDialog:        (opts)       => ipcRenderer.invoke('open-file-dialog', opts),
+  saveFileDialog:        (opts)       => ipcRenderer.invoke('save-file-dialog', opts),
+  readFile:              (p)          => ipcRenderer.invoke('read-file', p),
+  writeFile:             (p, content) => ipcRenderer.invoke('write-file', p, content),
+  showNotification:      (title, body) => ipcRenderer.invoke('show-notification', title, body),
+  onDeepLink:            (cb) => ipcRenderer.on('deep-link', (_e, url) => cb(url)),
+  onMenuAction:          (cb) => ipcRenderer.on('menu-action', (_e, action) => cb(action)),
+  removeListener:        (channel) => ipcRenderer.removeAllListeners(channel),
+
   // ── Platform info (sync, safe) ───────────────────────────
   platform: process.platform,
   isElectron: true,
+  get version() { return require('./package.json').version; },
+  get appVersion() { return require('./package.json').version; },
 });

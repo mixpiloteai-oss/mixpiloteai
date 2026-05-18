@@ -296,6 +296,7 @@ ipcMain.handle('debug-crash-dir',        () => crashLogger.getCrashDir());
 
 ipcMain.handle('debug-open-devtools', () => {
   mainWindow?.webContents.openDevTools({ mode: 'detach' });
+  return Promise.resolve();
 });
 
 ipcMain.handle('debug-get-app-paths', () => ({
@@ -306,6 +307,48 @@ ipcMain.handle('debug-get-app-paths', () => ({
   appPath:   app.getAppPath(),
   crashDir:  crashLogger.getCrashDir(),
 }));
+
+// ─── Additional IPC handlers ─────────────────────────────────────────────────
+ipcMain.handle('get-app-version', () => ({ version: app.getVersion(), appVersion: app.getVersion() }));
+ipcMain.handle('is-maximized',    () => mainWindow?.isMaximized() ?? false);
+ipcMain.handle('get-vst-plugins', async () => {
+  try { return require('./src/vstScanner').scanVSTPlugins(); }
+  catch (err) { console.error('[VST]', err.message); return []; }
+});
+ipcMain.handle('get-performance-metrics', () => {
+  const stats = perfMonitor.getStats();
+  return {
+    cpuUsage:        stats.cpuPercent ?? 0,
+    memoryUsage:     stats.memPercent ?? 0,
+    audioBufferLoad: 0,
+    diskReadSpeed:   0,
+    uptime:          stats.uptimeSec ?? 0,
+  };
+});
+ipcMain.handle('get-audio-settings', () => settings.get('audioSettings') ?? {
+  sampleRate: 44100, bufferSize: 256, outputDevice: 'default', inputDevice: 'default', latencyMode: 'normal',
+});
+ipcMain.handle('set-audio-settings', (_e, s) => settings.set('audioSettings', s));
+ipcMain.handle('open-file-dialog', async (_e, opts = {}) => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile', ...(opts.multiple ? ['multiSelections'] : [])],
+    filters: opts.filters ?? [],
+  });
+  return result.canceled ? [] : result.filePaths;
+});
+ipcMain.handle('save-file-dialog', async (_e, opts = {}) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: opts.defaultPath,
+    filters: opts.filters ?? [],
+  });
+  return result.canceled ? null : result.filePath;
+});
+ipcMain.handle('read-file',  (_e, p) => fs.promises.readFile(p, 'utf8'));
+ipcMain.handle('write-file', (_e, p, content) => fs.promises.writeFile(p, content, 'utf8'));
+ipcMain.handle('show-notification', (_e, title, body) => {
+  const { Notification } = require('electron');
+  if (Notification.isSupported()) new Notification({ title, body }).show();
+});
 
 // ─── Backend process (dev only) ───────────────────────────────────────────────
 function startBackend() {
