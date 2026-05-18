@@ -5,21 +5,48 @@
  *
  * Lazy-initialised on first access so the AudioContext is only created
  * after the first user gesture (Electron suspends it otherwise).
+ *
+ * Layer map:
+ *   AudioEngine     — Web Audio context + master bus
+ *   Transport       — play/stop/loop/BPM (drives Clock)
+ *   MetronomeEngine — oscillator click track
+ *   WaveformLoader  — AudioBuffer LRU cache
+ *   TrackMixer      — low-level channel strips (gain/pan/analyser)
+ *   BusRouter       — send/return bus routing
+ *   AutomationEngine— parameter automation record/playback
+ *   LatencyCompensator — PDC via DelayNodes
+ *   MonitorEngine   — input monitoring + cue bus
+ *   TrackManager    — high-level track orchestrator
+ *   WebAudioBridge  — IAudioBridge implementation
  */
 
-import { AudioEngine }     from './AudioEngine'
-import { Transport }       from './Transport'
-import { MetronomeEngine } from './MetronomeEngine'
-import { WaveformLoader }  from './WaveformLoader'
-import { TrackMixer }      from './TrackMixer'
-import { WebAudioBridge }  from './AudioBridge'
+import { AudioEngine }          from './AudioEngine'
+import { Transport }            from './Transport'
+import { MetronomeEngine }      from './MetronomeEngine'
+import { WaveformLoader }       from './WaveformLoader'
+import { TrackMixer }           from './TrackMixer'
+import { WebAudioBridge }       from './AudioBridge'
+import { BusRouter }            from './BusRouter'
+import { AutomationEngine }     from './AutomationEngine'
+import { LatencyCompensator }   from './LatencyCompensator'
+import { MonitorEngine }        from './MonitorEngine'
+import { TrackManager }         from './tracks/TrackManager'
 
-let _engine:    AudioEngine     | null = null
-let _transport: Transport       | null = null
-let _metronome: MetronomeEngine | null = null
-let _loader:    WaveformLoader  | null = null
-let _mixer:     TrackMixer      | null = null
-let _bridge:    WebAudioBridge  | null = null
+// ─── Singletons ───────────────────────────────────────────────────────────────
+
+let _engine:      AudioEngine       | null = null
+let _transport:   Transport         | null = null
+let _metronome:   MetronomeEngine   | null = null
+let _loader:      WaveformLoader    | null = null
+let _mixer:       TrackMixer        | null = null
+let _bridge:      WebAudioBridge    | null = null
+let _busRouter:   BusRouter         | null = null
+let _automation:  AutomationEngine  | null = null
+let _latency:     LatencyCompensator| null = null
+let _monitor:     MonitorEngine     | null = null
+let _trackMgr:   TrackManager      | null = null
+
+// ─── Accessors ────────────────────────────────────────────────────────────────
 
 export function getAudioEngine(): AudioEngine {
   if (!_engine) _engine = AudioEngine.getInstance()
@@ -53,7 +80,41 @@ export function getAudioBridge(): WebAudioBridge {
   return _bridge
 }
 
-/** Call once on app start to pre-warm all singletons. */
+export function getBusRouter(): BusRouter {
+  if (!_busRouter) _busRouter = new BusRouter(getAudioEngine())
+  return _busRouter
+}
+
+export function getAutomationEngine(): AutomationEngine {
+  if (!_automation) _automation = new AutomationEngine()
+  return _automation
+}
+
+export function getLatencyCompensator(): LatencyCompensator {
+  if (!_latency) _latency = new LatencyCompensator(getAudioEngine())
+  return _latency
+}
+
+export function getMonitorEngine(): MonitorEngine {
+  if (!_monitor) _monitor = new MonitorEngine(getAudioEngine())
+  return _monitor
+}
+
+export function getTrackManager(): TrackManager {
+  if (!_trackMgr) {
+    _trackMgr = new TrackManager(
+      getAudioEngine(),
+      getBusRouter(),
+      getLatencyCompensator(),
+      getAutomationEngine(),
+    )
+  }
+  return _trackMgr
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+
+/** Pre-warm all singletons. Call once after first user gesture. */
 export function initAudioEngine(): void {
   getAudioEngine()
   getTransport()
@@ -61,13 +122,28 @@ export function initAudioEngine(): void {
   getWaveformLoader()
   getTrackMixer()
   getAudioBridge()
+  getBusRouter()
+  getAutomationEngine()
+  getLatencyCompensator()
+  getMonitorEngine()
+  getTrackManager()
 }
 
-// Re-export types and classes for convenience
-export { AudioEngine }             from './AudioEngine'
-export { Transport }               from './Transport'
-export { MetronomeEngine }         from './MetronomeEngine'
-export { WaveformLoader }          from './WaveformLoader'
-export { TrackChannel, TrackMixer }from './TrackMixer'
-export { WebAudioBridge }          from './AudioBridge'
+// ─── Re-exports ───────────────────────────────────────────────────────────────
+
+export { AudioEngine }                          from './AudioEngine'
+export { Transport }                            from './Transport'
+export { MetronomeEngine }                      from './MetronomeEngine'
+export { WaveformLoader }                       from './WaveformLoader'
+export { TrackChannel, TrackMixer }             from './TrackMixer'
+export { WebAudioBridge }                       from './AudioBridge'
+export { BusRouter }                            from './BusRouter'
+export { AutomationEngine }                     from './AutomationEngine'
+export { LatencyCompensator }                   from './LatencyCompensator'
+export { MonitorEngine }                        from './MonitorEngine'
+export { RecordingEngine }                      from './RecordingEngine'
+export { AudioTrackNode }                       from './tracks/AudioTrackNode'
+export { MidiTrackNode }                        from './tracks/MidiTrackNode'
+export { BusTrackNode }                         from './tracks/BusTrackNode'
+export { TrackManager }                         from './tracks/TrackManager'
 export * from './types'

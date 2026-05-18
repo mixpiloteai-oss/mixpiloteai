@@ -7,6 +7,8 @@ import midiModule from './modules/midi'
 import storeModule from './modules/store'
 import autosaveModule from './modules/autosave'
 import updaterModule from './modules/updater'
+import { registerAudioIPCHandlers } from './audio/AudioIPCHandler'
+import { getAudioEngineProcess }     from './audio/AudioEngineProcess'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -132,6 +134,10 @@ app.whenReady().then(() => {
   storeModule.register(ipcMain)
   autosaveModule.register(ipcMain)
   updaterModule.register(ipcMain, mainWindow)
+
+  // Native audio engine IPC + process management
+  registerAudioIPCHandlers(ipcMain, () => mainWindow)
+  getAudioEngineProcess().start().catch(e => console.warn('[main] audio engine start failed:', e))
 
   createWindow()
 
