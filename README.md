@@ -1,4 +1,5 @@
 # NeuroTek AI
+<!-- trigger fresh deploy -->
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-a78bfa.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.0.0--beta.1-06b6d4.svg)](https://github.com/mixpiloteai-oss/mixpiloteai/releases)
