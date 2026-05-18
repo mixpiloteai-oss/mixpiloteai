@@ -98,7 +98,7 @@ function Login() {
         )}
 
         <p className="login-terms">
-          By continuing you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
+          By continuing you agree to our <Link to="/terms">Terms of Service</Link> and <Link to="/privacy">Privacy Policy</Link>.
         </p>
 
         <div className="login-download-hint">

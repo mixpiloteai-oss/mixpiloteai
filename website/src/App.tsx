@@ -10,6 +10,8 @@ import Login from './pages/Login'
 import Account from './pages/Account'
 import Marketplace from './pages/Marketplace'
 import Merch from './pages/Merch'
+import Privacy from './pages/Privacy'
+import Terms from './pages/Terms'
 
 function App() {
   return (
@@ -26,6 +28,8 @@ function App() {
           <Route path="/account" element={<Account />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/merch" element={<Merch />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
         </Routes>
       </main>
       <Footer />
