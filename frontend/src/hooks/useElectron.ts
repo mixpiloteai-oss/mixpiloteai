@@ -42,6 +42,52 @@ export interface AudioSettings {
   latencyMode: 'low' | 'normal' | 'high';
 }
 
+export interface AudioCacheStats {
+  totalSizeMB: number;
+  entryCount: number;
+}
+
+export interface DebugPerfStats {
+  cpuPercent: number;
+  memUsedMB: number;
+  memTotalMB: number;
+  memPercent: number;
+  processMemMB: number;
+  uptimeSec: number;
+  pid: number;
+  cpuCount: number;
+  cpuModel: string;
+}
+
+export interface DebugBuildInfo {
+  version: string;
+  buildDate: string;
+  platform: string;
+  arch: string;
+  electron: string;
+  node: string;
+  chrome: string;
+  isDev: boolean;
+  channel: string;
+}
+
+export interface DebugAppPaths {
+  userData: string;
+  logs: string;
+  temp: string;
+  downloads: string;
+  appPath: string;
+  crashDir: string;
+}
+
+export interface DebugCrashLog {
+  timestamp: string;
+  type: string;
+  message: string;
+  stack: string;
+  system: string;
+}
+
 export interface ElectronAPI {
   isElectron: boolean;
   platform: string;
@@ -53,14 +99,17 @@ export interface ElectronAPI {
   close: () => void;
   isMaximized: () => Promise<boolean>;
   toggleDevTools: () => void;
+  setAlwaysOnTop: (value: boolean) => Promise<void>;
   getSystemInfo: () => Promise<SystemInfo>;
   getPerformanceMetrics: () => Promise<PerformanceMetrics>;
   checkUpdate: () => Promise<UpdateInfo>;
   getMidiDevices: () => Promise<MidiDevices>;
   getVSTPlugins: () => Promise<VSTPlugin[]>;
+  scanVSTPlugins: () => Promise<VSTPlugin[]>;
   getAudioDevices: () => Promise<AudioDevice[]>;
   setAudioSettings: (settings: AudioSettings) => Promise<void>;
   getAudioSettings: () => Promise<AudioSettings>;
+  audioCacheStats: () => Promise<AudioCacheStats>;
   openFileDialog: (options?: { filters?: Array<{ name: string; extensions: string[] }>; multiple?: boolean }) => Promise<string[]>;
   saveFileDialog: (options?: { defaultPath?: string; filters?: Array<{ name: string; extensions: string[] }> }) => Promise<string | null>;
   readFile: (path: string) => Promise<string>;
@@ -69,7 +118,16 @@ export interface ElectronAPI {
   onUpdateAvailable: (cb: (info: UpdateInfo) => void) => void;
   onDeepLink: (cb: (url: string) => void) => void;
   onMenuAction: (cb: (action: string) => void) => void;
+  onPowerEvent: (cb: (event: string) => void) => void;
+  onPerfStats: (cb: (data: DebugPerfStats) => void) => void;
   removeListener: (channel: string) => void;
+  removeAllListeners: (channel: string) => void;
+  debugGetPerfStats: () => Promise<DebugPerfStats>;
+  debugGetBuildInfo: () => Promise<DebugBuildInfo>;
+  debugGetAppPaths: () => Promise<DebugAppPaths>;
+  debugOpenDevTools: () => Promise<void>;
+  debugListCrashLogs: () => Promise<DebugCrashLog[]>;
+  debugClearCrashLogs: () => Promise<number>;
 }
 
 declare global {
@@ -93,14 +151,17 @@ const webFallbacks: ElectronAPI = {
   close: _noop,
   isMaximized: () => Promise.resolve(false),
   toggleDevTools: _noop,
+  setAlwaysOnTop: () => Promise.resolve(),
   getSystemInfo: (): Promise<SystemInfo> => Promise.resolve({ platform: 'web', arch: 'unknown', cpus: 0, totalMemory: 0, freeMemory: 0, hostname: 'browser' }),
   getPerformanceMetrics: (): Promise<PerformanceMetrics> => Promise.resolve({ cpuUsage: 0, memoryUsage: 0, audioBufferLoad: 0, diskReadSpeed: 0, uptime: 0 }),
   checkUpdate: (): Promise<UpdateInfo> => Promise.resolve({ hasUpdate: false, version: '1.0.0' }),
   getMidiDevices: (): Promise<MidiDevices> => Promise.resolve({ inputs: [], outputs: [], total: 0 }),
   getVSTPlugins: (): Promise<VSTPlugin[]> => Promise.resolve([]),
+  scanVSTPlugins: (): Promise<VSTPlugin[]> => Promise.resolve([]),
   getAudioDevices: (): Promise<AudioDevice[]> => Promise.resolve([]),
   setAudioSettings: (): Promise<void> => Promise.resolve(),
   getAudioSettings: (): Promise<AudioSettings> => Promise.resolve({ sampleRate: 44100, bufferSize: 256, outputDevice: 'default', inputDevice: 'default', latencyMode: 'normal' }),
+  audioCacheStats: (): Promise<AudioCacheStats> => Promise.resolve({ totalSizeMB: 0, entryCount: 0 }),
   openFileDialog: (): Promise<string[]> => Promise.resolve([]),
   saveFileDialog: (): Promise<string | null> => Promise.resolve(null),
   readFile: (): Promise<string> => Promise.resolve(''),
@@ -109,7 +170,16 @@ const webFallbacks: ElectronAPI = {
   onUpdateAvailable: (_cb: (info: UpdateInfo) => void) => _noop(),
   onDeepLink: (_cb: (url: string) => void) => _noop(),
   onMenuAction: (_cb: (action: string) => void) => _noop(),
+  onPowerEvent: (_cb: (event: string) => void) => _noop(),
+  onPerfStats: (_cb: (data: DebugPerfStats) => void) => _noop(),
   removeListener: (_channel: string) => _noop(),
+  removeAllListeners: (_channel: string) => _noop(),
+  debugGetPerfStats: (): Promise<DebugPerfStats> => Promise.resolve({ cpuPercent: 0, memUsedMB: 0, memTotalMB: 0, memPercent: 0, processMemMB: 0, uptimeSec: 0, pid: 0, cpuCount: 0, cpuModel: 'N/A' }),
+  debugGetBuildInfo: (): Promise<DebugBuildInfo> => Promise.resolve({ version: '0.0.0', buildDate: '', platform: 'web', arch: 'unknown', electron: '', node: '', chrome: '', isDev: false, channel: 'web' }),
+  debugGetAppPaths: (): Promise<DebugAppPaths> => Promise.resolve({ userData: '', logs: '', temp: '', downloads: '', appPath: '', crashDir: '' }),
+  debugOpenDevTools: () => Promise.resolve(),
+  debugListCrashLogs: (): Promise<DebugCrashLog[]> => Promise.resolve([]),
+  debugClearCrashLogs: (): Promise<number> => Promise.resolve(0),
 };
 
 export function useElectron() {
@@ -118,32 +188,44 @@ export function useElectron() {
 
   return {
     isElectron,
-    platform:                  api?.platform                  ?? webFallbacks.platform,
-    version:                   api?.version                   ?? webFallbacks.version,
-    appVersion:                api?.appVersion                ?? webFallbacks.appVersion,
-    openExternal:              api?.openExternal?.bind(api)   ?? webFallbacks.openExternal,
-    minimize:                  api?.minimize                  ?? webFallbacks.minimize,
-    maximize:                  api?.maximize                  ?? webFallbacks.maximize,
-    close:                     api?.close                     ?? webFallbacks.close,
-    isMaximized:               api?.isMaximized               ?? webFallbacks.isMaximized,
-    toggleDevTools:            api?.toggleDevTools            ?? webFallbacks.toggleDevTools,
-    getSystemInfo:             api?.getSystemInfo             ?? webFallbacks.getSystemInfo,
-    getPerformanceMetrics:     api?.getPerformanceMetrics     ?? webFallbacks.getPerformanceMetrics,
-    checkUpdate:               api?.checkUpdate                ?? webFallbacks.checkUpdate,
-    getMidiDevices:            api?.getMidiDevices            ?? webFallbacks.getMidiDevices,
-    getVSTPlugins:             api?.getVSTPlugins             ?? webFallbacks.getVSTPlugins,
-    getAudioDevices:           api?.getAudioDevices           ?? webFallbacks.getAudioDevices,
-    setAudioSettings:          api?.setAudioSettings          ?? webFallbacks.setAudioSettings,
-    getAudioSettings:          api?.getAudioSettings          ?? webFallbacks.getAudioSettings,
-    openFileDialog:            api?.openFileDialog            ?? webFallbacks.openFileDialog,
-    saveFileDialog:            api?.saveFileDialog            ?? webFallbacks.saveFileDialog,
-    readFile:                  api?.readFile                  ?? webFallbacks.readFile,
-    writeFile:                 api?.writeFile                 ?? webFallbacks.writeFile,
-    showNotification:          api?.showNotification          ?? webFallbacks.showNotification,
-    onUpdateAvailable:         api?.onUpdateAvailable         ?? webFallbacks.onUpdateAvailable,
-    onDeepLink:                api?.onDeepLink                ?? webFallbacks.onDeepLink,
-    onMenuAction:              api?.onMenuAction              ?? webFallbacks.onMenuAction,
-    removeListener:            api?.removeListener            ?? webFallbacks.removeListener,
+    platform:              api?.platform              ?? webFallbacks.platform,
+    version:               api?.version               ?? webFallbacks.version,
+    appVersion:            api?.appVersion            ?? webFallbacks.appVersion,
+    openExternal:          api?.openExternal?.bind(api) ?? webFallbacks.openExternal,
+    minimize:              api?.minimize              ?? webFallbacks.minimize,
+    maximize:              api?.maximize              ?? webFallbacks.maximize,
+    close:                 api?.close                 ?? webFallbacks.close,
+    isMaximized:           api?.isMaximized           ?? webFallbacks.isMaximized,
+    toggleDevTools:        api?.toggleDevTools        ?? webFallbacks.toggleDevTools,
+    setAlwaysOnTop:        api?.setAlwaysOnTop        ?? webFallbacks.setAlwaysOnTop,
+    getSystemInfo:         api?.getSystemInfo         ?? webFallbacks.getSystemInfo,
+    getPerformanceMetrics: api?.getPerformanceMetrics ?? webFallbacks.getPerformanceMetrics,
+    checkUpdate:           api?.checkUpdate           ?? webFallbacks.checkUpdate,
+    getMidiDevices:        api?.getMidiDevices        ?? webFallbacks.getMidiDevices,
+    getVSTPlugins:         api?.getVSTPlugins         ?? webFallbacks.getVSTPlugins,
+    scanVSTPlugins:        api?.scanVSTPlugins        ?? webFallbacks.scanVSTPlugins,
+    getAudioDevices:       api?.getAudioDevices       ?? webFallbacks.getAudioDevices,
+    setAudioSettings:      api?.setAudioSettings      ?? webFallbacks.setAudioSettings,
+    getAudioSettings:      api?.getAudioSettings      ?? webFallbacks.getAudioSettings,
+    audioCacheStats:       api?.audioCacheStats       ?? webFallbacks.audioCacheStats,
+    openFileDialog:        api?.openFileDialog        ?? webFallbacks.openFileDialog,
+    saveFileDialog:        api?.saveFileDialog        ?? webFallbacks.saveFileDialog,
+    readFile:              api?.readFile              ?? webFallbacks.readFile,
+    writeFile:             api?.writeFile             ?? webFallbacks.writeFile,
+    showNotification:      api?.showNotification      ?? webFallbacks.showNotification,
+    onUpdateAvailable:     api?.onUpdateAvailable     ?? webFallbacks.onUpdateAvailable,
+    onDeepLink:            api?.onDeepLink            ?? webFallbacks.onDeepLink,
+    onMenuAction:          api?.onMenuAction          ?? webFallbacks.onMenuAction,
+    onPowerEvent:          api?.onPowerEvent          ?? webFallbacks.onPowerEvent,
+    onPerfStats:           api?.onPerfStats           ?? webFallbacks.onPerfStats,
+    removeListener:        api?.removeListener        ?? webFallbacks.removeListener,
+    removeAllListeners:    api?.removeAllListeners    ?? webFallbacks.removeAllListeners,
+    debugGetPerfStats:     api?.debugGetPerfStats     ?? webFallbacks.debugGetPerfStats,
+    debugGetBuildInfo:     api?.debugGetBuildInfo     ?? webFallbacks.debugGetBuildInfo,
+    debugGetAppPaths:      api?.debugGetAppPaths      ?? webFallbacks.debugGetAppPaths,
+    debugOpenDevTools:     api?.debugOpenDevTools     ?? webFallbacks.debugOpenDevTools,
+    debugListCrashLogs:    api?.debugListCrashLogs    ?? webFallbacks.debugListCrashLogs,
+    debugClearCrashLogs:   api?.debugClearCrashLogs   ?? webFallbacks.debugClearCrashLogs,
   };
 }
 
