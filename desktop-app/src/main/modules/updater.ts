@@ -1,4 +1,5 @@
-import type { IpcMain, BrowserWindow } from 'electron'
+import { BrowserWindow } from 'electron'
+import type { IpcMain } from 'electron'
 
 const module = {
   register(_ipcMain: IpcMain, _win: BrowserWindow | null): void {

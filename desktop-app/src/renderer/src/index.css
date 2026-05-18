@@ -5,25 +5,65 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:        #0a0a0f;
-  --surface:   #12121a;
-  --border:    #1e1e2e;
+  --bg:        #08080f;
+  --surface:   #0c0c14;
+  --card:      #0f0f1a;
+  --border:    #1c1c2e;
+  --border-hi: #2a2a3e;
   --purple:    #7c3aed;
+  --violet:    #a855f7;
   --cyan:      #06b6d4;
+  --amber:     #f59e0b;
   --text:      #e2e8f0;
+  --subtle:    #94a3b8;
   --muted:     #64748b;
+  --dim:       #475569;
+  --ghost:     #334155;
+  --ink:       #1c1c2e;
 }
 
 html, body, #root {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   overflow: hidden;
   user-select: none;
+  -webkit-user-select: none;
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--surface); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+/* Scrollbars */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--ink); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ghost); }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* Allow text selection inside inputs / text areas */
+input, textarea, [contenteditable] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Focus rings */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 1.5px solid rgba(124, 58, 237, 0.55);
+  outline-offset: 1px;
+}
+
+/* Numeric inputs */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+/* Prevent blue flash on tap in Electron */
+* { -webkit-tap-highlight-color: transparent; }
+
+/* Monospace numbers in transport / meters */
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Drag region for frameless window (applied via inline style in TitleBar) */
+.drag-region { -webkit-app-region: drag; }
+.no-drag     { -webkit-app-region: no-drag; }

@@ -55,7 +55,7 @@ const module = {
       memory: process.memoryUsage(),
     }))
     ipcMain.handle('show-notification', (_e, _title: string, _body: string) => {
-      // Notification stub — implement with electron.Notification when needed
+      // Notification requires a display; stub for headless/CI safety
     })
     ipcMain.handle('check-update', () => null)
   }

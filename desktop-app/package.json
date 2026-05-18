@@ -32,6 +32,7 @@
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-ts": "^2.0.0",
+    "@electron-toolkit/tsconfig": "^2.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
@@ -50,8 +51,13 @@
     "productName": "Neurotek Studio",
     "copyright": "Copyright © 2025 NeuroTek AI. All rights reserved.",
     "asar": true,
-    "directories": { "output": "release", "buildResources": "assets" },
-    "files": ["out/**/*"],
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "files": [
+      "out/**/*"
+    ],
     "fileAssociations": [
       {
         "ext": "ntai",
@@ -60,11 +66,24 @@
         "mimeType": "application/x-neurotek-studio"
       }
     ],
-    "protocols": [{ "name": "Neurotek Studio", "schemes": ["neurotek"] }],
+    "protocols": [
+      {
+        "name": "Neurotek Studio",
+        "schemes": [
+          "neurotek"
+        ]
+      }
+    ],
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
       ],
       "icon": "assets/icon.ico",
       "publisherName": "NeuroTek AI",
@@ -87,14 +106,24 @@
       "artifactName": "Neurotek-Studio-Portable-${version}.${ext}"
     },
     "mac": {
-      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
       "icon": "assets/icon.png",
       "category": "public.app-category.music",
       "darkModeSupport": true,
       "artifactName": "Neurotek-Studio-${version}.${ext}"
     },
     "linux": {
-      "target": [{ "target": "AppImage", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        }
+      ],
       "icon": "assets/icon.png",
       "category": "Audio",
       "artifactName": "Neurotek-Studio-${version}.${ext}"
