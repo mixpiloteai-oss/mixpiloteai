@@ -2,7 +2,7 @@ import { useState } from 'react'
 import './Support.css'
 
 const faqs = [
-  { question: 'How do I install NeuroTek AI?', answer: 'Download the installer from our Download page (NeuroTekAI-Setup-1.0.0-beta.1.exe). Run the file — if Windows SmartScreen prompts you, click "More info" then "Run anyway". The installer will walk you through setup in about 30 seconds.' },
+  { question: 'How do I install NeuroTek AI?', answer: 'Download the installer from our Download page (NeuroTek-AI-Setup-1.0.0-beta.1.exe). Run the file — if Windows SmartScreen prompts you, click "More info" then "Run anyway". The installer will walk you through setup in about 30 seconds.' },
   { question: 'Is the free version really free?', answer: 'Yes — no credit card, no trial period, no catch. The free tier gives you 10 AI generations per month, the full Piano Roll editor, arrangement timeline, 5 project slots, and WAV/MIDI export. You can use NeuroTek AI free forever.' },
   { question: 'How do I report a bug?', answer: 'Use the in-app feedback tool (Help → Report Bug) which automatically attaches your log files. You can also open an issue on our GitHub page or post in #bug-reports on Discord. Please include your Windows version and steps to reproduce.' },
   { question: 'Does NeuroTek AI work without internet?', answer: 'Partially. Core DAW features — Piano Roll, Arrangement view, Sample Browser (with cached samples) — work fully offline. AI generation features require an internet connection. We are working on an optional on-device AI mode.' },
@@ -25,7 +25,7 @@ function Support() {
             <a href="#faq" className="support-quick-link"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.5" /><path d="M8 8c0-1.105.895-2 2-2s2 .895 2 2c0 1.5-2 2-2 3M10 14v.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>FAQ</a>
             <a href="#community" className="support-quick-link"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M18 10c0 4.418-3.582 8-8 8-1.25 0-2.435-.287-3.488-.8L2 19l1.8-4.512A7.964 7.964 0 012 10C2 5.582 5.582 2 10 2s8 3.582 8 8z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>Community</a>
             <a href="#contact" className="support-quick-link"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="16" height="13" rx="2" stroke="currentColor" strokeWidth="1.5" /><path d="M2 7l8 5 8-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>Contact</a>
-            <a href="#" className="support-quick-link"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 4h12v13H4V4z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /><path d="M7 8h6M7 11h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>Documentation</a>
+            <a href="https://github.com/mixpiloteai-oss/mixpiloteai/wiki" target="_blank" rel="noopener noreferrer" className="support-quick-link"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 4h12v13H4V4z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /><path d="M7 8h6M7 11h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>Documentation</a>
           </div>
         </div>
       </div>
@@ -67,21 +67,21 @@ function Support() {
               <h3 className="community-card-title">Discord Server</h3>
               <p className="community-card-desc">Join 3,200+ producers on our Discord. Share your tracks, get feedback, participate in beat battles, and get direct access to the dev team.</p>
               <div className="community-stats"><div className="community-stat"><span className="community-stat-value">3,200+</span><span className="community-stat-label">Members</span></div><div className="community-stat"><span className="community-stat-value">24/7</span><span className="community-stat-label">Active</span></div><div className="community-stat"><span className="community-stat-value">Dev team</span><span className="community-stat-label">Accessible</span></div></div>
-              <a href="#" className="btn-primary community-btn">Join Discord Server</a>
+              <a href="https://discord.gg/neurotek" target="_blank" rel="noopener noreferrer" className="btn-primary community-btn">Join Discord Server</a>
             </div>
             <div className="glass-card community-card">
               <div className="community-card-icon community-github-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" /></svg></div>
               <h3 className="community-card-title">GitHub</h3>
               <p className="community-card-desc">NeuroTek AI's issue tracker and public roadmap live on GitHub. Report bugs, vote on features, and follow our development progress in the open.</p>
               <div className="community-stats"><div className="community-stat"><span className="community-stat-value">Public</span><span className="community-stat-label">Roadmap</span></div><div className="community-stat"><span className="community-stat-value">Open</span><span className="community-stat-label">Issues</span></div><div className="community-stat"><span className="community-stat-value">MIT</span><span className="community-stat-label">Docs License</span></div></div>
-              <a href="#" className="btn-secondary community-btn">View on GitHub</a>
+              <a href="https://github.com/mixpiloteai-oss/mixpiloteai" target="_blank" rel="noopener noreferrer" className="btn-secondary community-btn">View on GitHub</a>
             </div>
             <div className="glass-card community-card">
               <div className="community-card-icon community-docs-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M4 4h16v17H4V4z" /><path d="M8 9h8M8 13h6M8 17h4" /></svg></div>
               <h3 className="community-card-title">Documentation</h3>
               <p className="community-card-desc">Comprehensive guides covering everything from first launch to advanced VST hosting and MIDI routing. Available online and as a downloadable PDF.</p>
               <div className="community-stats"><div className="community-stat"><span className="community-stat-value">40+</span><span className="community-stat-label">Guides</span></div><div className="community-stat"><span className="community-stat-value">Video</span><span className="community-stat-label">Tutorials</span></div><div className="community-stat"><span className="community-stat-value">PDF</span><span className="community-stat-label">Download</span></div></div>
-              <a href="#" className="btn-secondary community-btn">Read the Docs</a>
+              <a href="https://github.com/mixpiloteai-oss/mixpiloteai/wiki" target="_blank" rel="noopener noreferrer" className="btn-secondary community-btn">Read the Docs</a>
             </div>
           </div>
         </div>

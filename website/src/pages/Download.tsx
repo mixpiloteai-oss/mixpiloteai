@@ -6,6 +6,9 @@ const RELEASE_DATE = 'May 14, 2025'
 const INSTALLER_NAME = `NeuroTek-AI-Setup-${VERSION}.exe`
 const INSTALLER_SIZE = '~120 MB'
 const PORTABLE_NAME = `NeuroTek-AI-Portable-${VERSION}.exe`
+const RELEASES_BASE = 'https://github.com/mixpiloteai-oss/mixpiloteai/releases'
+const INSTALLER_URL = `${RELEASES_BASE}/download/v${VERSION}/${INSTALLER_NAME}`
+const PORTABLE_URL  = `${RELEASES_BASE}/download/v${VERSION}/${PORTABLE_NAME}`
 
 const installSteps = [
   { step: '1', icon: '⬇️', title: 'Download the installer', description: `Click "Download for Windows" above to download ${INSTALLER_NAME}.` },
@@ -39,11 +42,11 @@ function Download() {
                 <div className="dl-version-number">v{VERSION}</div>
                 <div className="dl-version-meta">Released {RELEASE_DATE} &bull; {INSTALLER_SIZE} &bull; NSIS installer</div>
               </div>
-              <a href="#" className="btn-primary dl-btn-main">
+              <a href={INSTALLER_URL} className="btn-primary dl-btn-main" target="_blank" rel="noopener noreferrer">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2v12M6 10l4 4 4-4M2 16h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 Download {INSTALLER_NAME}
               </a>
-              <a href="#" className="btn-secondary dl-btn-secondary">
+              <a href={PORTABLE_URL} className="btn-secondary dl-btn-secondary" target="_blank" rel="noopener noreferrer">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2h12v12H2V2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /><path d="M5 8h6M8 5v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                 Portable Version ({PORTABLE_NAME})
               </a>
@@ -103,7 +106,7 @@ function Download() {
             <div className="glass-card sysreq-card sysreq-note-card">
               <div className="sysreq-card-header"><div className="sysreq-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M9 10v4M9 6v.01M4 10a6 6 0 1112 0 6 6 0 01-12 0z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg></div><h3>Audio Note</h3></div>
               <div className="sysreq-note">
-                <p>For the lowest latency, use an <strong>ASIO-compatible audio interface</strong>. Install <a href="#" className="dl-inline-link">ASIO4ALL</a> (free) if you don't have one.</p>
+                <p>For the lowest latency, use an <strong>ASIO-compatible audio interface</strong>. Install <a href="https://www.asio4all.org/" className="dl-inline-link" target="_blank" rel="noopener noreferrer">ASIO4ALL</a> (free) if you don't have one.</p>
                 <div className="dl-latency-bar">
                   <div className="dl-latency-item"><span>ASIO</span><div className="dl-latency-pill good">2–4 ms</div></div>
                   <div className="dl-latency-item"><span>WASAPI</span><div className="dl-latency-pill ok">10–20 ms</div></div>
@@ -134,7 +137,7 @@ function Download() {
         <div className="container">
           <div className="dl-cta-inner">
             <h2>Ready to start? <span className="gradient-text">It's free.</span></h2>
-            <a href="#" className="btn-primary" style={{ fontSize: '16px', padding: '16px 36px' }}>
+            <a href={INSTALLER_URL} className="btn-primary" style={{ fontSize: '16px', padding: '16px 36px' }} target="_blank" rel="noopener noreferrer">
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 1v10M5 8l4 4 4-4M1 14h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
               Download {INSTALLER_NAME}
             </a>

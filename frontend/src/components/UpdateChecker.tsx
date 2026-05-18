@@ -3,7 +3,7 @@
 // ============================================================
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, X, RefreshCw } from 'lucide-react';
+import { Download, X } from 'lucide-react';
 
 interface UpdateInfo {
   version: string;
@@ -14,20 +14,14 @@ interface UpdateInfo {
 export function UpdateChecker() {
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const [dismissed, setDismissed] = useState(false);
-  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
-    // In production this would call window.electronAPI.checkUpdate()
-    // which triggers electron-updater. For beta, we do a lightweight
-    // fetch to a version endpoint (placeholder).
     const timer = setTimeout(() => checkForUpdate(), 30_000);
     return () => clearTimeout(timer);
   }, []);
 
   async function checkForUpdate() {
-    setChecking(true);
     try {
-      // Placeholder: in production replace with real version endpoint
       if (window.electronAPI?.checkUpdate) {
         const result = await window.electronAPI.checkUpdate();
         if (result?.hasUpdate) {
@@ -36,8 +30,6 @@ export function UpdateChecker() {
       }
     } catch {
       // Silently ignore — update check is non-critical
-    } finally {
-      setChecking(false);
     }
   }
 
@@ -86,7 +78,10 @@ export function UpdateChecker() {
               </p>
             )}
             <button
-              onClick={() => window.electronAPI?.openExternal?.(update.url)}
+              onClick={() => {
+                if (window.electronAPI?.openExternal) window.electronAPI.openExternal(update.url);
+                else if (update.url) window.open(update.url, '_blank', 'noopener');
+              }}
               style={{
                 padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600,
                 background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',

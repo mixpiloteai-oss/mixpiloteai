@@ -41,9 +41,9 @@ export function BetaBanner() {
                 {' '}— Beta build. Bugs are expected.{' '}
                 <button
                   onClick={() => {
-                    if (window.electronAPI?.openExternal) {
-                      window.electronAPI.openExternal('https://github.com/mixpiloteai-oss/mixpiloteai/issues');
-                    }
+                    const url = 'https://github.com/mixpiloteai-oss/mixpiloteai/issues';
+                    if (window.electronAPI?.openExternal) window.electronAPI.openExternal(url);
+                    else window.open(url, '_blank', 'noopener');
                   }}
                   style={{
                     color: '#06b6d4', background: 'none', border: 'none',
