@@ -6,17 +6,12 @@ services:
     plan: free
     buildCommand: npm install && npm run build
     startCommand: npm start
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 4000
-      # Set these in the Render dashboard (secrets):
-      # CLAUDE_API_KEY        — your Anthropic key
-      # JWT_SECRET            — min 64 chars random string
-      # JWT_REFRESH_SECRET    — min 64 chars random string
-      # INTERNAL_SERVICE_TOKEN
-      # CORS_ORIGINS          — https://mixpiloteai.vercel.app
       - key: CLAUDE_MODEL
         value: claude-opus-4-7
       - key: JWT_EXPIRES_IN
@@ -24,7 +19,7 @@ services:
       - key: JWT_REFRESH_EXPIRES_IN
         value: 30d
       - key: QUOTA_FREE_DAILY
-        value: 20
+        value: 10
       - key: QUOTA_PRO_DAILY
         value: 200
       - key: QUOTA_STUDIO_DAILY
@@ -37,4 +32,11 @@ services:
         value: 30
       - key: RATE_LIMIT_MAX_STUDIO
         value: 100
-    healthCheckPath: /health
+      # Set these as secrets in the Render dashboard (never commit):
+      # SUPABASE_URL
+      # SUPABASE_SERVICE_ROLE_KEY
+      # CLAUDE_API_KEY
+      # JWT_SECRET              (min 64 chars)
+      # JWT_REFRESH_SECRET      (min 64 chars)
+      # CORS_ORIGINS            e.g. https://mixpiloteai.vercel.app
+      # INTERNAL_SERVICE_TOKEN
