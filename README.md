@@ -141,21 +141,31 @@ cd mixpiloteai
 npm install
 ```
 
-### 2. Configure environment
+### 2. Set up Supabase (required for persistent storage)
+
+1. Create a free project at [supabase.com](https://supabase.com)
+2. Go to **SQL Editor → New query**, paste and run `backend/supabase/schema.sql`
+3. Go to **Settings → API** and copy your **Project URL** and **service_role** key
+
+### 3. Configure environment
 
 ```bash
 # Backend
 cp backend/.env.example backend/.env
-# Fill in: CLAUDE_API_KEY, JWT_SECRET, JWT_REFRESH_SECRET, INTERNAL_SERVICE_TOKEN
+# Required: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+# Required: JWT_SECRET, JWT_REFRESH_SECRET  (generate: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))")
+# Optional: CLAUDE_API_KEY (for AI features), CORS_ORIGINS
 
-# AI Service
-cp ai-service/.env.example ai-service/.env
-# Fill in: CLAUDE_API_KEY, INTERNAL_SERVICE_TOKEN (same as backend)
+# Website
+cp website/.env.example website/.env.local
+# Set: VITE_API_URL=http://localhost:4000
 
-# Frontend
+# Frontend DAW
 cp frontend/.env.example frontend/.env.local
 # Set: VITE_API_URL=http://localhost:4000
 ```
+
+> **No Supabase?** The backend falls back to an in-memory mock DB (demo accounts only, data resets on restart). Suitable for local development without credentials.
 
 ### 3. Start services
 
@@ -180,6 +190,42 @@ cd website && npm install && npm run dev
 cd electron && npm install
 npm run build   # builds frontend first, then packages Electron
 ```
+
+---
+
+## Deployment
+
+### Backend → Railway or Render
+
+**Railway (recommended):**
+1. Connect your GitHub repo at [railway.app](https://railway.app)
+2. Set root directory to `backend/`
+3. Add environment variables (see `backend/.env.example`)
+4. Deploy — Railway detects Node.js automatically via `railway.json`
+
+**Render:**
+1. Connect repo at [render.com](https://render.com) → New Web Service
+2. Root directory: `backend/`, build: `npm install && npm run build`, start: `npm start`
+3. Add environment variables (see `backend/render.yaml` for the list)
+4. Health check path: `/health`
+
+**Required environment variables for both:**
+
+| Variable | Description |
+|----------|-------------|
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role secret |
+| `JWT_SECRET` | Min 64-char random string |
+| `JWT_REFRESH_SECRET` | Min 64-char random string (different from above) |
+| `CORS_ORIGINS` | Comma-separated allowed origins e.g. `https://neurotek.ai` |
+| `CLAUDE_API_KEY` | Anthropic API key (for AI features) |
+
+### Website → Vercel
+
+1. Import `mixpiloteai-oss/mixpiloteai` at [vercel.com](https://vercel.com)
+2. Vercel reads `vercel.json` at the repo root — no extra config needed
+3. Add `VITE_API_URL=https://your-backend.railway.app` in Vercel → Environment Variables
+4. Production branch: `main`
 
 ---
 
