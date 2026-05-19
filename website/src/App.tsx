@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import Nav         from './components/Nav'
 import Footer      from './components/Footer'
 import OfflineBanner from './components/OfflineBanner'
@@ -14,6 +14,7 @@ import Merch       from './pages/Merch'
 import Privacy     from './pages/Privacy'
 import Terms         from './pages/Terms'
 import Collaboration from './pages/Collaboration'
+import AdminShell   from './pages/Admin/AdminShell'
 import CreatorProfile    from './pages/CreatorProfile'
 import CreatorDashboard from './pages/CreatorDashboard'
 import Checkout from './pages/Checkout'
@@ -53,6 +54,16 @@ function CloudOfflinePage({ label }: { label: string }) {
 function App() {
   const { isOnline, backendReachable } = useOnlineStatus()
   const networkOk = isOnline && backendReachable !== false
+  const { pathname } = useLocation()
+  const isAdmin = pathname.startsWith('/admin')
+
+  if (isAdmin) {
+    return (
+      <Routes>
+        <Route path="/admin/*" element={<AdminShell />} />
+      </Routes>
+    )
+  }
 
   return (
     <div className="app">
