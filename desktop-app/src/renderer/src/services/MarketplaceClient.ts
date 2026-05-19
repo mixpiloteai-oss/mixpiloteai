@@ -1,6 +1,5 @@
 import type { MarketProduct, InstalledPack, ProductCategory } from '../store/marketplaceStore'
-
-const API_URL = 'https://mixpiloteai-production.up.railway.app'
+import { apiFetch } from '../lib/apiClient'
 
 // ─── Mock seed data ────────────────────────────────────────────────────────────
 const MOCK_PRODUCTS: MarketProduct[] = [
@@ -129,13 +128,7 @@ export class MarketplaceClient {
 
   private async _get<T>(path: string, fallback: T): Promise<T> {
     try {
-      const res = await fetch(`${API_URL}${path}`, {
-        headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(8000),
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data: unknown = await res.json()
-      return data as T
+      return await apiFetch<T>(path, { method: 'GET' }, 8000)
     } catch {
       return fallback
     }
@@ -176,15 +169,11 @@ export class MarketplaceClient {
     userId: string,
   ): Promise<{ liked: boolean; likes: number }> {
     try {
-      const res = await fetch(`${API_URL}/api/marketplace/products/${productId}/like`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-        signal: AbortSignal.timeout(5000),
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = (await res.json()) as { liked: boolean; likes: number }
-      return data
+      return await apiFetch<{ liked: boolean; likes: number }>(
+        `/api/marketplace/products/${productId}/like`,
+        { method: 'POST', body: JSON.stringify({ userId }) },
+        5000,
+      )
     } catch {
       return { liked: true, likes: 0 }
     }

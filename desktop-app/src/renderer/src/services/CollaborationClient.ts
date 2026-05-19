@@ -5,8 +5,7 @@ import {
   type ChatMessage,
   type TimelineComment,
 } from '../store/collaborationStore'
-
-const API_URL = 'https://mixpiloteai-production.up.railway.app'
+import { config } from '../lib/config'
 
 interface SSEMessage {
   type: 'op' | 'presence' | 'connected' | 'error'
@@ -62,7 +61,7 @@ export class CollaborationClient {
       userColor: this.userColor,
     })
 
-    const url = `${API_URL}/api/collab/stream/${projectId}?${params.toString()}`
+    const url = `${config.apiUrl}/api/collab/stream/${projectId}?${params.toString()}`
     this.es = new EventSource(url)
 
     this.es.onmessage = (event) => {
@@ -169,7 +168,7 @@ export class CollaborationClient {
 
   private async postOp(op: CollabOp): Promise<void> {
     try {
-      const res = await fetch(`${API_URL}/api/collab/ops`, {
+      const res = await fetch(`${config.apiUrl}/api/collab/ops`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(op),
@@ -201,7 +200,7 @@ export class CollaborationClient {
     store.addPendingOp(op)
 
     try {
-      const res = await fetch(`${API_URL}/api/collab/ops`, {
+      const res = await fetch(`${config.apiUrl}/api/collab/ops`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(op),

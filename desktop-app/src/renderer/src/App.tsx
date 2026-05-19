@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { apiPost } from './lib/apiClient'
 import TitleBar from './components/shell/TitleBar'
 import Sidebar from './components/shell/Sidebar'
 import StatusBar from './components/shell/StatusBar'
@@ -24,8 +25,6 @@ import { useNetworkStatus }  from './hooks/useNetworkStatus'
 import { usePerformanceMode, applyBootMode } from './hooks/usePerformanceMode'
 import { useTransportSync }  from './hooks/useTransportSync'
 
-const API_URL = 'https://mixpiloteai-production.up.railway.app'
-
 // ─── Login Screen ─────────────────────────────────────────────────────────────
 
 interface LoginProps {
@@ -43,13 +42,7 @@ function LoginScreen({ onAuth }: LoginProps) {
     setError('')
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.message ?? 'Login failed')
+      const data = await apiPost<{ token: string; user: unknown }>('/api/auth/login', { email, password })
       localStorage.setItem('token', data.token)
       onAuth(data.token)
     } catch (err) {

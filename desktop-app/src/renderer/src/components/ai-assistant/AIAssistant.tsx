@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useDesktopNetworkStore } from '../../store/networkStore'
 import { offlineAIChat } from '../../services/offlineAI'
+import { config } from '../../lib/config'
 
 interface Message {
   id: string
@@ -8,8 +9,6 @@ interface Message {
   content: string
   generating?: boolean
 }
-
-const API_URL = 'https://mixpiloteai-production.up.railway.app'
 
 const SEED: Message[] = [
   { id: '0', role: 'system',    content: 'AI Assistant ready. Describe what you want to generate.' },
@@ -58,7 +57,7 @@ export default function AIAssistant() {
     }
 
     try {
-      const res = await fetch(`${API_URL}/api/ai/generate`, {
+      const res = await fetch(`${config.apiUrl}/api/ai/generate`, {
         method:  'POST',
         headers: {
           'Content-Type':  'application/json',
