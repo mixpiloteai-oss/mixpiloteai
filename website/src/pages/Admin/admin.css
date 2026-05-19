@@ -905,3 +905,50 @@
   .admin-services-grid { grid-template-columns: 1fr 1fr; }
   .admin-user-email, .admin-user-role { display: none; }
 }
+
+/* ============================================================
+   Loading skeletons & live indicators
+   ============================================================ */
+
+@keyframes adminShimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.admin-skeleton {
+  background: linear-gradient(90deg, #1a1a2e 25%, #252540 50%, #1a1a2e 75%);
+  background-size: 200% 100%;
+  animation: adminShimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.admin-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  animation: dotPulse 2s infinite;
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.admin-refresh-btn {
+  background: none;
+  border: 1px solid #1a1a2e;
+  color: #475569;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.admin-refresh-btn:hover {
+  border-color: #8b5cf6;
+  color: #8b5cf6;
+}

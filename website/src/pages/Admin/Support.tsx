@@ -1,123 +1,79 @@
 import './admin.css'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { adminApi, type SupportTicket } from './services/adminApi'
 
-type Priority = 'low' | 'medium' | 'high' | 'urgent'
 type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed'
 
-interface Message {
-  id: number
-  author: string
-  role: 'user' | 'admin'
-  text: string
-  time: string
-}
-
-interface Ticket {
-  id: string
-  subject: string
-  userName: string
-  userEmail: string
-  userInitials: string
-  avatarColor: string
-  priority: Priority
-  status: TicketStatus
-  category: string
-  createdAt: string
-  updatedAt: string
-  messages: Message[]
-}
-
-const TICKETS: Ticket[] = [
-  {
-    id: 'TKT-0041', subject: 'Cannot export WAV — processing stuck at 94%',
-    userName: 'Jordan Lee', userEmail: 'jordan.lee@email.com', userInitials: 'JL', avatarColor: '#22d3ee',
-    priority: 'urgent', status: 'open', category: 'Export', createdAt: '2026-05-19 08:14', updatedAt: '2026-05-19 08:14',
-    messages: [
-      { id: 1, author: 'Jordan Lee', role: 'user', text: "Export has been stuck at 94% for 20 minutes. I'm on macOS 14, Studio plan. The project is 32 tracks at 145 BPM.", time: '08:14' },
-    ],
-  },
-  {
-    id: 'TKT-0040', subject: 'Billing charged twice this month',
-    userName: 'Sam Patel', userEmail: 'sam.patel@beatz.co', userInitials: 'SP', avatarColor: '#f59e0b',
-    priority: 'urgent', status: 'in_progress', category: 'Billing', createdAt: '2026-05-18 21:30', updatedAt: '2026-05-19 09:00',
-    messages: [
-      { id: 1, author: 'Sam Patel', role: 'user', text: "I was charged $49 twice on May 18. Please refund ASAP.", time: '21:30' },
-      { id: 2, author: 'support@neurotek.ai', role: 'admin', text: "Hi Sam, we see the duplicate charge — it was a Stripe retry. We've issued a full refund, ETA 3-5 business days.", time: '09:00' },
-    ],
-  },
-  {
-    id: 'TKT-0039', subject: 'AI Assistant not generating patterns',
-    userName: 'Alex Rivera', userEmail: 'alex.rivera@email.com', userInitials: 'AR', avatarColor: '#8b5cf6',
-    priority: 'high', status: 'open', category: 'AI', createdAt: '2026-05-18 16:45', updatedAt: '2026-05-18 16:45',
-    messages: [
-      { id: 1, author: 'Alex Rivera', role: 'user', text: "The AI Assistant tab just shows a spinner and never generates anything. Been like this for 2 days.", time: '16:45' },
-    ],
-  },
-  {
-    id: 'TKT-0038', subject: 'Collaboration invite link expired too quickly',
-    userName: 'Taylor Kim', userEmail: 'taylor.kim@studio.net', userInitials: 'TK', avatarColor: '#8b5cf6',
-    priority: 'medium', status: 'resolved', category: 'Collaboration', createdAt: '2026-05-17 11:20', updatedAt: '2026-05-17 14:00',
-    messages: [
-      { id: 1, author: 'Taylor Kim', role: 'user', text: "Sent a collab invite, team member clicked it 2 hours later and it said expired.", time: '11:20' },
-      { id: 2, author: 'support@neurotek.ai', role: 'admin', text: "Invite links expire after 7 days. The link used was actually 8 days old from a previous attempt. Please resend.", time: '13:40' },
-      { id: 3, author: 'Taylor Kim', role: 'user', text: "Oh I see, sorry! Resent and it works. Thanks!", time: '14:00' },
-    ],
-  },
-  {
-    id: 'TKT-0037', subject: 'Marketplace pack download fails on large files',
-    userName: 'Blake Anderson', userEmail: 'blake.a@soundcloud.io', userInitials: 'BA', avatarColor: '#10b981',
-    priority: 'high', status: 'open', category: 'Marketplace', createdAt: '2026-05-16 18:00', updatedAt: '2026-05-16 18:00',
-    messages: [
-      { id: 1, author: 'Blake Anderson', role: 'user', text: "Trying to download 'Dark Industrial Kicks Vol 2' (2.4GB). Download starts and fails at ~30%. Tried 3 times.", time: '18:00' },
-    ],
-  },
-  {
-    id: 'TKT-0036', subject: 'Cannot change subscription plan',
-    userName: 'Drew Martinez', userEmail: 'drew.m@email.com', userInitials: 'DM', avatarColor: '#f59e0b',
-    priority: 'medium', status: 'in_progress', category: 'Billing', createdAt: '2026-05-15 09:30', updatedAt: '2026-05-15 10:15',
-    messages: [
-      { id: 1, author: 'Drew Martinez', role: 'user', text: "The upgrade button on billing page shows error 'Payment method required'. I have a card saved.", time: '09:30' },
-      { id: 2, author: 'support@neurotek.ai', role: 'admin', text: "Investigating — can you try removing and re-adding your card? Known intermittent issue with card tokenization.", time: '10:15' },
-    ],
-  },
-  {
-    id: 'TKT-0035', subject: 'Piano roll MIDI import broken',
-    userName: 'Skyler Davis', userEmail: 'skyler.davis@daw.net', userInitials: 'SD', avatarColor: '#8b5cf6',
-    priority: 'low', status: 'closed', category: 'App', createdAt: '2026-05-14 13:00', updatedAt: '2026-05-14 17:00',
-    messages: [
-      { id: 1, author: 'Skyler Davis', role: 'user', text: "Dragging a .mid file into piano roll does nothing.", time: '13:00' },
-      { id: 2, author: 'support@neurotek.ai', role: 'admin', text: "MIDI import via drag-drop is planned for v2.1. For now, use File → Import MIDI. Closing as expected behavior.", time: '17:00' },
-    ],
-  },
-  {
-    id: 'TKT-0034', subject: 'Refund request — wrong plan purchased',
-    userName: 'Morgan Chen', userEmail: 'morgan.chen@music.io', userInitials: 'MC', avatarColor: '#10b981',
-    priority: 'medium', status: 'resolved', category: 'Billing', createdAt: '2026-05-13 14:00', updatedAt: '2026-05-14 09:00',
-    messages: [
-      { id: 1, author: 'Morgan Chen', role: 'user', text: "Accidentally purchased Studio instead of Pro. Can I get a refund and switch?", time: '14:00' },
-      { id: 2, author: 'support@neurotek.ai', role: 'admin', text: "Refund issued for Studio, Pro plan activated. You should see the credit within 5 days. 😊", time: '09:00' },
-    ],
-  },
-]
-
-const PRIO_COLORS: Record<Priority, string> = {
+const PRIO_COLORS: Record<string, string> = {
   urgent: 'badge-red', high: 'badge-orange', medium: 'badge-purple', low: 'badge-grey',
 }
 
-const STATUS_COLORS: Record<TicketStatus, string> = {
+const STATUS_COLORS: Record<string, string> = {
   open: 'badge-red', in_progress: 'badge-orange', resolved: 'badge-green', closed: 'badge-grey',
 }
 
-const STATUS_LABELS: Record<TicketStatus, string> = {
+const STATUS_LABELS: Record<string, string> = {
   open: 'Open', in_progress: 'In Progress', resolved: 'Resolved', closed: 'Closed',
 }
 
 export default function Support() {
-  const [selected, setSelected] = useState<Ticket | null>(null)
-  const [filter, setFilter] = useState<'all' | TicketStatus>('all')
-  const [reply, setReply] = useState('')
+  const [tickets, setTickets]   = useState<SupportTicket[]>([])
+  const [selected, setSelected] = useState<SupportTicket | null>(null)
+  const [filter, setFilter]     = useState<'all' | TicketStatus>('all')
+  const [reply, setReply]       = useState('')
+  const [loading, setLoading]   = useState(true)
+  const [sending, setSending]   = useState(false)
+  const [error, setError]       = useState('')
 
-  const visible = filter === 'all' ? TICKETS : TICKETS.filter(t => t.status === filter)
+  async function loadTickets(status?: string) {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await adminApi.tickets(status && status !== 'all' ? status : undefined)
+      setTickets(res.data)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load tickets')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadTickets(filter !== 'all' ? filter : undefined)
+  }, [filter])
+
+  async function handleReply() {
+    if (!selected || !reply.trim()) return
+    setSending(true)
+    try {
+      await adminApi.replyTicket(selected.id, reply)
+      setReply('')
+      await loadTickets(filter !== 'all' ? filter : undefined)
+      // Refresh selected ticket
+      const updated = await adminApi.tickets(undefined)
+      const refreshed = updated.data.find(t => t.id === selected.id)
+      if (refreshed) setSelected(refreshed)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to send reply')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  async function handleUpdateStatus(ticketId: string, status: string) {
+    try {
+      await adminApi.updateTicket(ticketId, status)
+      await loadTickets(filter !== 'all' ? filter : undefined)
+      if (selected?.id === ticketId) {
+        setSelected(prev => prev ? { ...prev, status } : null)
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to update status')
+    }
+  }
+
+  const visible = filter === 'all' ? tickets : tickets.filter(t => t.status === filter)
+  const openCount = tickets.filter(t => t.status === 'open' || t.status === 'in_progress').length
 
   return (
     <div className="admin-fade-in" style={{ padding: 28 }}>
@@ -125,11 +81,11 @@ export default function Support() {
       <div className="admin-header" style={{ padding: 0, marginBottom: 24 }}>
         <div>
           <div className="admin-page-title">Support</div>
-          <div className="admin-page-sub">{TICKETS.filter(t => t.status === 'open' || t.status === 'in_progress').length} open tickets</div>
+          <div className="admin-page-sub">{openCount} open tickets</div>
         </div>
         <div className="admin-header-actions">
           {(['all', 'open', 'in_progress', 'resolved', 'closed'] as const).map(s => (
-            <button key={s} onClick={() => setFilter(s)}
+            <button key={s} onClick={() => { setFilter(s); setSelected(null) }}
               className={`admin-btn admin-btn-sm ${filter === s ? 'admin-btn-primary' : 'admin-btn-ghost'}`}>
               {s === 'all' ? 'All' : STATUS_LABELS[s]}
             </button>
@@ -137,10 +93,22 @@ export default function Support() {
         </div>
       </div>
 
+      {error && (
+        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: '#ef4444', fontSize: 13 }}>
+          {error}
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: selected ? '340px 1fr' : '1fr', gap: 20 }}>
         {/* Ticket list */}
         <div className="admin-card admin-card-glow" style={{ overflow: 'hidden' }}>
-          {visible.map((t, i) => (
+          {loading ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center', color: '#334155', fontSize: 13 }}>Loading tickets…</div>
+          ) : visible.length === 0 ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center', color: '#334155', fontSize: 13 }}>
+              No tickets in this status.
+            </div>
+          ) : visible.map((t, i) => (
             <div key={t.id}
               onClick={() => setSelected(selected?.id === t.id ? null : t)}
               style={{
@@ -151,22 +119,17 @@ export default function Support() {
               }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                 <div style={{ fontSize: 12, color: '#475569', fontFamily: 'monospace' }}>{t.id}</div>
-                <span className={`admin-badge ${PRIO_COLORS[t.priority]}`} style={{ fontSize: 10 }}>{t.priority}</span>
+                <span className={`admin-badge ${PRIO_COLORS[t.priority] ?? 'badge-grey'}`} style={{ fontSize: 10 }}>{t.priority}</span>
               </div>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0', marginBottom: 4 }}>{t.subject}</div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: 11, color: '#475569' }}>{t.userName} · {t.category}</div>
-                <span className={`admin-badge ${STATUS_COLORS[t.status]}`} style={{ fontSize: 10 }}>
-                  {STATUS_LABELS[t.status]}
+                <div style={{ fontSize: 11, color: '#475569' }}>{t.userName}</div>
+                <span className={`admin-badge ${STATUS_COLORS[t.status] ?? 'badge-grey'}`} style={{ fontSize: 10 }}>
+                  {STATUS_LABELS[t.status] ?? t.status}
                 </span>
               </div>
             </div>
           ))}
-          {visible.length === 0 && (
-            <div style={{ padding: '40px 20px', textAlign: 'center', color: '#334155', fontSize: 13 }}>
-              No tickets in this status.
-            </div>
-          )}
         </div>
 
         {/* Ticket Detail */}
@@ -179,19 +142,30 @@ export default function Support() {
                     <div style={{ fontSize: 11, color: '#475569', fontFamily: 'monospace', marginBottom: 4 }}>{selected.id}</div>
                     <div style={{ fontSize: 16, fontWeight: 700, color: '#e2e8f0' }}>{selected.subject}</div>
                     <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>
-                      {selected.userName} · {selected.userEmail} · {selected.category}
+                      {selected.userName} · {selected.userEmail}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <span className={`admin-badge ${PRIO_COLORS[selected.priority]}`}>{selected.priority}</span>
-                    <span className={`admin-badge ${STATUS_COLORS[selected.status]}`}>{STATUS_LABELS[selected.status]}</span>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <span className={`admin-badge ${PRIO_COLORS[selected.priority] ?? 'badge-grey'}`}>{selected.priority}</span>
+                    <span className={`admin-badge ${STATUS_COLORS[selected.status] ?? 'badge-grey'}`}>{STATUS_LABELS[selected.status] ?? selected.status}</span>
+                    <select
+                      className="admin-select"
+                      value={selected.status}
+                      onChange={e => handleUpdateStatus(selected.id, e.target.value)}
+                      style={{ fontSize: 11 }}
+                    >
+                      <option value="open">Open</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="closed">Closed</option>
+                    </select>
                   </div>
                 </div>
 
                 {/* Messages */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
-                  {selected.messages.map(msg => (
-                    <div key={msg.id} style={{
+                  {selected.messages?.map((msg, i) => (
+                    <div key={i} style={{
                       padding: '12px 16px', borderRadius: 10,
                       background: msg.role === 'admin' ? 'rgba(139,92,246,0.08)' : 'rgba(255,255,255,0.03)',
                       border: `1px solid ${msg.role === 'admin' ? 'rgba(139,92,246,0.15)' : '#1a1a2e'}`,
@@ -226,8 +200,9 @@ export default function Support() {
                     <button className="admin-btn admin-btn-ghost admin-btn-sm"
                       onClick={() => setSelected(null)}>Close</button>
                     <button className="admin-btn admin-btn-primary admin-btn-sm"
-                      onClick={() => setReply('')} disabled={!reply.trim()}>
-                      Send Reply
+                      onClick={handleReply}
+                      disabled={!reply.trim() || sending}>
+                      {sending ? 'Sending…' : 'Send Reply'}
                     </button>
                   </div>
                 </div>
