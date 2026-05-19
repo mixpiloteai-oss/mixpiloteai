@@ -7,15 +7,28 @@ import { scanAllPlugins }       from './pluginScanner'
 import { pluginHostManager }    from './pluginHost'
 import { getAll as getBlacklist, removeFromBlacklist } from './pluginBlacklist'
 import { listPresets, savePreset, loadPreset, deletePreset, renamePreset } from './pluginPresets'
+import { logCrash } from './errorReporter'
 
 export function registerPluginIPC(
   ipcMain:   IpcMain,
   getWindow: () => BrowserWindow | null,
 ): void {
 
-  // Forward crash events to renderer
+  // Forward crash events to renderer + persist to crash log
   pluginHostManager.on('plugin-crash', (info: unknown) => {
     getWindow()?.webContents.send('plugin-crashed', info)
+    try {
+      const i = (info && typeof info === 'object') ? info as Record<string, unknown> : {}
+      void logCrash({
+        source:  'plugin',
+        message: typeof i.pluginName === 'string'
+          ? `Plugin crashed: ${i.pluginName}`
+          : 'Plugin crashed',
+        meta: i,
+      })
+    } catch {
+      /* swallow */
+    }
   })
 
   // ── Scanner ──────────────────────────────────────────────────────────────

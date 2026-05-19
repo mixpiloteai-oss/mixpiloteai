@@ -10,6 +10,40 @@ import updaterModule from './modules/updater'
 import { registerAudioIPCHandlers } from './audio/AudioIPCHandler'
 import { getAudioEngineProcess }     from './audio/AudioEngineProcess'
 import { registerPluginIPC }         from './modules/pluginIPC'
+import { logCrash, registerCrashIPC } from './modules/errorReporter'
+
+// ── Global crash safety net ───────────────────────────────────────────────────
+// Plugins run in forked child processes (see modules/pluginHost.ts), so most
+// uncaught exceptions in main are bugs in our own code. Log them and continue
+// running — never let a single bad require/throw take down the whole app.
+process.on('uncaughtException', (err) => {
+  try {
+    console.error('[main] uncaughtException:', err)
+    void logCrash({
+      source:  'main',
+      message: err?.message ?? String(err),
+      stack:   err?.stack,
+      meta:    { kind: 'uncaughtException' },
+    })
+  } catch (e) {
+    console.error('[main] failed to log uncaughtException:', e)
+  }
+})
+
+process.on('unhandledRejection', (reason) => {
+  try {
+    console.error('[main] unhandledRejection:', reason)
+    const err = reason instanceof Error ? reason : null
+    void logCrash({
+      source:  'main',
+      message: err?.message ?? (typeof reason === 'string' ? reason : 'unhandledRejection'),
+      stack:   err?.stack,
+      meta:    { kind: 'unhandledRejection' },
+    })
+  } catch (e) {
+    console.error('[main] failed to log unhandledRejection:', e)
+  }
+})
 
 let mainWindow: BrowserWindow | null = null
 
@@ -146,6 +180,9 @@ app.whenReady().then(() => {
 
   // Plugin system: sandboxed host processes, blacklist, presets
   registerPluginIPC(ipcMain, () => mainWindow)
+
+  // Persistent crash log (accessible from renderer via preload `crash` API)
+  registerCrashIPC(ipcMain)
 
   // Native audio engine IPC + process management
   registerAudioIPCHandlers(ipcMain, () => mainWindow)

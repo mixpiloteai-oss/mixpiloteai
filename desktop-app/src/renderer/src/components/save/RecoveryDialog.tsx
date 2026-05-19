@@ -41,7 +41,8 @@ export default function RecoveryDialog() {
       const ser   = getProjectSerializer()
       const valid = ser.verify(info.checkpoint)
       if (!valid) throw new Error('Snapshot integrity check failed (checksum mismatch)')
-      ser.restore(info.checkpoint.data)
+      const res = ser.restore(info.checkpoint.data)
+      if (!res.ok) throw new Error(`Recovery rejected: ${res.reason}`)
       await window.electronAPI?.crashClearCheckpoint()
       setInfo(null)
     } catch (err) {

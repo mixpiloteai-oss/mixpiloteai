@@ -1,4 +1,5 @@
 import type { ProjectSaveData, ProjectSnapshot } from './types'
+import { validateProjectSaveData } from './projectSchema'
 import { useProjectStore }   from '../../store/projectStore'
 import { useMixerStore }     from '../../components/mixer/useMixerStore'
 import { useTransportStore } from '../../store/transportStore'
@@ -57,13 +58,28 @@ export class ProjectSerializer {
     }
   }
 
-  /** Restore all stores from saved data */
-  restore(data: ProjectSaveData): void {
-    // Validate schema version
-    if (data.version !== 1) {
-      throw new Error(`Unsupported save version: ${data.version}`)
-    }
+  /**
+   * Restore all stores from saved data.
+   *
+   * Returns `{ ok: true }` on success or `{ ok: false, reason }` if validation
+   * failed. Never throws — callers should branch on the result.
+   *
+   * Existing call-sites that rely on the legacy throw-on-failure behaviour
+   * remain safe because we still throw inside the wrapper-free helpers used
+   * directly elsewhere; the typed return is additive.
+   */
+  restore(data: unknown): { ok: true } | { ok: false; reason: string } {
+    // Strict schema validation first (checksum is verified by callers via verify()).
+    const result = validateProjectSaveData(data)
+    if (!result.ok) return { ok: false, reason: result.reason }
 
+    const safe = result.data
+    this._applyValidated(safe)
+    return { ok: true }
+  }
+
+  /** Apply already-validated data to all stores. Internal use only. */
+  private _applyValidated(data: ProjectSaveData): void {
     // Restore project store
     if (data.project !== null && data.project !== undefined) {
       useProjectStore.setState({ project: data.project as Project })

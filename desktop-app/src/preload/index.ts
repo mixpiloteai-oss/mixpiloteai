@@ -133,6 +133,16 @@ const api = {
   // Platform
   platform:    process.platform,
   isElectron:  true as const,
+  // Crash reporting (typed namespace — does NOT expose raw ipcRenderer)
+  crash: {
+    report: (payload: {
+      source:  'main' | 'renderer' | 'plugin' | 'audio'
+      message: string
+      stack?:  string
+      meta?:   Record<string, unknown>
+    }) => ipcRenderer.invoke('crash:report', payload),
+    list: (limit?: number) => ipcRenderer.invoke('crash:list', limit),
+  },
 }
 
 if (process.contextIsolated) {

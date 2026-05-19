@@ -79,3 +79,17 @@ export function getAll(): BlacklistEntry[] {
 export function getEntry(path: string): BlacklistEntry | null {
   return db.get(path) ?? null
 }
+
+// ── Convenience accessors (used by resilience layer) ────────────────────────
+
+export function getCrashCount(path: string): number {
+  return db.get(path)?.crashCount ?? 0
+}
+
+export function clearCrash(path: string): void {
+  removeFromBlacklist(path)
+}
+
+export function listBlacklisted(): BlacklistEntry[] {
+  return [...db.values()].filter(e => e.blacklistedAt !== null)
+}

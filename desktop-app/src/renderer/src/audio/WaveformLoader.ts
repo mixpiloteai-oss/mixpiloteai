@@ -13,8 +13,10 @@
 
 import type { WaveformData } from './types'
 import { AudioEngine } from './AudioEngine'
+import { logger } from '../lib/logger'
 
 const MAX_CACHE_ENTRIES = 128
+const MAX_AUDIO_BYTES   = 200 * 1024 * 1024 // 200 MB hard cap — prevents OOM on huge files
 
 interface CacheEntry {
   buffer:    AudioBuffer
@@ -25,7 +27,7 @@ interface CacheEntry {
 export class WaveformLoader {
   private readonly engine: AudioEngine
   private _cache:   Map<string, CacheEntry>   = new Map()
-  private _pending: Map<string, Promise<AudioBuffer>> = new Map()
+  private _pending: Map<string, Promise<AudioBuffer | null>> = new Map()
 
   constructor(engine: AudioEngine) {
     this.engine = engine
@@ -36,8 +38,11 @@ export class WaveformLoader {
   /**
    * Load a URL and return the decoded AudioBuffer.
    * Concurrent calls for the same URL share one network request.
+   *
+   * Returns `null` on any failure (oversized payload, network error, decode
+   * failure) so a corrupt file can never crash the renderer.
    */
-  async load(url: string): Promise<AudioBuffer> {
+  async load(url: string): Promise<AudioBuffer | null> {
     const cached = this._cache.get(url)
     if (cached) {
       cached.lastUsed = Date.now()
@@ -53,6 +58,7 @@ export class WaveformLoader {
 
     try {
       const buffer = await promise
+      if (!buffer) return null
       this._store(url, buffer)
       return buffer
     } finally {
@@ -63,9 +69,13 @@ export class WaveformLoader {
   /**
    * Returns cached WaveformData for the given URL, computing it if needed.
    * `width` is the number of pixel columns in the render target.
+   *
+   * Throws if the buffer could not be loaded — callers (e.g. useWaveform)
+   * already handle this and surface the error to the UI.
    */
   async getWaveform(url: string, width: number): Promise<WaveformData> {
     const buffer = await this.load(url)
+    if (!buffer) throw new Error(`WaveformLoader: failed to load "${url}"`)
     const entry  = this._cache.get(url)!
 
     if (entry.waveform && entry.waveform.rms.length === width) {
@@ -89,13 +99,45 @@ export class WaveformLoader {
 
   // ── Internals ───────────────────────────────────────────────────────────
 
-  private async _fetch(url: string): Promise<AudioBuffer> {
-    const res = await fetch(url)
-    if (!res.ok) {
-      throw new Error(`WaveformLoader: failed to load "${url}" — HTTP ${res.status}`)
+  private async _fetch(url: string): Promise<AudioBuffer | null> {
+    let res: Response
+    try {
+      res = await fetch(url)
+    } catch (err) {
+      logger.warn('WaveformLoader: fetch failed', url, err)
+      return null
     }
-    const arrayBuffer = await res.arrayBuffer()
-    return this.engine.ctx.decodeAudioData(arrayBuffer)
+    if (!res.ok) {
+      logger.warn('WaveformLoader: HTTP', res.status, 'for', url)
+      return null
+    }
+
+    // Reject huge files BEFORE downloading when Content-Length is advertised
+    const advertised = Number(res.headers.get('content-length') ?? 0)
+    if (advertised > MAX_AUDIO_BYTES) {
+      logger.warn('WaveformLoader: refused — advertised size', advertised, 'exceeds cap for', url)
+      return null
+    }
+
+    let arrayBuffer: ArrayBuffer
+    try {
+      arrayBuffer = await res.arrayBuffer()
+    } catch (err) {
+      logger.warn('WaveformLoader: arrayBuffer read failed for', url, err)
+      return null
+    }
+
+    if (arrayBuffer.byteLength > MAX_AUDIO_BYTES) {
+      logger.warn('WaveformLoader: refused — size', arrayBuffer.byteLength, 'exceeds 200MB cap for', url)
+      return null
+    }
+
+    try {
+      return await this.engine.ctx.decodeAudioData(arrayBuffer)
+    } catch (err) {
+      logger.warn('WaveformLoader: decodeAudioData failed for', url, err)
+      return null
+    }
   }
 
   private _store(url: string, buffer: AudioBuffer): void {

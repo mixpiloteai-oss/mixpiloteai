@@ -60,7 +60,8 @@ export default function SnapshotHistoryPanel({ onClose }: Props) {
     setRestoring(snap.id)
     try {
       await getAutoSaveEngine().saveNow('Pre-restore backup')
-      ser.restore(snap.data)
+      const res = ser.restore(snap.data)
+      if (!res.ok) throw new Error(`Snapshot rejected: ${res.reason}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Restore failed')
     } finally {
