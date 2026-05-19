@@ -1,6 +1,14 @@
 const API = import.meta.env.VITE_API_URL ?? 'https://mixpiloteai-production.up.railway.app'
 const TOKEN_KEY = 'admin-jwt'
 const REFRESH_KEY = 'admin-refresh'
+const LAST_ACTIVITY_KEY = 'admin-last-activity'
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes
+
+function redirectToAdminGate() {
+  if (typeof window !== 'undefined') {
+    window.location.hash = '#/admin'
+  }
+}
 
 // Token management
 export const adminToken = {
@@ -11,8 +19,21 @@ export const adminToken = {
   getRefresh: () => localStorage.getItem(REFRESH_KEY),
 }
 
-// Base fetch with auto-refresh on 401
+// Base fetch with auto-refresh on 401 + inactivity timeout
 async function adminFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  // Inactivity check (skip if no activity recorded yet)
+  const lastRaw = localStorage.getItem(LAST_ACTIVITY_KEY)
+  if (lastRaw) {
+    const last = parseInt(lastRaw, 10)
+    if (Number.isFinite(last) && Date.now() - last > INACTIVITY_TIMEOUT_MS) {
+      console.warn('[admin] session expired due to inactivity')
+      adminToken.clear()
+      localStorage.removeItem(LAST_ACTIVITY_KEY)
+      redirectToAdminGate()
+      throw new Error('Session expired due to inactivity')
+    }
+  }
+
   const token = adminToken.get()
   const res = await fetch(`${API}${path}`, {
     ...options,
@@ -35,11 +56,13 @@ async function adminFetch<T>(path: string, options?: RequestInit): Promise<T> {
       if (refreshRes.ok) {
         const { data } = await refreshRes.json()
         adminToken.set(data.accessToken)
+        localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()))
         // Retry original request
         return adminFetch<T>(path, options)
       }
     }
     adminToken.clear()
+    redirectToAdminGate()
     throw new Error('Session expired')
   }
 
@@ -47,6 +70,9 @@ async function adminFetch<T>(path: string, options?: RequestInit): Promise<T> {
     const err = await res.json().catch(() => ({ error: res.statusText }))
     throw new Error(err.error ?? 'Request failed')
   }
+
+  // Mark activity on successful response
+  localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()))
 
   return res.json()
 }
@@ -97,6 +123,7 @@ export async function adminLogout() {
   }
   adminToken.clear()
   localStorage.removeItem('admin-key')
+  localStorage.removeItem(LAST_ACTIVITY_KEY)
 }
 
 export function isAdminAuthed(): boolean {

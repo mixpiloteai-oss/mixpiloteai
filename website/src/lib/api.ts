@@ -8,14 +8,80 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? 'https://mixpiloteai-production
 // ── Token management ─────────────────────────────────────────────
 const TOKEN_KEY   = 'token'
 const REFRESH_KEY = 'refreshToken'
+const EXP_KEY     = 'auth-token-exp'
+
+/** Decode a JWT's exp claim without external libraries. Returns null on failure. */
+function decodeJwtExp(token: string): number | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length < 2) return null
+    // base64url -> base64
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const padded = b64 + '==='.slice((b64.length + 3) % 4)
+    const json = atob(padded)
+    const payload = JSON.parse(json) as { exp?: number }
+    if (typeof payload.exp === 'number' && Number.isFinite(payload.exp)) {
+      return payload.exp
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function storeTokenWithExp(t: string) {
+  localStorage.setItem(TOKEN_KEY, t)
+  const exp = decodeJwtExp(t)
+  if (exp !== null) {
+    localStorage.setItem(EXP_KEY, String(exp))
+  } else {
+    // Malformed / opaque token — drop any stale exp
+    localStorage.removeItem(EXP_KEY)
+  }
+}
 
 export const authTokens = {
   get:        () => localStorage.getItem(TOKEN_KEY),
   getRefresh: () => localStorage.getItem(REFRESH_KEY),
-  set:        (t: string) => localStorage.setItem(TOKEN_KEY, t),
+  set:        (t: string) => storeTokenWithExp(t),
   setRefresh: (t: string) => localStorage.setItem(REFRESH_KEY, t),
-  clear:      () => { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(REFRESH_KEY) },
+  clear:      () => {
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(REFRESH_KEY)
+    localStorage.removeItem(EXP_KEY)
+  },
   isLoggedIn: () => !!localStorage.getItem(TOKEN_KEY),
+  getExp:     (): number | null => {
+    const raw = localStorage.getItem(EXP_KEY)
+    if (!raw) return null
+    const n = parseInt(raw, 10)
+    return Number.isFinite(n) ? n : null
+  },
+}
+
+function redirectToLogin() {
+  if (typeof window !== 'undefined') {
+    window.location.hash = '#/login'
+  }
+}
+
+/** Attempt a refresh using the stored refresh token. Returns true on success. */
+async function tryRefresh(): Promise<boolean> {
+  const refreshToken = authTokens.getRefresh()
+  if (!refreshToken) return false
+  try {
+    const refreshRes = await fetch(`${BASE_URL}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    })
+    if (!refreshRes.ok) return false
+    const { data } = await refreshRes.json() as { data: { accessToken: string } }
+    authTokens.set(data.accessToken)
+    return true
+  } catch {
+    return false
+  }
 }
 
 // ── Error type ───────────────────────────────────────────────────
@@ -31,6 +97,12 @@ async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
+  // Proactive refresh if the access token is within 30s of expiry
+  const exp = authTokens.getExp()
+  if (exp !== null && Date.now() / 1000 > exp - 30) {
+    await tryRefresh()
+  }
+
   const token = authTokens.get()
 
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -44,20 +116,12 @@ async function apiFetch<T>(
 
   // Auto-refresh on 401
   if (res.status === 401) {
-    const refreshToken = authTokens.getRefresh()
-    if (refreshToken) {
-      const refreshRes = await fetch(`${BASE_URL}/api/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
-      })
-      if (refreshRes.ok) {
-        const { data } = await refreshRes.json() as { data: { accessToken: string } }
-        authTokens.set(data.accessToken)
-        return apiFetch<T>(path, options)
-      }
+    const refreshed = await tryRefresh()
+    if (refreshed) {
+      return apiFetch<T>(path, options)
     }
     authTokens.clear()
+    redirectToLogin()
     throw new ApiError(401, 'Session expired. Please log in again.')
   }
 

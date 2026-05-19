@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
 import './admin.css'
 import { adminLogin, adminLogout, isAdminAuthed } from './services/adminApi'
@@ -68,7 +68,7 @@ function AuthGate({ onAuth }: { onAuth: (email: string) => void }) {
           {loading ? 'Signing in…' : 'Access Admin Panel'}
         </button>
         <div className="admin-auth-hint">
-          Key access: use <code>nt-admin-dev-2025</code> in the email field
+          Access restricted to authorized administrators.
         </div>
       </form>
     </div>
@@ -109,6 +109,30 @@ export default function AdminShell() {
   const [userEmail, setUserEmail] = useState(
     () => localStorage.getItem('admin-user-email') ?? 'admin@neurotek.ai'
   )
+
+  // Re-check auth on mount and when localStorage changes (other tabs logging out)
+  useEffect(() => {
+    const recheck = () => {
+      if (!isAdminAuthed()) setAuthed(false)
+    }
+    recheck()
+    window.addEventListener('storage', recheck)
+    return () => window.removeEventListener('storage', recheck)
+  }, [])
+
+  // Clickjacking defense: refuse to render inside an iframe
+  const isFramed = typeof window !== 'undefined' && window.self !== window.top
+  if (isFramed) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        minHeight: '100vh', background: '#fff', color: '#0f172a',
+        fontFamily: 'system-ui, sans-serif', fontSize: 14, padding: 24, textAlign: 'center',
+      }}>
+        This panel cannot be embedded.
+      </div>
+    )
+  }
 
   if (!authed) {
     return (
