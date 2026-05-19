@@ -801,7 +801,7 @@ export async function getUserActivity(userId: string): Promise<{
   const [projectsResult, aiResult] = await Promise.all([
     supabase!.from('projects').select('id, name, created_at').eq('user_id', userId).limit(20),
     supabase!.from('ai_usage').select('model, tokens, created_at').eq('user_id', userId).limit(20)
-      .catch(() => ({ data: null })),
+      .then((r) => r, () => ({ data: null })),
   ]);
 
   return {
