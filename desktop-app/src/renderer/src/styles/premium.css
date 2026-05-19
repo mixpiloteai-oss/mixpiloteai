@@ -1,0 +1,384 @@
+/* ─── Premium Animation Layer — NeuroTek Studio ─────────────────────────────
+   GPU-accelerated animations, micro-interactions, glass morphism
+   Inspired by: Ableton, Linear, Raycast, Arc Browser
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ─── CSS Custom Properties ──────────────────────────────────────────────── */
+:root {
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 350ms;
+  --glow-purple: 0 0 20px rgba(124, 58, 237, 0.4);
+  --glow-cyan: 0 0 20px rgba(34, 211, 238, 0.3);
+  --glow-green: 0 0 12px rgba(16, 185, 129, 0.4);
+  --glow-amber: 0 0 12px rgba(245, 158, 11, 0.3);
+  --glow-red: 0 0 12px rgba(239, 68, 68, 0.4);
+}
+
+/* ─── GPU Acceleration Utilities ─────────────────────────────────────────── */
+.gpu {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.gpu-opacity {
+  will-change: opacity;
+}
+
+.gpu-all {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* ─── Keyframe Animations ─────────────────────────────────────────────────── */
+
+/* View enter — fade up from below, used on view switches */
+@keyframes viewEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) translateZ(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) translateZ(0);
+  }
+}
+
+/* Slide in from right — for panels and drawers */
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px) translateZ(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) translateZ(0);
+  }
+}
+
+/* Fade + scale — for dialogs and cards */
+@keyframes fadeScale {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateZ(0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateZ(0);
+  }
+}
+
+/* Shimmer — for skeleton loading states */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Logo pulse on hover */
+@keyframes logoPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(124, 58, 237, 0);
+  }
+  50% {
+    box-shadow: 0 0 12px 4px rgba(124, 58, 237, 0.35);
+  }
+}
+
+/* Left border glow pulse for active nav items */
+@keyframes borderGlowPulse {
+  0%, 100% {
+    box-shadow: -2px 0 8px rgba(168, 85, 247, 0.4), inset 0 0 0 0 rgba(124, 58, 237, 0);
+  }
+  50% {
+    box-shadow: -2px 0 14px rgba(168, 85, 247, 0.65), inset 0 0 4px 0 rgba(124, 58, 237, 0.1);
+  }
+}
+
+/* Play button glow pulse while playing */
+@keyframes playGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(124, 58, 237, 0);
+  }
+  50% {
+    box-shadow: 0 0 16px 4px rgba(124, 58, 237, 0.35);
+  }
+}
+
+/* Pulsing dot for connected state */
+@keyframes dotPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1) translateZ(0);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.25) translateZ(0);
+  }
+}
+
+/* Number slot machine — stats count-up feel */
+@keyframes slotIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) translateZ(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) translateZ(0);
+  }
+}
+
+/* Tile stagger entrance */
+@keyframes tileEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98) translateZ(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1) translateZ(0);
+  }
+}
+
+/* Tooltip fade in */
+@keyframes tooltipIn {
+  from {
+    opacity: 0;
+    transform: translateX(-4px) translateZ(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) translateZ(0);
+  }
+}
+
+/* ─── Applied Classes ─────────────────────────────────────────────────────── */
+
+/* View transition container */
+.view-enter {
+  animation: viewEnter var(--duration-normal) var(--ease-out) both;
+  will-change: transform, opacity;
+}
+
+/* Shimmer loading skeleton */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.04) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s var(--ease-smooth) infinite;
+}
+
+/* Glass morphism card */
+.glass-card {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(12, 12, 20, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Glass morphism transport (lighter) */
+.glass-transport {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: rgba(12, 12, 20, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Stat number reveal */
+.stat-value {
+  animation: slotIn var(--duration-slow) var(--ease-spring) both;
+  will-change: transform, opacity;
+}
+
+/* Dashboard tile hover state */
+.dashboard-tile {
+  transition:
+    transform var(--duration-fast) var(--ease-smooth),
+    box-shadow var(--duration-normal) var(--ease-smooth),
+    border-color var(--duration-normal) var(--ease-smooth),
+    background var(--duration-normal) var(--ease-smooth);
+  will-change: transform, box-shadow;
+  animation: tileEnter var(--duration-slow) var(--ease-spring) both;
+}
+
+.dashboard-tile:hover {
+  transform: translateY(-2px) translateZ(0);
+}
+
+/* ─── Smooth Scrollbar ────────────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(124, 58, 237, 0.25) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.25);
+  border-radius: 2px;
+  transition: background var(--duration-fast) var(--ease-smooth);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 58, 237, 0.45);
+}
+
+/* ─── Sidebar Nav Micro-interactions ──────────────────────────────────────── */
+
+.sidebar-logo {
+  transition: transform var(--duration-fast) var(--ease-spring), box-shadow var(--duration-normal) var(--ease-smooth);
+  will-change: transform, box-shadow;
+}
+
+.sidebar-logo:hover {
+  animation: logoPulse 1.2s var(--ease-smooth) infinite;
+  transform: scale(1.08) translateZ(0);
+}
+
+.sidebar-nav-btn {
+  transition:
+    transform var(--duration-fast) var(--ease-smooth),
+    background var(--duration-fast) var(--ease-smooth),
+    color var(--duration-fast) var(--ease-smooth),
+    border-color var(--duration-fast) var(--ease-smooth),
+    box-shadow var(--duration-fast) var(--ease-smooth);
+  will-change: transform, box-shadow;
+  position: relative;
+}
+
+.sidebar-nav-btn:hover {
+  transform: scale(1.05) translateZ(0);
+}
+
+.sidebar-nav-btn:active {
+  transform: scale(0.96) translateZ(0);
+}
+
+.sidebar-nav-btn.active {
+  animation: borderGlowPulse 2.2s var(--ease-smooth) infinite;
+  border-left: 3px solid currentColor !important;
+  padding-left: calc(0.5rem - 3px);
+}
+
+/* Tooltip */
+.sidebar-tooltip {
+  pointer-events: none;
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px) translateZ(0);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  transition:
+    opacity 150ms var(--ease-smooth) 150ms,
+    transform 150ms var(--ease-smooth) 150ms;
+  will-change: opacity, transform;
+  z-index: 50;
+  background: #1c1c2e;
+  color: #e2e8f0;
+  border: 1px solid #2e2e42;
+}
+
+.sidebar-nav-btn:hover .sidebar-tooltip {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0) translateZ(0);
+}
+
+/* ─── Transport Bar Micro-interactions ────────────────────────────────────── */
+
+.transport-btn {
+  transition:
+    transform var(--duration-fast) var(--ease-smooth),
+    background var(--duration-fast) var(--ease-smooth),
+    color var(--duration-fast) var(--ease-smooth),
+    border-color var(--duration-fast) var(--ease-smooth),
+    box-shadow var(--duration-fast) var(--ease-smooth);
+  will-change: transform;
+}
+
+.transport-btn:hover {
+  transform: scale(1.06) translateZ(0);
+}
+
+.transport-btn:active {
+  transform: scale(0.94) translateZ(0);
+}
+
+.transport-btn.playing {
+  animation: playGlow 1.8s var(--ease-smooth) infinite;
+}
+
+/* BPM display focus ring */
+.bpm-display {
+  transition:
+    border-color var(--duration-fast) var(--ease-smooth),
+    box-shadow var(--duration-fast) var(--ease-smooth),
+    color var(--duration-fast) var(--ease-smooth);
+}
+
+.bpm-display:hover {
+  border-color: rgba(124, 58, 237, 0.4) !important;
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.12);
+}
+
+/* Position display smooth color transition */
+.position-display {
+  transition: color var(--duration-normal) var(--ease-smooth), box-shadow var(--duration-normal) var(--ease-smooth);
+}
+
+/* ─── Status Bar ──────────────────────────────────────────────────────────── */
+
+.status-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  will-change: transform, opacity;
+}
+
+.status-dot.online {
+  background: #10b981;
+  animation: dotPulse 2s var(--ease-smooth) infinite;
+}
+
+.status-dot.degraded {
+  background: #f59e0b;
+  animation: dotPulse 1.4s var(--ease-smooth) infinite;
+}
+
+.status-dot.offline {
+  background: #ef4444;
+  animation: dotPulse 1s var(--ease-smooth) infinite;
+}
+
+.cpu-indicator {
+  transition: color var(--duration-slow) var(--ease-smooth);
+}
+
+.cpu-indicator.low   { color: #10b981; }
+.cpu-indicator.mid   { color: #f59e0b; }
+.cpu-indicator.high  { color: #ef4444; }

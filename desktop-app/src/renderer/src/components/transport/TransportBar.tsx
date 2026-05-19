@@ -36,8 +36,7 @@ export default function TransportBar() {
 
   return (
     <div
-      className="h-12 flex items-center gap-2 px-4 shrink-0 select-none"
-      style={{ background: '#0c0c14', borderBottom: '1px solid #1c1c2e' }}
+      className="h-12 flex items-center gap-2 px-4 shrink-0 select-none glass-transport"
     >
       {/* Transport controls */}
       <div className="flex items-center gap-1">
@@ -51,12 +50,13 @@ export default function TransportBar() {
           <SquareIcon />
         </TBtn>
 
-        {/* Play */}
+        {/* Play — glows when playing */}
         <TBtn
           title="Play (Space)"
           onClick={playing ? pause : play}
           active={playing}
           accent="purple"
+          glowing={playing}
         >
           {playing ? <PauseIcon /> : <PlayIcon />}
         </TBtn>
@@ -83,8 +83,15 @@ export default function TransportBar() {
 
       {/* Position display */}
       <div
-        className="px-3 py-1 rounded font-mono text-sm tabular-nums"
-        style={{ background: '#06060d', border: '1px solid #1c1c2e', color: playing ? '#a855f7' : '#64748b', minWidth: 100, textAlign: 'center' }}
+        className="position-display px-3 py-1 rounded font-mono text-sm tabular-nums"
+        style={{
+          background: '#06060d',
+          border: '1px solid #1c1c2e',
+          color: playing ? '#a855f7' : '#64748b',
+          minWidth: 100,
+          textAlign: 'center',
+          boxShadow: playing ? '0 0 8px rgba(124,58,237,0.2)' : 'none',
+        }}
       >
         {pos}
       </div>
@@ -98,7 +105,7 @@ export default function TransportBar() {
           onClick={() => nudgeBpm(-1)} title="BPM −1"
         >−</button>
         <div
-          className="font-mono text-sm tabular-nums px-2 py-1 rounded cursor-ns-resize"
+          className="bpm-display font-mono text-sm tabular-nums px-2 py-1 rounded cursor-ns-resize"
           style={{ background: '#06060d', border: '1px solid #1c1c2e', color: '#e2e8f0', minWidth: 56, textAlign: 'center' }}
           title="Drag to change BPM"
           onWheel={e => nudgeBpm(e.deltaY < 0 ? 1 : -1)}
@@ -129,11 +136,12 @@ export default function TransportBar() {
       {/* AI button */}
       <button
         onClick={toggleAIPanel}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transport-btn"
         style={{
           background: aiPanelOpen ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.04)',
           color:      aiPanelOpen ? '#a855f7' : '#64748b',
           border:     `1px solid ${aiPanelOpen ? 'rgba(124,58,237,0.4)' : 'transparent'}`,
+          transition: 'all 120ms cubic-bezier(0.4,0,0.2,1)',
         }}
       >
         <span>✦</span>
@@ -143,7 +151,7 @@ export default function TransportBar() {
   )
 }
 
-function TBtn({ children, onClick, active, accent = 'purple', dimmed = false, small = false, title }: {
+function TBtn({ children, onClick, active, accent = 'purple', dimmed = false, small = false, title, glowing = false }: {
   children: React.ReactNode
   onClick: () => void
   active: boolean
@@ -151,6 +159,7 @@ function TBtn({ children, onClick, active, accent = 'purple', dimmed = false, sm
   dimmed?: boolean
   small?: boolean
   title?: string
+  glowing?: boolean
 }) {
   const colors = { purple: '#7c3aed', red: '#ef4444', cyan: '#06b6d4' }
   const color = colors[accent]
@@ -158,11 +167,11 @@ function TBtn({ children, onClick, active, accent = 'purple', dimmed = false, sm
     <button
       title={title}
       onClick={onClick}
-      className={`flex items-center justify-center rounded-lg transition-all ${small ? 'w-7 h-7' : 'w-8 h-8'}`}
+      className={`transport-btn flex items-center justify-center rounded-lg gpu${glowing ? ' playing' : ''}${small ? ' w-7 h-7' : ' w-8 h-8'}`}
       style={{
-        background: active ? `${color}25` : 'transparent',
-        color:      active ? color : dimmed ? '#2e3a4e' : '#475569',
-        border:     active ? `1px solid ${color}50` : '1px solid transparent',
+        background:  active ? `${color}25` : 'transparent',
+        color:       active ? color : dimmed ? '#2e3a4e' : '#475569',
+        border:      active ? `1px solid ${color}50` : '1px solid transparent',
       }}
     >
       {children}

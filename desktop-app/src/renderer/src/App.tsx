@@ -173,9 +173,20 @@ function Dashboard() {
           { label: 'Tracks',  value: '6'     },
           { label: 'Bars',    value: '32'    },
           { label: 'Plugins', value: '10'    },
-        ].map(stat => (
-          <div key={stat.label} className="rounded-xl p-4" style={{ background: '#0c0c14', border: '1px solid #1c1c2e' }}>
-            <p className="text-2xl font-bold font-mono" style={{ color: '#e2e8f0' }}>{stat.value}</p>
+        ].map((stat, i) => (
+          <div
+            key={stat.label}
+            className="rounded-xl p-4"
+            style={{
+              background: '#0c0c14',
+              border: '1px solid #1c1c2e',
+              animation: `tileEnter 350ms cubic-bezier(0.34,1.56,0.64,1) ${i * 40}ms both`,
+            }}
+          >
+            <p
+              className="stat-value text-2xl font-bold font-mono"
+              style={{ color: '#e2e8f0', animationDelay: `${i * 40 + 80}ms` }}
+            >{stat.value}</p>
             <p className="text-[10px] mt-0.5" style={{ color: '#475569' }}>{stat.label}</p>
           </div>
         ))}
@@ -184,14 +195,26 @@ function Dashboard() {
       {/* View tiles */}
       <p className="text-[10px] uppercase tracking-widest mb-3 font-semibold" style={{ color: '#334155' }}>Workspace</p>
       <div className="grid grid-cols-3 gap-3">
-        {tiles.map(tile => (
+        {tiles.map((tile, i) => (
           <button
             key={tile.id}
             onClick={() => setView(tile.id)}
-            className="text-left rounded-xl p-4 transition-all group"
-            style={{ background: '#0c0c14', border: '1px solid #1c1c2e' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = `${tile.color}40` }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#1c1c2e' }}
+            className="dashboard-tile text-left rounded-xl p-4 gpu"
+            style={{
+              background: '#0c0c14',
+              border: '1px solid #1c1c2e',
+              animationDelay: `${i * 30}ms`,
+            }}
+            onMouseEnter={e => {
+              const el = e.currentTarget as HTMLElement
+              el.style.borderColor = `${tile.color}40`
+              el.style.boxShadow = `0 4px 20px ${tile.color}18`
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget as HTMLElement
+              el.style.borderColor = '#1c1c2e'
+              el.style.boxShadow = 'none'
+            }}
           >
             <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3 text-base"
               style={{ background: `${tile.color}18`, color: tile.color }}>
@@ -246,7 +269,10 @@ function DAWShell() {
         {/* Main content */}
         <div className="flex flex-1 min-w-0 min-h-0">
           <div className="flex-1 min-w-0 min-h-0 overflow-hidden">
-            {renderView()}
+            {/* key forces remount → CSS view-enter animation fires on each view switch */}
+            <div key={activeView} className="view-enter h-full">
+              {renderView()}
+            </div>
           </div>
 
           {/* AI panel — docked right */}

@@ -59,7 +59,7 @@ export default function StatusBar() {
       <Divider />
 
       {/* Audio engine */}
-      <span className={cpu > 75 ? 'text-red-400' : ''}>CPU {cpu}%</span>
+      <span className={`cpu-indicator ${cpu > 75 ? 'high' : cpu > 45 ? 'mid' : 'low'}`}>CPU {cpu}%</span>
       <span>{mem} MB</span>
       <span>44100 Hz · 512</span>
       <span>WASAPI · 12ms</span>
@@ -74,9 +74,15 @@ export default function StatusBar() {
       {/* Spacer */}
       <span className="flex-1" />
 
-      {/* Network */}
-      <span style={{ color: netColor, transition: 'color 0.3s' }}
-            title={isOnline ? (aiAvailable ? 'Connected — all features available' : 'Connected — server unreachable, AI paused') : 'Offline — DAW fully functional, AI/cloud paused'}>
+      {/* Network — pulsing status dot + label */}
+      <span
+        className="flex items-center gap-1.5"
+        style={{ color: netColor, transition: 'color 0.3s' }}
+        title={isOnline ? (aiAvailable ? 'Connected — all features available' : 'Connected — server unreachable, AI paused') : 'Offline — DAW fully functional, AI/cloud paused'}
+      >
+        <span
+          className={`status-dot ${isOnline ? (aiAvailable ? 'online' : 'degraded') : 'offline'}`}
+        />
         {netLabel}
       </span>
 
