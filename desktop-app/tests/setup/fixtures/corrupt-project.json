@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "savedAt": 1700000000000,
+  "appVersion": "1.0.0",
+  "project": null,
+  "mixer": null,
+  "transport": {
+    "bpm": 9999,
+    "timeSignatureTop": 4,
+    "timeSignatureBottom": 4
+  },
+  "pianoRoll": null,
+  "midi": null
+}
