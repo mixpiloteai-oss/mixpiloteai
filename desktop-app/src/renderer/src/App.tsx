@@ -10,6 +10,7 @@ import AIAssistant from './components/ai-assistant/AIAssistant'
 import LiveMode from './components/live/LiveMode'
 import PluginBrowser from './components/plugin-browser/PluginBrowser'
 import RoutingMatrix from './components/routing/RoutingMatrix'
+import LocalAIPanel from './components/ai-local/LocalAIPanel'
 import RecoveryDialog        from './components/save/RecoveryDialog'
 import SnapshotHistoryPanel  from './components/save/SnapshotHistoryPanel'
 import { useUIStore }        from './store/uiStore'
@@ -145,6 +146,7 @@ function Dashboard() {
     { id: 'live'        as const, icon: '▶', label: 'Live Mode',     sub: '6 × 8 clip launcher',       color: '#f59e0b' },
     { id: 'vst'         as const, icon: '⊕', label: 'Plugin Browser',sub: '10 plugins loaded',         color: '#ec4899' },
     { id: 'routing'     as const, icon: '⊗', label: 'Routing Matrix',sub: '11 active connections',     color: '#06b6d4' },
+    { id: 'ai-local'   as const, icon: '⊙', label: 'Local AI',      sub: 'Offline analysis · no cloud', color: '#06b6d4' },
   ]
 
   return (
@@ -214,6 +216,7 @@ function DAWShell() {
       case 'live':        return <LiveMode />
       case 'vst':         return <PluginBrowser />
       case 'routing':     return <RoutingMatrix />
+      case 'ai-local':    return <LocalAIPanel />
       case 'dashboard':   return <Dashboard />
       default:            return <Dashboard />
     }

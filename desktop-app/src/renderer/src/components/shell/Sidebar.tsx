@@ -8,6 +8,7 @@ const NAV_ITEMS: { id: ViewId; label: string; icon: string }[] = [
   { id: 'vst',         label: 'Plugins',     icon: '⊕' },
   { id: 'ai',          label: 'AI Assistant',icon: '✦' },
   { id: 'routing',     label: 'Routing',     icon: '⊗' },
+  { id: 'ai-local',   label: 'Local AI',    icon: '⊙' },
 ]
 
 export default function Sidebar() {
