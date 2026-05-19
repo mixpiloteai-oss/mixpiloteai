@@ -41,6 +41,9 @@ const api = {
   // Crash
   crashCheck:             () => ipcRenderer.invoke('crash-check'),
   crashClearCheckpoint:   () => ipcRenderer.invoke('crash-clear-checkpoint'),
+  crashSaveCheckpoint:    (data: unknown) => ipcRenderer.invoke('crash-save-checkpoint', data),
+  autosaveGetVersion:     (filename: string) => ipcRenderer.invoke('autosave-get-version', filename),
+  autosaveDeleteVersion:  (filename: string) => ipcRenderer.invoke('autosave-delete-version', filename),
   // Audio
   getAudioDevices:        () => ipcRenderer.invoke('get-audio-devices'),
   getLatencyProfiles:     () => ipcRenderer.invoke('get-latency-profiles'),

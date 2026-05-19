@@ -10,8 +10,12 @@ import AIAssistant from './components/ai-assistant/AIAssistant'
 import LiveMode from './components/live/LiveMode'
 import PluginBrowser from './components/plugin-browser/PluginBrowser'
 import RoutingMatrix from './components/routing/RoutingMatrix'
-import { useUIStore } from './store/uiStore'
-import { useTransportSync } from './hooks/useTransportSync'
+import RecoveryDialog        from './components/save/RecoveryDialog'
+import SnapshotHistoryPanel  from './components/save/SnapshotHistoryPanel'
+import { useUIStore }        from './store/uiStore'
+import { useSaveStore }      from './store/saveStore'
+import { useSaveSystem }     from './hooks/useSaveSystem'
+import { useTransportSync }  from './hooks/useTransportSync'
 
 const API_URL = 'https://mixpiloteai-production.up.railway.app'
 
@@ -194,6 +198,10 @@ function Dashboard() {
 
 function DAWShell() {
   const { activeView, aiPanelOpen } = useUIStore()
+  const { historyOpen, toggleHistory } = useSaveStore()
+
+  // Initialise auto-save engine + dirty tracking + keyboard shortcuts
+  useSaveSystem()
 
   function renderView() {
     switch (activeView) {
@@ -232,6 +240,9 @@ function DAWShell() {
       </div>
 
       <StatusBar />
+
+      {/* Snapshot history panel (slide-in from right) */}
+      {historyOpen && <SnapshotHistoryPanel onClose={toggleHistory} />}
     </div>
   )
 }
@@ -250,5 +261,11 @@ export default function App() {
   }, [])
 
   if (!token) return <LoginScreen onAuth={setToken} />
-  return <DAWShell />
+  return (
+    <>
+      <DAWShell />
+      {/* Crash recovery dialog — rendered as overlay above DAWShell */}
+      <RecoveryDialog />
+    </>
+  )
 }

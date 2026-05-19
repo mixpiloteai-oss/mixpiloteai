@@ -26,7 +26,10 @@ interface ElectronAPI {
   settingsReset: (key: string) => Promise<void>
   autosaveSaveNow: (data: unknown) => Promise<{ savedAt: string }>
   autosaveLoadLatest: () => Promise<unknown>
-  autosaveListVersions: () => Promise<string[]>
+  autosaveListVersions: () => Promise<{ filename: string; savedAt: string; sizeBytes: number }[]>
+  autosaveGetVersion: (filename: string) => Promise<unknown>
+  autosaveDeleteVersion: (filename: string) => Promise<void>
+  crashSaveCheckpoint: (data: unknown) => Promise<void>
   getAudioDevices: () => Promise<{ inputs: unknown[]; outputs: unknown[] }>
   getAudioSettings: () => Promise<Record<string, unknown>>
   setAudioSettings: (s: unknown) => Promise<void>
@@ -37,12 +40,15 @@ interface ElectronAPI {
   showNotification: (title: string, body: string) => Promise<void>
   debugGetBuildInfo: () => Promise<Record<string, unknown>>
   debugOpenDevTools: () => Promise<void>
+  crashCheck: () => Promise<{ hadCrash: boolean; checkpoint: unknown }>
+  crashClearCheckpoint: () => Promise<void>
   onNav: (cb: (view: string) => void) => void
   onTriggerSave: (cb: () => void) => void
   onTriggerLoad: (cb: () => void) => void
   onMenuAction: (cb: (action: string) => void) => void
   onPowerEvent: (cb: (event: string) => void) => void
   onUpdateAvailable: (cb: (info: unknown) => void) => void
+  onCrashRecoveryAvailable: (cb: (info: unknown) => void) => void
   removeAllListeners: (channel: string) => void
   platform: string
   isElectron: true

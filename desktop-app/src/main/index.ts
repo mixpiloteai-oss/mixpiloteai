@@ -38,6 +38,12 @@ function createWindow(): void {
   mainWindow.on('ready-to-show', () => {
     mainWindow!.show()
     if (is.dev) mainWindow!.webContents.openDevTools()
+
+    // Notify renderer if prior session crashed and a checkpoint exists
+    const ci = autosaveModule.getCrashInfo()
+    if (ci.hadCrash) {
+      mainWindow!.webContents.send('crash-recovery-available', ci)
+    }
   })
 
   mainWindow.on('closed', () => { mainWindow = null })
@@ -127,6 +133,8 @@ app.whenReady().then(() => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
+
+  autosaveModule.init()  // detect crash before registering IPC handlers
 
   audioModule.register(ipcMain)
   vstModule.register(ipcMain)

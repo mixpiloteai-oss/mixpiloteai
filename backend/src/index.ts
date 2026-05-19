@@ -15,6 +15,7 @@ import aiRouter from './routes/ai';
 import subscriptionsRouter from './routes/subscriptions';
 import packsRouter from './routes/packs';
 import licenseRouter from './routes/license';
+import saveRouter    from './routes/save';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 8080;
@@ -61,6 +62,7 @@ app.use('/api/ai', aiRouter);
 app.use('/api/subscriptions', subscriptionsRouter);
 app.use('/api/packs', packsRouter);
 app.use('/api/license', licenseRouter);
+app.use('/api/save',    saveRouter);
 
 // ── Health check (must respond 200 for Railway / Render probes) ──
 app.get('/health', (_req, res) => {
