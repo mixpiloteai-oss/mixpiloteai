@@ -90,6 +90,17 @@ export const marketplaceRateLimiter = rateLimit({
   handler: rateLimitedHandler,
 });
 
+// Plugin crash reports — modest hourly cap per user-or-IP.
+export const pluginRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userOrIpKey,
+  message: { success: false, error: 'Too many plugin reports. Try again later.', code: 'PLUGIN_RATE_LIMITED' },
+  handler: rateLimitedHandler,
+});
+
 // Uploads — long window.
 export const uploadRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,

@@ -36,6 +36,7 @@ import creatorsRouter from './routes/creators';
 import { cacheHeaders } from './middleware/cacheHeaders';
 import paymentsRouter from './routes/payments';
 import adminRouter from './routes/admin';
+import pluginsRouter from './routes/plugins';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 8080;
@@ -134,6 +135,7 @@ app.use('/api/marketplace', marketplaceRouter);
 app.use('/api/creators',    creatorsRouter);
 app.use('/api/payments',    paymentsRouter);
 app.use('/api/admin',       adminRouter);
+app.use('/api/plugins',     pluginsRouter);
 
 // ── Health check (must respond 200 for Railway / Render probes) ──
 app.get('/health', (_req, res) => {
