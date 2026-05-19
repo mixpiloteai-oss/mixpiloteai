@@ -16,6 +16,8 @@ import Terms         from './pages/Terms'
 import Collaboration from './pages/Collaboration'
 import CreatorProfile    from './pages/CreatorProfile'
 import CreatorDashboard from './pages/CreatorDashboard'
+import Checkout from './pages/Checkout'
+import Billing  from './pages/Billing'
 import { useOnlineStatus } from './hooks/useOnlineStatus'
 
 // ─── Offline placeholder for cloud-only pages ─────────────────────────────────
@@ -98,6 +100,16 @@ function App() {
             networkOk
               ? <CreatorDashboard />
               : <CloudOfflinePage label="Dashboard" />
+          } />
+          <Route path="/checkout" element={
+            networkOk
+              ? <Checkout />
+              : <CloudOfflinePage label="Checkout" />
+          } />
+          <Route path="/billing" element={
+            networkOk
+              ? <Billing />
+              : <CloudOfflinePage label="Billing" />
           } />
         </Routes>
       </main>
