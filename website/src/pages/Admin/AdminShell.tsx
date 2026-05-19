@@ -1,6 +1,7 @@
 import { useState, lazy, Suspense } from 'react'
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
 import './admin.css'
+import { adminLogin, adminLogout, isAdminAuthed } from './services/adminApi'
 
 const AdminDashboard   = lazy(() => import('./AdminDashboard'))
 const Monitoring       = lazy(() => import('./Monitoring'))
@@ -18,22 +19,25 @@ const Settings         = lazy(() => import('./Settings'))
 
 // ── Auth Gate ──────────────────────────────────────────────────────────────────
 
-const ADMIN_KEY = 'nt-admin-dev-2025'
-const STORAGE_KEY = 'admin-key'
-const SUPER_ADMIN_EMAILS = new Set(['tifenn.cruchon@gmail.com'])
-
-function AuthGate({ onAuth }: { onAuth: () => void }) {
-  const [value, setValue] = useState('')
+function AuthGate({ onAuth }: { onAuth: (email: string) => void }) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const trimmed = value.trim()
-    if (trimmed === ADMIN_KEY || SUPER_ADMIN_EMAILS.has(trimmed)) {
-      localStorage.setItem(STORAGE_KEY, trimmed)
-      onAuth()
-    } else {
-      setError('Invalid admin key. Please try again.')
+    setLoading(true)
+    setError('')
+    try {
+      const result = await adminLogin(email, password)
+      const userEmail = result.user?.email ?? email
+      localStorage.setItem('admin-user-email', userEmail)
+      onAuth(userEmail)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Authentication failed')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -42,19 +46,29 @@ function AuthGate({ onAuth }: { onAuth: () => void }) {
       <form className="admin-auth-box" onSubmit={handleSubmit}>
         <div className="admin-auth-logo">N</div>
         <div className="admin-auth-title">Admin Access</div>
-        <div className="admin-auth-sub">Enter your admin key to access the NeuroTek control panel</div>
+        <div className="admin-auth-sub">Sign in to access the NeuroTek control panel</div>
         {error && <div className="admin-auth-error">{error}</div>}
         <input
           className="admin-auth-input"
-          type="password"
-          placeholder="••••••••••••••••"
-          value={value}
-          onChange={e => { setValue(e.target.value); setError('') }}
+          type="email"
+          placeholder="admin@neurotek.ai"
+          value={email}
+          onChange={e => { setEmail(e.target.value); setError('') }}
           autoFocus
         />
-        <button type="submit" className="admin-auth-btn">Access Admin Panel</button>
+        <input
+          className="admin-auth-input"
+          type="password"
+          placeholder="Password / admin key"
+          value={password}
+          onChange={e => { setPassword(e.target.value); setError('') }}
+          style={{ marginTop: 8 }}
+        />
+        <button type="submit" className="admin-auth-btn" disabled={loading}>
+          {loading ? 'Signing in…' : 'Access Admin Panel'}
+        </button>
         <div className="admin-auth-hint">
-          Dev hint: <code>{ADMIN_KEY}</code>
+          Key access: use <code>nt-admin-dev-2025</code> in the email field
         </div>
       </form>
     </div>
@@ -91,18 +105,35 @@ function SidebarItem({ to, icon, label, badge, end }: NavItemProps) {
 
 export default function AdminShell() {
   const navigate = useNavigate()
-  const stored = localStorage.getItem(STORAGE_KEY)
-  const [authed, setAuthed] = useState(stored === ADMIN_KEY || SUPER_ADMIN_EMAILS.has(stored ?? ''))
+  const [authed, setAuthed] = useState(isAdminAuthed)
+  const [userEmail, setUserEmail] = useState(
+    () => localStorage.getItem('admin-user-email') ?? 'admin@neurotek.ai'
+  )
 
   if (!authed) {
-    return <AuthGate onAuth={() => setAuthed(true)} />
+    return (
+      <AuthGate
+        onAuth={(email) => {
+          setUserEmail(email)
+          setAuthed(true)
+        }}
+      />
+    )
   }
 
-  function handleLogout() {
-    localStorage.removeItem(STORAGE_KEY)
+  async function handleLogout() {
+    await adminLogout()
+    localStorage.removeItem('admin-user-email')
     setAuthed(false)
     navigate('/admin')
   }
+
+  const initials = userEmail
+    .split('@')[0]
+    .split(/[._-]/)
+    .map(s => s[0]?.toUpperCase() ?? '')
+    .slice(0, 2)
+    .join('') || 'SA'
 
   return (
     <div className="admin-shell">
@@ -158,10 +189,10 @@ export default function AdminShell() {
         {/* Footer */}
         <div className="admin-sidebar-footer">
           <div className="admin-user-info">
-            <div className="admin-user-avatar">SA</div>
+            <div className="admin-user-avatar">{initials}</div>
             <div>
               <div className="admin-user-role">super_admin</div>
-              <div className="admin-user-email">admin@neurotek.ai</div>
+              <div className="admin-user-email">{userEmail}</div>
             </div>
           </div>
           <button

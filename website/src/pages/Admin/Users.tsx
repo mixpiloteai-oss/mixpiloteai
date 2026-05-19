@@ -1,136 +1,139 @@
 import './admin.css'
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { adminApi, type AdminUser } from './services/adminApi'
 
-type Plan = 'Free' | 'Pro' | 'Studio' | 'Label'
-type UserStatus = 'active' | 'banned'
-
-interface AdminUser {
-  id: number
-  name: string
-  email: string
-  initials: string
-  avatarColor: string
-  plan: Plan
-  status: UserStatus
-  projects: number
-  aiRequests: number
-  joined: string
-  lastActive: string
-  billing: string
-  banReason?: string
-}
-
-const MOCK_USERS: AdminUser[] = [
-  { id: 1, name: 'Alex Rivera', email: 'alex.rivera@email.com', initials: 'AR', avatarColor: '#8b5cf6', plan: 'Pro', status: 'active', projects: 12, aiRequests: 4820, joined: '2024-03-15', lastActive: '2026-05-18', billing: 'Monthly' },
-  { id: 2, name: 'Jordan Lee', email: 'jordan.lee@email.com', initials: 'JL', avatarColor: '#22d3ee', plan: 'Studio', status: 'active', projects: 34, aiRequests: 18430, joined: '2023-11-02', lastActive: '2026-05-19', billing: 'Annual' },
-  { id: 3, name: 'Morgan Chen', email: 'morgan.chen@music.io', initials: 'MC', avatarColor: '#10b981', plan: 'Free', status: 'active', projects: 3, aiRequests: 280, joined: '2026-04-10', lastActive: '2026-05-17', billing: 'Free' },
-  { id: 4, name: 'Sam Patel', email: 'sam.patel@beatz.co', initials: 'SP', avatarColor: '#f59e0b', plan: 'Label', status: 'active', projects: 89, aiRequests: 52100, joined: '2023-06-20', lastActive: '2026-05-19', billing: 'Annual' },
-  { id: 5, name: 'Casey Williams', email: 'casey.w@gmail.com', initials: 'CW', avatarColor: '#ef4444', plan: 'Free', status: 'banned', projects: 1, aiRequests: 50, joined: '2026-02-14', lastActive: '2026-03-01', billing: 'Free', banReason: 'Spam / abuse' },
-  { id: 6, name: 'Taylor Kim', email: 'taylor.kim@studio.net', initials: 'TK', avatarColor: '#8b5cf6', plan: 'Studio', status: 'active', projects: 22, aiRequests: 9840, joined: '2024-07-08', lastActive: '2026-05-16', billing: 'Monthly' },
-  { id: 7, name: 'Riley Johnson', email: 'riley.j@soundlab.fm', initials: 'RJ', avatarColor: '#22d3ee', plan: 'Pro', status: 'active', projects: 8, aiRequests: 3210, joined: '2025-01-19', lastActive: '2026-05-15', billing: 'Monthly' },
-  { id: 8, name: 'Quinn Torres', email: 'quinn.torres@daw.io', initials: 'QT', avatarColor: '#10b981', plan: 'Free', status: 'active', projects: 5, aiRequests: 410, joined: '2026-05-01', lastActive: '2026-05-19', billing: 'Free' },
-  { id: 9, name: 'Drew Martinez', email: 'drew.m@email.com', initials: 'DM', avatarColor: '#f59e0b', plan: 'Pro', status: 'active', projects: 14, aiRequests: 6200, joined: '2024-09-30', lastActive: '2026-05-18', billing: 'Annual' },
-  { id: 10, name: 'Avery Brown', email: 'avery.brown@beats.com', initials: 'AB', avatarColor: '#8b5cf6', plan: 'Label', status: 'active', projects: 120, aiRequests: 89200, joined: '2023-03-12', lastActive: '2026-05-19', billing: 'Annual' },
-  { id: 11, name: 'Parker Wilson', email: 'parker.wilson@mail.com', initials: 'PW', avatarColor: '#22d3ee', plan: 'Free', status: 'active', projects: 2, aiRequests: 90, joined: '2026-03-22', lastActive: '2026-04-30', billing: 'Free' },
-  { id: 12, name: 'Reese Thompson', email: 'reese.t@music.io', initials: 'RT', avatarColor: '#ef4444', plan: 'Pro', status: 'banned', projects: 6, aiRequests: 2100, joined: '2024-12-05', lastActive: '2026-04-10', billing: 'Monthly', banReason: 'Copyright violation' },
-  { id: 13, name: 'Blake Anderson', email: 'blake.a@soundcloud.io', initials: 'BA', avatarColor: '#10b981', plan: 'Studio', status: 'active', projects: 41, aiRequests: 21800, joined: '2023-08-17', lastActive: '2026-05-17', billing: 'Annual' },
-  { id: 14, name: 'Jamie Garcia', email: 'jamie.garcia@email.com', initials: 'JG', avatarColor: '#f59e0b', plan: 'Free', status: 'active', projects: 1, aiRequests: 45, joined: '2026-05-15', lastActive: '2026-05-19', billing: 'Free' },
-  { id: 15, name: 'Skyler Davis', email: 'skyler.davis@daw.net', initials: 'SD', avatarColor: '#8b5cf6', plan: 'Pro', status: 'active', projects: 18, aiRequests: 7340, joined: '2024-06-01', lastActive: '2026-05-14', billing: 'Monthly' },
-  { id: 16, name: 'Harley White', email: 'harley.w@beats.fm', initials: 'HW', avatarColor: '#22d3ee', plan: 'Studio', status: 'active', projects: 29, aiRequests: 13400, joined: '2024-02-28', lastActive: '2026-05-18', billing: 'Annual' },
-  { id: 17, name: 'Robin Scott', email: 'robin.scott@email.com', initials: 'RS', avatarColor: '#ef4444', plan: 'Free', status: 'banned', projects: 0, aiRequests: 0, joined: '2026-04-01', lastActive: '2026-04-02', billing: 'Free', banReason: 'Fraudulent account' },
-  { id: 18, name: 'Cameron Hall', email: 'cam.hall@music.co', initials: 'CH', avatarColor: '#10b981', plan: 'Label', status: 'active', projects: 200, aiRequests: 140200, joined: '2022-12-10', lastActive: '2026-05-19', billing: 'Annual' },
-  { id: 19, name: 'Finley Adams', email: 'finley.adams@studio.io', initials: 'FA', avatarColor: '#f59e0b', plan: 'Pro', status: 'active', projects: 10, aiRequests: 4010, joined: '2025-07-14', lastActive: '2026-05-13', billing: 'Monthly' },
-  { id: 20, name: 'Emery Nelson', email: 'emery.nelson@daw.io', initials: 'EN', avatarColor: '#8b5cf6', plan: 'Free', status: 'active', projects: 4, aiRequests: 320, joined: '2026-05-19', lastActive: '2026-05-19', billing: 'Free' },
-]
-
-const PLAN_COLORS: Record<Plan, string> = {
-  Free: 'badge-grey',
-  Pro: 'badge-purple',
+const PLAN_COLORS: Record<string, string> = {
+  free:   'badge-grey',
+  pro:    'badge-purple',
+  studio: 'badge-cyan',
+  label:  'badge-orange',
+  Free:   'badge-grey',
+  Pro:    'badge-purple',
   Studio: 'badge-cyan',
-  Label: 'badge-orange',
+  Label:  'badge-orange',
 }
 
-interface BanModal {
-  user: AdminUser
+function getInitials(name: string) {
+  return name.split(' ').map(s => s[0]?.toUpperCase() ?? '').slice(0, 2).join('')
 }
 
-interface DrawerUser {
-  user: AdminUser
+const AVATAR_COLORS = ['#8b5cf6', '#22d3ee', '#10b981', '#f59e0b', '#ef4444']
+function avatarColor(id: string) {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
+  return AVATAR_COLORS[h % AVATAR_COLORS.length]
 }
+
+interface BanModal { user: AdminUser }
+interface DrawerUser { user: AdminUser }
+
+const sparkBars = [40, 55, 48, 62, 70, 58, 80, 75, 90, 85, 95, 88]
 
 export default function Users() {
-  const [users, setUsers] = useState<AdminUser[]>(MOCK_USERS)
-  const [search, setSearch] = useState('')
-  const [planFilter, setPlanFilter] = useState('All')
-  const [statusFilter, setStatusFilter] = useState('All')
-  const [sortBy, setSortBy] = useState('Newest')
-  const [banModal, setBanModal] = useState<BanModal | null>(null)
-  const [banReason, setBanReason] = useState('')
+  const [users, setUsers]           = useState<AdminUser[]>([])
+  const [total, setTotal]           = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [page, setPage]             = useState(1)
+  const [search, setSearch]         = useState('')
+  const [planFilter, setPlanFilter] = useState('all')
+  const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState('')
+
+  const [banModal, setBanModal]     = useState<BanModal | null>(null)
+  const [banReason, setBanReason]   = useState('')
   const [banDuration, setBanDuration] = useState('Permanent')
-  const [drawer, setDrawer] = useState<DrawerUser | null>(null)
+  const [drawer, setDrawer]         = useState<DrawerUser | null>(null)
+  const [actionLoading, setActionLoading] = useState(false)
 
-  const filtered = useMemo(() => {
-    let list = [...users]
-    if (search) {
-      const q = search.toLowerCase()
-      list = list.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
+  const searchRef = useRef(search)
+  searchRef.current = search
+
+  async function loadUsers(pg = page, srch = search, plan = planFilter) {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await adminApi.users({
+        page: pg,
+        limit: 20,
+        search: srch || undefined,
+        plan: plan !== 'all' ? plan : undefined,
+      })
+      setUsers(res.data.users)
+      setTotal(res.data.total)
+      setTotalPages(res.data.totalPages)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load users')
+    } finally {
+      setLoading(false)
     }
-    if (planFilter !== 'All') list = list.filter(u => u.plan === planFilter)
-    if (statusFilter !== 'All') list = list.filter(u => u.status === (statusFilter === 'Banned' ? 'banned' : 'active'))
-    if (sortBy === 'Newest') list.sort((a, b) => b.joined.localeCompare(a.joined))
-    else if (sortBy === 'Oldest') list.sort((a, b) => a.joined.localeCompare(b.joined))
-    else if (sortBy === 'Most Active') list.sort((a, b) => b.aiRequests - a.aiRequests)
-    return list
-  }, [users, search, planFilter, statusFilter, sortBy])
+  }
 
-  const handleConfirmBan = () => {
+  // Load when page or planFilter changes
+  useEffect(() => {
+    loadUsers(page, search, planFilter)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, planFilter])
+
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setPage(1)
+      loadUsers(1, search, planFilter)
+    }, 400)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search])
+
+  async function handleConfirmBan() {
     if (!banModal) return
-    setUsers(prev => prev.map(u => u.id === banModal.user.id ? { ...u, status: 'banned', banReason } : u))
-    setBanModal(null)
-    setBanReason('')
+    setActionLoading(true)
+    try {
+      await adminApi.banUser(banModal.user.id, banReason)
+      setBanModal(null)
+      setBanReason('')
+      await loadUsers(page, search, planFilter)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ban failed')
+    } finally {
+      setActionLoading(false)
+    }
   }
 
-  const handleUnban = (id: number) => {
-    setUsers(prev => prev.map(u => u.id === id ? { ...u, status: 'active', banReason: undefined } : u))
+  async function handleUnban(id: string) {
+    setActionLoading(true)
+    try {
+      await adminApi.unbanUser(id)
+      await loadUsers(page, search, planFilter)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Unban failed')
+    } finally {
+      setActionLoading(false)
+    }
   }
 
-  const handleDelete = (id: number) => {
-    setUsers(prev => prev.filter(u => u.id !== id))
-    if (drawer?.user.id === id) setDrawer(null)
+  async function handleDelete(id: string) {
+    if (!confirm('Delete this user permanently?')) return
+    setActionLoading(true)
+    try {
+      await adminApi.deleteUser(id)
+      if (drawer?.user.id === id) setDrawer(null)
+      await loadUsers(page, search, planFilter)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Delete failed')
+    } finally {
+      setActionLoading(false)
+    }
   }
 
-  const totalUsers = users.length
-  void users.filter(u => u.status === 'active').length
-  const bannedUsers = users.filter(u => u.status === 'banned').length
-  const newToday = users.filter(u => u.joined === '2026-05-19').length
-
-  const sparkBars = [40, 55, 48, 62, 70, 58, 80, 75, 90, 85, 95, 88]
+  const pageStart = (page - 1) * 20 + 1
+  const pageEnd   = Math.min(page * 20, total)
 
   return (
     <div className="admin-fade-in" style={{ padding: '24px', maxWidth: '100%' }}>
       <div className="admin-header">
         <div>
           <h1 className="admin-page-title">User Management</h1>
-          <p className="admin-page-sub">{totalUsers.toLocaleString()} total users</p>
-        </div>
-      </div>
-
-      <div className="admin-stat-grid" style={{ marginBottom: 24 }}>
-        <div className="admin-stat-card">
-          <div className="admin-stat-value">8,432</div>
-          <div className="admin-stat-label">Total Users</div>
-        </div>
-        <div className="admin-stat-card">
-          <div className="admin-stat-value">4,891</div>
-          <div className="admin-stat-label">Active (30d)</div>
-        </div>
-        <div className="admin-stat-card">
-          <div className="admin-stat-value" style={{ color: 'var(--admin-red)' }}>{bannedUsers}</div>
-          <div className="admin-stat-label">Banned</div>
-        </div>
-        <div className="admin-stat-card">
-          <div className="admin-stat-value" style={{ color: 'var(--admin-green)' }}>{newToday}</div>
-          <div className="admin-stat-label">New Today</div>
+          <p className="admin-page-sub">{total.toLocaleString()} total users</p>
         </div>
       </div>
 
@@ -141,82 +144,119 @@ export default function Users() {
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
-        <select className="admin-select" value={planFilter} onChange={e => setPlanFilter(e.target.value)}>
-          <option>All</option>
-          <option>Free</option>
-          <option>Pro</option>
-          <option>Studio</option>
-          <option>Label</option>
-        </select>
-        <select className="admin-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-          <option>All</option>
-          <option>Active</option>
-          <option>Banned</option>
-        </select>
-        <select className="admin-select" value={sortBy} onChange={e => setSortBy(e.target.value)}>
-          <option>Newest</option>
-          <option>Oldest</option>
-          <option>Most Active</option>
+        <select className="admin-select" value={planFilter} onChange={e => { setPlanFilter(e.target.value); setPage(1) }}>
+          <option value="all">All Plans</option>
+          <option value="free">Free</option>
+          <option value="pro">Pro</option>
+          <option value="studio">Studio</option>
+          <option value="label">Label</option>
         </select>
       </div>
 
+      {error && (
+        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: '#ef4444', fontSize: 13 }}>
+          {error}
+        </div>
+      )}
+
       <div className="admin-card">
         <div className="admin-card-body">
-          <div className="admin-table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>User</th>
-                  <th>Plan</th>
-                  <th>Status</th>
-                  <th>Projects</th>
-                  <th>AI Requests</th>
-                  <th>Joined</th>
-                  <th>Last Active</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(user => (
-                  <tr key={user.id}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{
-                          width: 32, height: 32, borderRadius: '50%',
-                          background: user.avatarColor, display: 'flex',
-                          alignItems: 'center', justifyContent: 'center',
-                          fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0
-                        }}>{user.initials}</div>
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: 13 }}>{user.name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--admin-muted)' }}>{user.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td><span className={`admin-badge ${PLAN_COLORS[user.plan]}`}>{user.plan}</span></td>
-                    <td>
-                      <span className={`status-dot ${user.status === 'active' ? 'dot-green' : 'dot-red'}`} />
-                      <span style={{ fontSize: 12, marginLeft: 6 }}>{user.status === 'active' ? 'Active' : 'Banned'}</span>
-                    </td>
-                    <td style={{ fontSize: 13 }}>{user.projects}</td>
-                    <td style={{ fontSize: 13 }}>{user.aiRequests.toLocaleString()}</td>
-                    <td style={{ fontSize: 12, color: 'var(--admin-muted)' }}>{user.joined}</td>
-                    <td style={{ fontSize: 12, color: 'var(--admin-muted)' }}>{user.lastActive}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="admin-btn admin-btn-ghost admin-btn-sm" onClick={() => setDrawer({ user })}>View</button>
-                        {user.status === 'active'
-                          ? <button className="admin-btn admin-btn-danger admin-btn-sm" onClick={() => { setBanModal({ user }); setBanReason('') }}>Ban</button>
-                          : <button className="admin-btn admin-btn-sm" style={{ background: 'rgba(16,185,129,0.15)', color: 'var(--admin-green)', border: '1px solid rgba(16,185,129,0.3)' }} onClick={() => handleUnban(user.id)}>Unban</button>
-                        }
-                        <button className="admin-btn admin-btn-danger admin-btn-sm" onClick={() => handleDelete(user.id)}>Delete</button>
-                      </div>
-                    </td>
+          {loading ? (
+            <div style={{ padding: '40px 0', textAlign: 'center', color: '#334155', fontSize: 13 }}>Loading users…</div>
+          ) : (
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Plan</th>
+                    <th>Status</th>
+                    <th>Projects</th>
+                    <th>AI Requests</th>
+                    <th>Joined</th>
+                    <th>Last Active</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {users.map(user => (
+                    <tr key={user.id}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{
+                            width: 32, height: 32, borderRadius: '50%',
+                            background: avatarColor(user.id), display: 'flex',
+                            alignItems: 'center', justifyContent: 'center',
+                            fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0
+                          }}>{getInitials(user.name)}</div>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 13 }}>{user.name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--admin-muted)' }}>{user.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td><span className={`admin-badge ${PLAN_COLORS[user.plan] ?? 'badge-grey'}`}>{user.plan}</span></td>
+                      <td>
+                        <span className={`status-dot ${user.status === 'active' ? 'dot-green' : 'dot-red'}`} />
+                        <span style={{ fontSize: 12, marginLeft: 6 }}>{user.status === 'active' ? 'Active' : 'Banned'}</span>
+                      </td>
+                      <td style={{ fontSize: 13 }}>{user.projects ?? '—'}</td>
+                      <td style={{ fontSize: 13 }}>{user.aiRequests?.toLocaleString() ?? '—'}</td>
+                      <td style={{ fontSize: 12, color: 'var(--admin-muted)' }}>{user.createdAt?.slice(0, 10) ?? '—'}</td>
+                      <td style={{ fontSize: 12, color: 'var(--admin-muted)' }}>{user.lastActive?.slice(0, 10) ?? '—'}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button className="admin-btn admin-btn-ghost admin-btn-sm" onClick={() => setDrawer({ user })} disabled={actionLoading}>View</button>
+                          {user.status === 'active'
+                            ? <button className="admin-btn admin-btn-danger admin-btn-sm" disabled={actionLoading} onClick={() => { setBanModal({ user }); setBanReason('') }}>Ban</button>
+                            : <button className="admin-btn admin-btn-sm" style={{ background: 'rgba(16,185,129,0.15)', color: 'var(--admin-green)', border: '1px solid rgba(16,185,129,0.3)' }} disabled={actionLoading} onClick={() => handleUnban(user.id)}>Unban</button>
+                          }
+                          <button className="admin-btn admin-btn-danger admin-btn-sm" disabled={actionLoading} onClick={() => handleDelete(user.id)}>Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {users.length === 0 && (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: 'center', padding: '32px 0', color: '#334155' }}>No users found</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {!loading && total > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingTop: 12, borderTop: '1px solid #1a1a2e' }}>
+              <span style={{ fontSize: 12, color: '#475569' }}>
+                Showing {pageStart}–{pageEnd} of {total.toLocaleString()}
+              </span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button
+                  className="admin-btn admin-btn-ghost admin-btn-sm"
+                  disabled={page <= 1}
+                  onClick={() => setPage(p => p - 1)}
+                >← Prev</button>
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  const pg = Math.max(1, page - 2) + i
+                  if (pg > totalPages) return null
+                  return (
+                    <button
+                      key={pg}
+                      className={`admin-btn admin-btn-sm ${pg === page ? 'admin-btn-primary' : 'admin-btn-ghost'}`}
+                      onClick={() => setPage(pg)}
+                    >{pg}</button>
+                  )
+                })}
+                <button
+                  className="admin-btn admin-btn-ghost admin-btn-sm"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage(p => p + 1)}
+                >Next →</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -227,7 +267,7 @@ export default function Users() {
             <div className="admin-card-body">
               <h3 className="admin-card-title" style={{ color: 'var(--admin-red)' }}>Ban User</h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: banModal.user.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff' }}>{banModal.user.initials}</div>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: avatarColor(banModal.user.id), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff' }}>{getInitials(banModal.user.name)}</div>
                 <div>
                   <div style={{ fontWeight: 600 }}>{banModal.user.name}</div>
                   <div style={{ fontSize: 12, color: 'var(--admin-muted)' }}>{banModal.user.email}</div>
@@ -248,7 +288,9 @@ export default function Users() {
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                 <button className="admin-btn admin-btn-ghost" onClick={() => setBanModal(null)}>Cancel</button>
-                <button className="admin-btn admin-btn-danger" onClick={handleConfirmBan}>Confirm Ban</button>
+                <button className="admin-btn admin-btn-danger" disabled={actionLoading} onClick={handleConfirmBan}>
+                  {actionLoading ? 'Banning…' : 'Confirm Ban'}
+                </button>
               </div>
             </div>
           </div>
@@ -265,7 +307,7 @@ export default function Users() {
               <button className="admin-btn admin-btn-ghost admin-btn-sm" onClick={() => setDrawer(null)}>✕</button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-              <div style={{ width: 48, height: 48, borderRadius: '50%', background: drawer.user.avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: '#fff' }}>{drawer.user.initials}</div>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: avatarColor(drawer.user.id), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: '#fff' }}>{getInitials(drawer.user.name)}</div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 16 }}>{drawer.user.name}</div>
                 <div style={{ fontSize: 13, color: 'var(--admin-muted)' }}>{drawer.user.email}</div>
@@ -273,12 +315,12 @@ export default function Users() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
               {[
-                ['Plan', <span key="plan" className={`admin-badge ${PLAN_COLORS[drawer.user.plan]}`}>{drawer.user.plan}</span>],
-                ['Billing', drawer.user.billing],
-                ['Projects', drawer.user.projects],
-                ['AI Requests', drawer.user.aiRequests.toLocaleString()],
-                ['Joined', drawer.user.joined],
-                ['Last Active', drawer.user.lastActive],
+                ['Plan', <span key="plan" className={`admin-badge ${PLAN_COLORS[drawer.user.plan] ?? 'badge-grey'}`}>{drawer.user.plan}</span>],
+                ['Status', drawer.user.status],
+                ['Projects', drawer.user.projects ?? '—'],
+                ['AI Requests', drawer.user.aiRequests?.toLocaleString() ?? '—'],
+                ['Joined', drawer.user.createdAt?.slice(0, 10) ?? '—'],
+                ['Last Active', drawer.user.lastActive?.slice(0, 10) ?? '—'],
               ].map(([label, value], i) => (
                 <div key={i} style={{ background: 'var(--admin-card)', borderRadius: 8, padding: '10px 12px', border: '1px solid var(--admin-border)' }}>
                   <div style={{ fontSize: 11, color: 'var(--admin-muted)', marginBottom: 4 }}>{label as string}</div>
@@ -294,28 +336,12 @@ export default function Users() {
                 ))}
               </div>
             </div>
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 12, color: 'var(--admin-muted)', marginBottom: 8 }}>Recent Activity</div>
-              {['Uploaded "Night Beat.mp3"', 'Generated 40 AI stems', 'Published project "Lo-Fi Session"', 'Upgraded plan to Pro', 'Created new project'].map((act, i) => (
-                <div key={i} style={{ fontSize: 12, padding: '6px 0', borderBottom: '1px solid var(--admin-border)', color: 'var(--admin-text)' }}>
-                  <span style={{ color: 'var(--admin-muted)', marginRight: 8 }}>•</span>{act}
-                </div>
-              ))}
-            </div>
-            <div>
-              <div style={{ fontSize: 12, color: 'var(--admin-muted)', marginBottom: 8 }}>Payment History</div>
-              {[
-                { date: '2026-05-01', amount: '$19.00', desc: 'Pro Monthly' },
-                { date: '2026-04-01', amount: '$19.00', desc: 'Pro Monthly' },
-                { date: '2026-03-01', amount: '$19.00', desc: 'Pro Monthly' },
-              ].map((p, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '6px 0', borderBottom: '1px solid var(--admin-border)' }}>
-                  <span style={{ color: 'var(--admin-muted)' }}>{p.date}</span>
-                  <span>{p.desc}</span>
-                  <span style={{ color: 'var(--admin-green)', fontWeight: 600 }}>{p.amount}</span>
-                </div>
-              ))}
-            </div>
+            {drawer.user.banReason && (
+              <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '10px 12px', marginBottom: 16 }}>
+                <div style={{ fontSize: 11, color: '#ef4444', marginBottom: 4 }}>Ban Reason</div>
+                <div style={{ fontSize: 13 }}>{drawer.user.banReason}</div>
+              </div>
+            )}
           </div>
         </div>
       )}
