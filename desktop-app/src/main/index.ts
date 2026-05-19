@@ -9,6 +9,7 @@ import autosaveModule from './modules/autosave'
 import updaterModule from './modules/updater'
 import { registerAudioIPCHandlers } from './audio/AudioIPCHandler'
 import { getAudioEngineProcess }     from './audio/AudioEngineProcess'
+import { registerPluginIPC }         from './modules/pluginIPC'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -142,6 +143,9 @@ app.whenReady().then(() => {
   storeModule.register(ipcMain)
   autosaveModule.register(ipcMain)
   updaterModule.register(ipcMain, mainWindow)
+
+  // Plugin system: sandboxed host processes, blacklist, presets
+  registerPluginIPC(ipcMain, () => mainWindow)
 
   // Native audio engine IPC + process management
   registerAudioIPCHandlers(ipcMain, () => mainWindow)

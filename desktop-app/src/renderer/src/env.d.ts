@@ -49,6 +49,18 @@ interface ElectronAPI {
   onPowerEvent: (cb: (event: string) => void) => void
   onUpdateAvailable: (cb: (info: unknown) => void) => void
   onCrashRecoveryAvailable: (cb: (info: unknown) => void) => void
+  pluginScan:                () => Promise<unknown[]>
+  pluginLoad:                (path: string, format: string) => Promise<{ instanceId: string; name: string; vendor: string; paramCount: number; pid: number }>
+  pluginUnload:              (instanceId: string) => Promise<{ ok: boolean }>
+  pluginGetInstances:        () => Promise<unknown[]>
+  pluginGetBlacklist:        () => Promise<{ path: string; name: string; crashCount: number; blacklistedAt: number | null }[]>
+  pluginRemoveFromBlacklist: (path: string) => Promise<{ ok: boolean }>
+  pluginListPresets:         (pluginId: string) => Promise<{ id: string; name: string; savedAt: number; isFactory: boolean }[]>
+  pluginSavePreset:          (pluginId: string, name: string, data: Record<string, number>) => Promise<{ id: string; name: string }>
+  pluginLoadPreset:          (pluginId: string, presetId: string) => Promise<{ data: Record<string, number> } | null>
+  pluginDeletePreset:        (pluginId: string, presetId: string) => Promise<{ ok: boolean }>
+  pluginRenamePreset:        (pluginId: string, presetId: string, name: string) => Promise<{ name: string } | null>
+  onPluginCrashed:           (cb: (info: { instanceId: string; pluginPath: string; pluginName: string; crashCount: number; blacklisted: boolean }) => void) => void
   removeAllListeners: (channel: string) => void
   platform: string
   isElectron: true
