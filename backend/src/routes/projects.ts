@@ -3,49 +3,76 @@
 // ============================================================
 import { Router, Request, Response } from 'express';
 import { db } from '../data/mockDB';
+import { asyncHandler } from '../utils/asyncHandler';
+import { ok, fail, HTTP } from '../utils/response';
+import { validate } from '../utils/validate';
 
 const router = Router();
 
-router.get('/', (_req: Request, res: Response) => {
+router.get('/', asyncHandler(async (_req: Request, res: Response) => {
   const projects = db.getAllProjects();
-  res.json({ success: true, data: projects, count: projects.length });
-});
+  res.json(ok(projects, { count: projects.length }));
+}));
 
-router.get('/:id', (req: Request, res: Response) => {
+router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   const project = db.getProject(req.params.id);
-  if (!project) return res.status(404).json({ success: false, error: 'Project not found' });
-  res.json({ success: true, data: project });
-});
+  if (!project) {
+    res.status(HTTP.NOT_FOUND).json(fail('Project not found'));
+    return;
+  }
+  res.json(ok(project));
+}));
 
-router.post('/', (req: Request, res: Response) => {
-  const { name, genre, bpm, key, mood, coverColor, tags } = req.body;
-  if (!name || !genre || !bpm) return res.status(400).json({ success: false, error: 'name, genre, and bpm are required' });
+router.post('/', asyncHandler(async (req: Request, res: Response) => {
+  if (!validate(req, res, {
+    name:  { required: true, type: 'string' },
+    genre: { required: true, type: 'string' },
+    bpm:   { required: true, type: 'number' },
+  })) return;
+
+  const { name, genre, bpm, key, mood, coverColor, tags } = req.body as Record<string, unknown>;
   const project = db.createProject({
-    name, genre: genre ?? 'mentalcore', bpm: Number(bpm) ?? 140,
-    key: key ?? 'C', mood: mood ?? 'aggressive', tracks: [], duration: 0,
-    isStarred: false, coverColor: coverColor ?? 'linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%)', tags: tags ?? [],
+    name: name as string,
+    genre: (genre as string) ?? 'mentalcore',
+    bpm: Number(bpm) ?? 140,
+    key: (key as string) ?? 'C',
+    mood: (mood as string) ?? 'aggressive',
+    tracks: [],
+    duration: 0,
+    isStarred: false,
+    coverColor: (coverColor as string) ?? 'linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%)',
+    tags: (tags as string[]) ?? [],
     userId: '',
   });
-  res.status(201).json({ success: true, data: project });
-});
+  res.status(HTTP.CREATED).json(ok(project));
+}));
 
-router.patch('/:id', (req: Request, res: Response) => {
+router.patch('/:id', asyncHandler(async (req: Request, res: Response) => {
   const updated = db.updateProject(req.params.id, req.body);
-  if (!updated) return res.status(404).json({ success: false, error: 'Project not found' });
-  res.json({ success: true, data: updated });
-});
+  if (!updated) {
+    res.status(HTTP.NOT_FOUND).json(fail('Project not found'));
+    return;
+  }
+  res.json(ok(updated));
+}));
 
-router.delete('/:id', (req: Request, res: Response) => {
+router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   const deleted = db.deleteProject(req.params.id);
-  if (!deleted) return res.status(404).json({ success: false, error: 'Project not found' });
-  res.json({ success: true, message: 'Project deleted' });
-});
+  if (!deleted) {
+    res.status(HTTP.NOT_FOUND).json(fail('Project not found'));
+    return;
+  }
+  res.json(ok({ message: 'Project deleted' }));
+}));
 
-router.post('/:id/star', (req: Request, res: Response) => {
+router.post('/:id/star', asyncHandler(async (req: Request, res: Response) => {
   const project = db.getProject(req.params.id);
-  if (!project) return res.status(404).json({ success: false, error: 'Project not found' });
+  if (!project) {
+    res.status(HTTP.NOT_FOUND).json(fail('Project not found'));
+    return;
+  }
   const updated = db.updateProject(req.params.id, { isStarred: !project.isStarred });
-  res.json({ success: true, data: updated });
-});
+  res.json(ok(updated));
+}));
 
 export default router;

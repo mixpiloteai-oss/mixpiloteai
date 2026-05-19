@@ -8,6 +8,13 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+import { validateEnv } from './utils/validateEnv';
+import { logger } from './utils/logger';
+import { requestId } from './middleware/requestId';
+import { errorHandler } from './middleware/errorHandler';
+
+validateEnv();
+
 import authRouter from './routes/auth';
 import projectsRouter from './routes/projects';
 import templatesRouter from './routes/templates';
@@ -31,6 +38,8 @@ const PORT = Number(process.env.PORT) || 8080;
 const HOST = '0.0.0.0';
 
 // ── Middleware ───────────────────────────────────────────────
+app.use(requestId);
+
 const STATIC_ORIGINS = [
   'https://mixpiloteai.vercel.app',
   'http://localhost:5173',
@@ -98,14 +107,17 @@ app.get('/health', (_req, res) => {
   res.status(200).json({ ok: true });
 });
 
+// ── Global error handler (must be last) ──────────────────────
+app.use(errorHandler);
+
 // ── Start ─────────────────────────────────────────────────────
 app.listen(PORT, HOST, () => {
-  console.log(`[NEUROTEK AI] Backend listening on ${HOST}:${PORT}`);
+  logger.info(`[NEUROTEK AI] Backend listening on ${HOST}:${PORT}`);
   if (!process.env.CLAUDE_API_KEY || process.env.CLAUDE_API_KEY.includes('REPLACE')) {
-    console.warn('[NEUROTEK AI] ⚠  CLAUDE_API_KEY not set — AI features disabled');
+    logger.warn('[NEUROTEK AI] CLAUDE_API_KEY not set — AI features disabled');
   }
   if (!process.env.SUPABASE_URL || process.env.SUPABASE_URL.includes('REPLACE')) {
-    console.warn('[NEUROTEK AI] ⚠  SUPABASE_URL not set — using in-memory fallback');
+    logger.warn('[NEUROTEK AI] SUPABASE_URL not set — using in-memory fallback');
   }
 });
 
