@@ -48,14 +48,33 @@ interface ElectronAPI {
   isElectron: true
 }
 
-interface Window {
-  electronAPI?: ElectronAPI
-}
-
 interface ImportMetaEnv {
   readonly VITE_API_URL?: string
 }
 
 interface ImportMeta {
   readonly env: ImportMetaEnv
+}
+
+// ─── File System Access API (not yet in TS lib.dom) ───────────────────────
+
+interface FileSystemDirectoryHandle extends FileSystemHandle {
+  entries(): AsyncIterableIterator<[string, FileSystemHandle]>
+  values(): AsyncIterableIterator<FileSystemHandle>
+  keys(): AsyncIterableIterator<string>
+  getFileHandle(name: string, options?: { create?: boolean }): Promise<FileSystemFileHandle>
+  getDirectoryHandle(name: string, options?: { create?: boolean }): Promise<FileSystemDirectoryHandle>
+  removeEntry(name: string, options?: { recursive?: boolean }): Promise<void>
+  [Symbol.asyncIterator](): AsyncIterableIterator<[string, FileSystemHandle]>
+}
+
+interface ShowDirectoryPickerOptions {
+  id?: string
+  mode?: 'read' | 'readwrite'
+  startIn?: string | FileSystemHandle
+}
+
+interface Window {
+  electronAPI?: ElectronAPI
+  showDirectoryPicker(options?: ShowDirectoryPickerOptions): Promise<FileSystemDirectoryHandle>
 }
