@@ -18,6 +18,7 @@ import licenseRouter from './routes/license';
 import saveRouter    from './routes/save';
 import syncRouter    from './routes/sync';
 import chunksRouter  from './routes/chunks';
+import exportRouter  from './routes/export';
 import { cacheHeaders } from './middleware/cacheHeaders';
 
 const app = express();
@@ -69,6 +70,7 @@ app.use('/api/license', licenseRouter);
 app.use('/api/save',    saveRouter);
 app.use('/api/sync',    syncRouter);
 app.use('/api/chunks',  chunksRouter);
+app.use('/api/export',  exportRouter);
 
 // ── Health check (must respond 200 for Railway / Render probes) ──
 app.get('/health', (_req, res) => {

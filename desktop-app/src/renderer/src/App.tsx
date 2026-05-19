@@ -12,6 +12,7 @@ import PluginBrowser from './components/plugin-browser/PluginBrowser'
 import RoutingMatrix from './components/routing/RoutingMatrix'
 import LocalAIPanel from './components/ai-local/LocalAIPanel'
 import PerformanceModeSelector from './components/performance/PerformanceModeSelector'
+import ExportPanel from './components/export/ExportPanel'
 import RecoveryDialog        from './components/save/RecoveryDialog'
 import SnapshotHistoryPanel  from './components/save/SnapshotHistoryPanel'
 import { useUIStore }        from './store/uiStore'
@@ -150,6 +151,7 @@ function Dashboard() {
     { id: 'routing'     as const, icon: '⊗', label: 'Routing Matrix',sub: '11 active connections',     color: '#06b6d4' },
     { id: 'ai-local'    as const, icon: '⊙', label: 'Local AI',      sub: 'Offline analysis · no cloud', color: '#06b6d4' },
     { id: 'performance' as const, icon: '⚙', label: 'Performance',   sub: 'Low PC / Studio / Live modes', color: '#f59e0b' },
+    { id: 'export'      as const, icon: '⬇', label: 'Export Studio', sub: 'WAV · MP3 · FLAC · Stems',     color: '#10b981' },
   ]
 
   return (
@@ -221,6 +223,7 @@ function DAWShell() {
       case 'routing':     return <RoutingMatrix />
       case 'ai-local':    return <LocalAIPanel />
       case 'performance': return <PerformanceModeSelector />
+      case 'export':      return <ExportPanel />
       case 'dashboard':   return <Dashboard />
       default:            return <Dashboard />
     }
