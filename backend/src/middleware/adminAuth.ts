@@ -8,6 +8,18 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 // ── Secrets ───────────────────────────────────────────────────
+// Hard-fail in production if these are missing or still set to dev defaults.
+if (process.env.NODE_ENV === 'production') {
+  const ajs = process.env.ADMIN_JWT_SECRET;
+  if (!ajs || ajs.includes('admin-dev-secret') || ajs.includes('change-in-production')) {
+    throw new Error('ADMIN_JWT_SECRET is missing or insecure in production');
+  }
+  const ak = process.env.ADMIN_KEY;
+  if (!ak || ak.includes('nt-admin-dev-2025') || ak.includes('dev-')) {
+    throw new Error('ADMIN_KEY is missing or insecure in production');
+  }
+}
+
 const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET ?? 'admin-dev-secret-change-in-production';
 const ADMIN_KEY = process.env.ADMIN_KEY ?? 'nt-admin-dev-2025';
 

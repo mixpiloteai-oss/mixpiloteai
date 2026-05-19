@@ -15,10 +15,17 @@ import {
 } from '../services/marketplaceService'
 import { getRecommendations, getSimilar } from '../services/aiRecommendationService'
 import { recordSale } from '../services/creatorService'
+import { requireAuth, AuthenticatedRequest } from '../middleware/auth'
+import { marketplaceRateLimiter } from '../middleware/rateLimiter'
 
 const router = Router()
 
+// All marketplace endpoints share this stricter per-user/per-IP limit.
+router.use(marketplaceRateLimiter)
+
 function getUserId(req: Request): string {
+  const authed = (req as AuthenticatedRequest).user?.id
+  if (authed) return authed
   const header = req.headers['x-user-id']
   if (typeof header === 'string' && header.trim()) return header.trim()
   return 'anonymous'
@@ -64,7 +71,7 @@ router.get('/products/:id/comments', (req: Request, res: Response) => {
 })
 
 // POST /api/marketplace/products/:id/like
-router.post('/products/:id/like', (req: Request, res: Response) => {
+router.post('/products/:id/like', requireAuth, (req: Request, res: Response) => {
   const userId = getUserId(req)
   const product = getProduct(req.params.id)
   if (!product) return res.status(404).json({ success: false, error: 'Product not found' })
@@ -73,7 +80,7 @@ router.post('/products/:id/like', (req: Request, res: Response) => {
 })
 
 // POST /api/marketplace/products/:id/download
-router.post('/products/:id/download', (req: Request, res: Response) => {
+router.post('/products/:id/download', requireAuth, (req: Request, res: Response) => {
   const userId = getUserId(req)
   const product = getProduct(req.params.id)
   if (!product) return res.status(404).json({ success: false, error: 'Product not found' })
@@ -82,7 +89,7 @@ router.post('/products/:id/download', (req: Request, res: Response) => {
 })
 
 // POST /api/marketplace/products/:id/comment
-router.post('/products/:id/comment', (req: Request, res: Response) => {
+router.post('/products/:id/comment', requireAuth, (req: Request, res: Response) => {
   const userId = getUserId(req)
   const { text, rating, userName } = req.body as { text?: string; rating?: number; userName?: string }
   if (!text || typeof text !== 'string') {
@@ -105,7 +112,7 @@ router.post('/products/:id/comment', (req: Request, res: Response) => {
 })
 
 // POST /api/marketplace/products/:id/purchase
-router.post('/products/:id/purchase', (req: Request, res: Response) => {
+router.post('/products/:id/purchase', requireAuth, (req: Request, res: Response) => {
   const product = getProduct(req.params.id)
   if (!product) return res.status(404).json({ success: false, error: 'Product not found' })
   const { buyerId } = req.body as { buyerId?: string }

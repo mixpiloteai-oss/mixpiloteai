@@ -3,6 +3,8 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { authRateLimiter } from '../middleware/rateLimiter';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
+import { validate } from '../utils/validate';
+import { logSecurityEvent } from '../utils/securityLog';
 import {
   findUserByEmail,
   findUserById,
@@ -28,17 +30,25 @@ function signTokens(userId: string, email: string, name: string, plan: string) {
 
 // POST /api/auth/register
 router.post('/register', authRateLimiter, async (req: Request, res: Response) => {
-  const { email, password, name } = req.body;
-  if (!email || !password || !name) {
-    return res.status(400).json({ success: false, error: 'email, password, and name are required' });
-  }
-  if (password.length < 8) {
-    return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
-  }
+  if (!validate(req, res, {
+    email:    { required: true, type: 'email' },
+    password: { required: true, type: 'string', min: 8, max: 200 },
+    name:     { required: true, type: 'string', min: 1, max: 120 },
+  })) return;
+
+  const { email, password, name } = req.body as { email: string; password: string; name: string };
   try {
     const user = await createUser({ email, password, name });
     const { accessToken, refreshToken } = signTokens(user.id, user.email, user.name, user.plan);
     await setRefreshToken(user.id, refreshToken);
+    logSecurityEvent({
+      type: 'auth_success',
+      severity: 'info',
+      ip: req.ip,
+      userId: user.id,
+      email: user.email,
+      route: '/api/auth/register',
+    });
     res.status(201).json({
       success: true,
       data: {
@@ -50,19 +60,37 @@ router.post('/register', authRateLimiter, async (req: Request, res: Response) =>
   } catch (err) {
     const e = err as Error;
     const status = e.message === 'Email already in use' ? 409 : 500;
+    logSecurityEvent({
+      type: 'auth_failure',
+      severity: 'warn',
+      ip: req.ip,
+      email,
+      route: '/api/auth/register',
+      reason: e.message,
+    });
     res.status(status).json({ success: false, error: e.message });
   }
 });
 
 // POST /api/auth/login
 router.post('/login', authRateLimiter, async (req: Request, res: Response) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ success: false, error: 'email and password are required' });
-  }
+  if (!validate(req, res, {
+    email:    { required: true, type: 'email' },
+    password: { required: true, type: 'string', min: 8, max: 200 },
+  })) return;
+
+  const { email, password } = req.body as { email: string; password: string };
   try {
     const user = await findUserByEmail(email);
     if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
+      logSecurityEvent({
+        type: 'auth_failure',
+        severity: 'warn',
+        ip: req.ip,
+        email,
+        route: '/api/auth/login',
+        reason: 'invalid credentials',
+      });
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
     const { accessToken, refreshToken } = signTokens(user.id, user.email, user.name, user.plan);
@@ -70,6 +98,15 @@ router.post('/login', authRateLimiter, async (req: Request, res: Response) => {
 
     const used = await getTodayUsage(user.id);
     const limit = getDailyLimit(user.plan as Plan);
+
+    logSecurityEvent({
+      type: 'auth_success',
+      severity: 'info',
+      ip: req.ip,
+      userId: user.id,
+      email: user.email,
+      route: '/api/auth/login',
+    });
 
     res.json({
       success: true,
@@ -82,6 +119,14 @@ router.post('/login', authRateLimiter, async (req: Request, res: Response) => {
     });
   } catch (err) {
     const e = err as Error;
+    logSecurityEvent({
+      type: 'auth_failure',
+      severity: 'critical',
+      ip: req.ip,
+      email,
+      route: '/api/auth/login',
+      reason: e.message,
+    });
     res.status(500).json({ success: false, error: e.message });
   }
 });
@@ -94,12 +139,26 @@ router.post('/refresh', async (req: Request, res: Response) => {
     const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET) as { id: string };
     const user = await findUserById(decoded.id);
     if (!user || user.refreshToken !== refreshToken) {
+      logSecurityEvent({
+        type: 'invalid_token',
+        severity: 'warn',
+        ip: req.ip,
+        route: '/api/auth/refresh',
+        reason: 'refresh token mismatch',
+      });
       return res.status(401).json({ success: false, error: 'Invalid refresh token' });
     }
     const tokens = signTokens(user.id, user.email, user.name, user.plan);
     await setRefreshToken(user.id, tokens.refreshToken);
     res.json({ success: true, data: tokens });
   } catch {
+    logSecurityEvent({
+      type: 'invalid_token',
+      severity: 'warn',
+      ip: req.ip,
+      route: '/api/auth/refresh',
+      reason: 'verify failed',
+    });
     res.status(401).json({ success: false, error: 'Invalid or expired refresh token' });
   }
 });

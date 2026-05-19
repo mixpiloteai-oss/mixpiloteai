@@ -11,16 +11,19 @@ import {
   deleteExportJob,
   type ExportFormat,
 } from '../services/exportService'
+import { requireAuth, AuthenticatedRequest } from '../middleware/auth'
 
 const router = Router()
 
 // Use a simple userId placeholder — replace with real auth middleware
 function getUserId(req: Request): string {
+  const authed = (req as AuthenticatedRequest).user?.id
+  if (authed) return authed
   return (req.headers['x-user-id'] as string) ?? 'anonymous'
 }
 
 // POST /api/export/jobs — register a new export job
-router.post('/jobs', (req: Request, res: Response) => {
+router.post('/jobs', requireAuth, (req: Request, res: Response) => {
   const { projectId, projectName, format, preset } = req.body
   if (!projectId || !format || !preset) {
     return res.status(400).json({ success: false, error: 'projectId, format and preset are required' })
@@ -40,7 +43,7 @@ router.post('/jobs', (req: Request, res: Response) => {
 })
 
 // PATCH /api/export/jobs/:id — update job result (called after client-side render completes)
-router.patch('/jobs/:id', (req: Request, res: Response) => {
+router.patch('/jobs/:id', requireAuth, (req: Request, res: Response) => {
   const { status, sizeMB, lufs, truePeakDB, renderMs, gpuUsed, errorMsg } = req.body
   const job = updateExportJob(req.params.id!, { status, sizeMB, lufs, truePeakDB, renderMs, gpuUsed, errorMsg })
   if (!job) return res.status(404).json({ success: false, error: 'Job not found' })
@@ -61,7 +64,7 @@ router.get('/jobs', (req: Request, res: Response) => {
 })
 
 // DELETE /api/export/jobs/:id
-router.delete('/jobs/:id', (req: Request, res: Response) => {
+router.delete('/jobs/:id', requireAuth, (req: Request, res: Response) => {
   const ok = deleteExportJob(req.params.id!, getUserId(req))
   if (!ok) return res.status(404).json({ success: false, error: 'Job not found' })
   res.json({ success: true })

@@ -13,6 +13,14 @@ export interface AuthenticatedRequest extends Request {
   };
 }
 
+// Hard-fail in production if JWT_SECRET is missing or still set to a dev value.
+if (process.env.NODE_ENV === 'production') {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.includes('dev-secret') || secret.includes('change-in-production')) {
+    throw new Error('JWT_SECRET is missing or insecure in production');
+  }
+}
+
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production';
 
 export function requireAuth(

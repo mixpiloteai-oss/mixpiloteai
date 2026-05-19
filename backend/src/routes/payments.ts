@@ -5,8 +5,10 @@
 // Register the raw body route BEFORE express.json() in index.ts:
 //   app.post('/api/payments/stripe/webhook', express.raw({ type: '*/*' }), ...)
 // ============================================================
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
+import { paymentsRateLimiter } from '../middleware/rateLimiter';
+import { logSecurityEvent } from '../utils/securityLog';
 
 import {
   createPaymentIntent,
@@ -49,6 +51,15 @@ import {
 import { log, getUserHistory } from '../services/paymentLogService';
 
 const router = Router();
+
+// Apply strict per-user/IP rate limit to all payment endpoints
+// EXCEPT webhook callbacks, which originate from Stripe / PayPal.
+router.use((req: Request, res: Response, next: NextFunction) => {
+  if (req.path === '/stripe/webhook' || req.path === '/paypal/webhook') {
+    return next();
+  }
+  return paymentsRateLimiter(req, res, next);
+});
 
 // ── Helper: extract userId ────────────────────────────────────
 function getUserId(req: Request): string {
@@ -125,6 +136,15 @@ router.post('/stripe/intent', async (req: Request, res: Response): Promise<void>
     res.status(400).json({ success: false, error: 'amountCents is required' });
     return;
   }
+
+  logSecurityEvent({
+    type: 'payment_attempt',
+    severity: 'info',
+    ip,
+    userId,
+    route: '/api/payments/stripe/intent',
+    meta: { amountCents, currency, productType, planId, country },
+  });
 
   // Fraud check
   const fraud = checkFraud({
@@ -788,6 +808,16 @@ router.post('/refund', async (req: Request, res: Response): Promise<void> => {
     res.status(400).json({ success: false, error: 'paymentIntentId is required' });
     return;
   }
+
+  logSecurityEvent({
+    type: 'payment_attempt',
+    severity: 'warn',
+    ip: req.ip,
+    userId,
+    route: '/api/payments/refund',
+    reason: reason ?? 'refund requested',
+    meta: { paymentIntentId, amountCents },
+  });
 
   try {
     const refund = await stripeCreateRefund(paymentIntentId, amountCents, reason);

@@ -12,6 +12,10 @@ import { validateEnv } from './utils/validateEnv';
 import { logger } from './utils/logger';
 import { requestId } from './middleware/requestId';
 import { errorHandler } from './middleware/errorHandler';
+import { securityHeaders } from './middleware/securityHeaders';
+import { trackResponse, blockSuspicious } from './middleware/suspiciousActivity';
+import { generalRateLimiter } from './middleware/rateLimiter';
+import { logSecurityEvent } from './utils/securityLog';
 
 validateEnv();
 
@@ -39,6 +43,7 @@ const HOST = '0.0.0.0';
 
 // ── Middleware ───────────────────────────────────────────────
 app.use(requestId);
+app.use(securityHeaders);
 
 const STATIC_ORIGINS = [
   'https://mixpiloteai.vercel.app',
@@ -52,13 +57,26 @@ const extraOrigins = process.env.CORS_ORIGINS
 
 const allowedOrigins = Array.from(new Set([...STATIC_ORIGINS, ...extraOrigins]));
 
+// Only the project's own Vercel deployments may use the wildcard.
+// Production prod URL + preview deployments share the prefix `mixpiloteai`,
+// e.g. `mixpiloteai-git-feature-x.vercel.app`. We deliberately do NOT
+// allow arbitrary `*.vercel.app` — that would let any attacker register
+// a Vercel project and obtain a valid origin.
+const PROJECT_VERCEL_RE = /^https:\/\/mixpiloteai(-[a-z0-9-]+)?\.vercel\.app$/;
+
 app.use(cors({
   origin: (origin, callback) => {
     // allow server-to-server / curl (no Origin header)
     if (!origin) return callback(null, true);
-    // allow any *.vercel.app preview deployment
-    if (origin.endsWith('.vercel.app')) return callback(null, true);
+    if (PROJECT_VERCEL_RE.test(origin)) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
+
+    logSecurityEvent({
+      type: 'cors_blocked',
+      severity: 'warn',
+      reason: 'origin not allowed',
+      meta: { origin },
+    });
     callback(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true,
@@ -79,12 +97,27 @@ app.post(
   }
 );
 
+// Tight payload limit for auth — body should never exceed a few KB.
+// Mounted with its own json parser BEFORE the global one so the global
+// 2mb parser does not see /api/auth bodies first.
+app.use('/api/auth', express.json({ limit: '10kb' }));
+
 app.use(express.json({ limit: '2mb' }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(cacheHeaders);
 
+// Track outcomes globally for the suspicious-activity tracker.
+app.use(trackResponse);
+
+// Broad mutation rate-limit. AI / payments / marketplace have their own
+// stricter limiters mounted on their routers.
+app.use(generalRateLimiter);
+
 // ── Routes ───────────────────────────────────────────────────
-app.use('/api/auth', authRouter);
+// blockSuspicious is mounted ONLY in front of authentication entry
+// points — we never want to quarantine legit users on, e.g., GET /api/projects.
+app.use('/api/auth', blockSuspicious, authRouter);
+app.use('/api/admin/auth', blockSuspicious);
 app.use('/api/projects', projectsRouter);
 app.use('/api/templates', templatesRouter);
 app.use('/api/ai', aiRouter);

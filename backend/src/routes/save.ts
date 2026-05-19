@@ -1,11 +1,12 @@
 // ─── Save / Versioning / Recovery Routes ─────────────────────────────────────
 import { Router, Request, Response } from 'express'
 import { saveService } from '../services/saveService'
+import { requireAuth } from '../middleware/auth'
 
 const router = Router()
 
 // POST /api/save/:projectId/versions  — create new version
-router.post('/:projectId/versions', (req: Request, res: Response) => {
+router.post('/:projectId/versions', requireAuth, (req: Request, res: Response) => {
   const { projectId } = req.params
   const { label = 'Manual save', data, type = 'manual' } = req.body
   if (!data) return res.status(400).json({ success: false, error: 'data is required' })
@@ -28,7 +29,7 @@ router.get('/:projectId/versions/:versionId', (req: Request, res: Response) => {
 })
 
 // DELETE /api/save/:projectId/versions/:versionId
-router.delete('/:projectId/versions/:versionId', (req: Request, res: Response) => {
+router.delete('/:projectId/versions/:versionId', requireAuth, (req: Request, res: Response) => {
   const { projectId, versionId } = req.params
   if (!saveService.deleteVersion(projectId, versionId)) {
     return res.status(404).json({ success: false, error: 'Version not found' })
@@ -38,7 +39,7 @@ router.delete('/:projectId/versions/:versionId', (req: Request, res: Response) =
 
 // POST /api/save/:projectId/versions/:versionId/restore
 // Returns the full version data so the client can apply it
-router.post('/:projectId/versions/:versionId/restore', (req: Request, res: Response) => {
+router.post('/:projectId/versions/:versionId/restore', requireAuth, (req: Request, res: Response) => {
   const { projectId, versionId } = req.params
   const version = saveService.getVersion(projectId, versionId)
   if (!version) return res.status(404).json({ success: false, error: 'Version not found' })
@@ -50,7 +51,7 @@ router.post('/:projectId/versions/:versionId/restore', (req: Request, res: Respo
 })
 
 // POST /api/save/validate  — validate project data integrity
-router.post('/validate', (req: Request, res: Response) => {
+router.post('/validate', requireAuth, (req: Request, res: Response) => {
   const result = saveService.validateData(req.body.data)
   return res.json({ success: true, data: result })
 })

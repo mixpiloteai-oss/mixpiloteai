@@ -3,14 +3,46 @@
 // SSE real-time stream + REST write ops + Team management
 // ============================================================
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import jwt from 'jsonwebtoken';
 import * as collabService from '../services/collaborationService';
 import type { CollabOp, CollabOpType, CollabEvent, RoomPresence } from '../services/collaborationService';
 import * as teamService from '../services/teamService';
 import type { TeamRole } from '../services/teamService';
+import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
 
 const router = Router();
+
+const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production';
+
+/**
+ * Auth gate for the SSE stream. EventSource cannot set custom headers,
+ * so a Bearer token can be passed via `?token=` query param. Falls back
+ * to `Authorization: Bearer ...` when present.
+ */
+function requireAuthSSE(req: Request, res: Response, next: NextFunction): void {
+  let token: string | undefined;
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) {
+    token = authHeader.slice(7);
+  } else if (typeof req.query['token'] === 'string') {
+    token = req.query['token'];
+  }
+  if (!token) {
+    res.status(401).json({ success: false, error: 'No token provided' });
+    return;
+  }
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as {
+      id: string; email: string; name: string; plan: string;
+    };
+    (req as AuthenticatedRequest).user = payload;
+    next();
+  } catch {
+    res.status(401).json({ success: false, error: 'Invalid or expired token' });
+  }
+}
 
 const HEARTBEAT_INTERVAL_MS = 25_000;
 
@@ -52,7 +84,7 @@ function formatSSE(event: CollabEvent): string {
  * GET /api/collab/stream/:projectId
  * Query: ?userId=&userName=&userColor=
  */
-router.get('/stream/:projectId', (req: Request, res: Response) => {
+router.get('/stream/:projectId', requireAuthSSE, (req: Request, res: Response) => {
   const { projectId } = req.params;
   const userId = (typeof req.query['userId'] === 'string' && req.query['userId'])
     ? req.query['userId']
@@ -116,7 +148,7 @@ router.get('/stream/:projectId', (req: Request, res: Response) => {
  * POST /api/collab/ops
  * Body: { projectId, userId, userName, userColor, type, payload, rev }
  */
-router.post('/ops', (req: Request, res: Response) => {
+router.post('/ops', requireAuth, (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });
@@ -185,7 +217,7 @@ router.get('/history/:projectId', (req: Request, res: Response) => {
  * POST /api/collab/presence
  * Body: { projectId, userId, bar, track }
  */
-router.post('/presence', (req: Request, res: Response) => {
+router.post('/presence', requireAuth, (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });
@@ -235,7 +267,7 @@ router.get('/rooms/:projectId/presence', (req: Request, res: Response) => {
  * POST /api/collab/invite
  * Body: { teamId, email, role }
  */
-router.post('/invite', (req: Request, res: Response) => {
+router.post('/invite', requireAuth, (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });
@@ -290,7 +322,7 @@ router.get('/invite/:token', (req: Request, res: Response) => {
  * POST /api/collab/invite/:token/accept
  * Body: { userId, userName }
  */
-router.post('/invite/:token/accept', (req: Request, res: Response) => {
+router.post('/invite/:token/accept', requireAuth, (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });
@@ -328,7 +360,7 @@ router.get('/permissions/:projectId', (req: Request, res: Response) => {
  * PATCH /api/collab/permissions/:projectId
  * Body: { teamId, memberPermissions }
  */
-router.patch('/permissions/:projectId', (req: Request, res: Response) => {
+router.patch('/permissions/:projectId', requireAuth, (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });
@@ -362,7 +394,7 @@ router.patch('/permissions/:projectId', (req: Request, res: Response) => {
  * POST /api/teams
  * Body: { name, ownerName, ownerEmail }
  */
-router.post('/teams-create', (req: Request, res: Response) => {
+router.post('/teams-create', requireAuth, (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });
@@ -402,7 +434,7 @@ export const teamsRouter = Router();
 /**
  * POST /api/teams
  */
-teamsRouter.post('/', (req: Request, res: Response) => {
+teamsRouter.post('/', requireAuth, (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });
@@ -452,7 +484,7 @@ teamsRouter.get('/:id', (req: Request, res: Response) => {
  * POST /api/teams/:id/members
  * Body: { userId, userName, email, role }
  */
-teamsRouter.post('/:id/members', (req: Request, res: Response) => {
+teamsRouter.post('/:id/members', requireAuth, (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });
@@ -493,7 +525,7 @@ teamsRouter.post('/:id/members', (req: Request, res: Response) => {
 /**
  * DELETE /api/teams/:id/members/:uid
  */
-teamsRouter.delete('/:id/members/:uid', (req: Request, res: Response) => {
+teamsRouter.delete('/:id/members/:uid', requireAuth, (req: Request, res: Response) => {
   const removed = teamService.removeMember(req.params.id, req.params.uid);
   if (!removed) {
     res.status(400).json({ success: false, error: 'Could not remove member' });
@@ -506,7 +538,7 @@ teamsRouter.delete('/:id/members/:uid', (req: Request, res: Response) => {
  * PATCH /api/teams/:id/members/:uid
  * Body: { role }
  */
-teamsRouter.patch('/:id/members/:uid', (req: Request, res: Response) => {
+teamsRouter.patch('/:id/members/:uid', requireAuth, (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });

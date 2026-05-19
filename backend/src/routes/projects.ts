@@ -6,6 +6,7 @@ import { db } from '../data/mockDB';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ok, fail, HTTP } from '../utils/response';
 import { validate } from '../utils/validate';
+import { requireAuth } from '../middleware/auth';
 
 const router = Router();
 
@@ -23,7 +24,7 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   res.json(ok(project));
 }));
 
-router.post('/', asyncHandler(async (req: Request, res: Response) => {
+router.post('/', requireAuth, asyncHandler(async (req: Request, res: Response) => {
   if (!validate(req, res, {
     name:  { required: true, type: 'string' },
     genre: { required: true, type: 'string' },
@@ -47,7 +48,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
   res.status(HTTP.CREATED).json(ok(project));
 }));
 
-router.patch('/:id', asyncHandler(async (req: Request, res: Response) => {
+router.patch('/:id', requireAuth, asyncHandler(async (req: Request, res: Response) => {
   const updated = db.updateProject(req.params.id, req.body);
   if (!updated) {
     res.status(HTTP.NOT_FOUND).json(fail('Project not found'));
@@ -56,7 +57,7 @@ router.patch('/:id', asyncHandler(async (req: Request, res: Response) => {
   res.json(ok(updated));
 }));
 
-router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
+router.delete('/:id', requireAuth, asyncHandler(async (req: Request, res: Response) => {
   const deleted = db.deleteProject(req.params.id);
   if (!deleted) {
     res.status(HTTP.NOT_FOUND).json(fail('Project not found'));
@@ -65,7 +66,7 @@ router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
   res.json(ok({ message: 'Project deleted' }));
 }));
 
-router.post('/:id/star', asyncHandler(async (req: Request, res: Response) => {
+router.post('/:id/star', requireAuth, asyncHandler(async (req: Request, res: Response) => {
   const project = db.getProject(req.params.id);
   if (!project) {
     res.status(HTTP.NOT_FOUND).json(fail('Project not found'));
