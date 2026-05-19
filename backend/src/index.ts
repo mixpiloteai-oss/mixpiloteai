@@ -20,6 +20,8 @@ import syncRouter    from './routes/sync';
 import chunksRouter  from './routes/chunks';
 import exportRouter  from './routes/export';
 import collabRouter, { teamsRouter } from './routes/collaboration';
+import marketplaceRouter from './routes/marketplace';
+import creatorsRouter from './routes/creators';
 import { cacheHeaders } from './middleware/cacheHeaders';
 
 const app = express();
@@ -74,6 +76,8 @@ app.use('/api/chunks',  chunksRouter);
 app.use('/api/export',  exportRouter);
 app.use('/api/collab', collabRouter);
 app.use('/api/teams',  teamsRouter);
+app.use('/api/marketplace', marketplaceRouter);
+app.use('/api/creators',    creatorsRouter);
 
 // ── Health check (must respond 200 for Railway / Render probes) ──
 app.get('/health', (_req, res) => {

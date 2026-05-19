@@ -12,6 +12,7 @@ const NAV_ITEMS: { id: ViewId; label: string; icon: string }[] = [
   { id: 'performance', label: 'Performance', icon: '⚙' },
   { id: 'export',      label: 'Export',      icon: '⬇' },
   { id: 'collab',      label: 'Collaboration', icon: '⚯' },
+  { id: 'marketplace', label: 'Marketplace',   icon: '⊞' },
 ]
 
 export default function Sidebar() {

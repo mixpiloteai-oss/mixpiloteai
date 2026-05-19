@@ -14,6 +14,8 @@ import Merch       from './pages/Merch'
 import Privacy     from './pages/Privacy'
 import Terms         from './pages/Terms'
 import Collaboration from './pages/Collaboration'
+import CreatorProfile    from './pages/CreatorProfile'
+import CreatorDashboard from './pages/CreatorDashboard'
 import { useOnlineStatus } from './hooks/useOnlineStatus'
 
 // ─── Offline placeholder for cloud-only pages ─────────────────────────────────
@@ -86,6 +88,16 @@ function App() {
             networkOk
               ? <Merch />
               : <CloudOfflinePage label="Merch Store" />
+          } />
+          <Route path="/creator/:slug" element={
+            networkOk
+              ? <CreatorProfile />
+              : <CloudOfflinePage label="Creator" />
+          } />
+          <Route path="/creator-dashboard" element={
+            networkOk
+              ? <CreatorDashboard />
+              : <CloudOfflinePage label="Dashboard" />
           } />
         </Routes>
       </main>
