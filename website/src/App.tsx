@@ -12,7 +12,8 @@ import Account     from './pages/Account'
 import Marketplace from './pages/Marketplace'
 import Merch       from './pages/Merch'
 import Privacy     from './pages/Privacy'
-import Terms       from './pages/Terms'
+import Terms         from './pages/Terms'
+import Collaboration from './pages/Collaboration'
 import { useOnlineStatus } from './hooks/useOnlineStatus'
 
 // ─── Offline placeholder for cloud-only pages ─────────────────────────────────
@@ -62,7 +63,8 @@ function App() {
           <Route path="/support"   element={<Support />} />
           <Route path="/pricing"   element={<Pricing />} />
           <Route path="/privacy"   element={<Privacy />} />
-          <Route path="/terms"     element={<Terms />} />
+          <Route path="/terms"         element={<Terms />} />
+          <Route path="/collaboration" element={<Collaboration />} />
 
           {/* Cloud features — disabled when offline */}
           <Route path="/marketplace" element={

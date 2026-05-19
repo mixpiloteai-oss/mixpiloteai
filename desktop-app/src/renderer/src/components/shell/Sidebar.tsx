@@ -11,6 +11,7 @@ const NAV_ITEMS: { id: ViewId; label: string; icon: string }[] = [
   { id: 'ai-local',    label: 'Local AI',    icon: '⊙' },
   { id: 'performance', label: 'Performance', icon: '⚙' },
   { id: 'export',      label: 'Export',      icon: '⬇' },
+  { id: 'collab',      label: 'Collaboration', icon: '⚯' },
 ]
 
 export default function Sidebar() {

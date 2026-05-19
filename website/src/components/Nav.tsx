@@ -8,7 +8,8 @@ const NAV_LINKS = [
   { to: '/pricing',    label: 'Pricing' },
   { to: '/marketplace',label: 'Packs' },
   { to: '/changelog',  label: 'Changelog' },
-  { to: '/support',    label: 'Support' },
+  { to: '/support',       label: 'Support' },
+  { to: '/collaboration', label: 'Collab' },
 ]
 
 function Nav() {

@@ -19,6 +19,7 @@ import saveRouter    from './routes/save';
 import syncRouter    from './routes/sync';
 import chunksRouter  from './routes/chunks';
 import exportRouter  from './routes/export';
+import collabRouter, { teamsRouter } from './routes/collaboration';
 import { cacheHeaders } from './middleware/cacheHeaders';
 
 const app = express();
@@ -48,8 +49,8 @@ app.use(cors({
     callback(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Id'],
 }));
 
 // Ensure preflight OPTIONS requests return 200
@@ -71,6 +72,8 @@ app.use('/api/save',    saveRouter);
 app.use('/api/sync',    syncRouter);
 app.use('/api/chunks',  chunksRouter);
 app.use('/api/export',  exportRouter);
+app.use('/api/collab', collabRouter);
+app.use('/api/teams',  teamsRouter);
 
 // ── Health check (must respond 200 for Railway / Render probes) ──
 app.get('/health', (_req, res) => {
