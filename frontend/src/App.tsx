@@ -15,6 +15,8 @@ import { WelcomeModal } from './components/WelcomeModal';
 import { UpdateChecker } from './components/UpdateChecker';
 import { authApi, getAccessToken } from './services/api';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useOfflineFirst } from './hooks/useOfflineFirst';
+import { useNetworkStore } from './store/networkStore';
 import type { AuthUser, QuotaInfo, ViewType } from './types';
 
 // Eagerly-loaded views (visible at startup)
@@ -60,7 +62,30 @@ function ViewFallback() {
   );
 }
 
+// ─── Offline placeholder for online-only features ────────────────────────────
+function OfflinePlaceholder({ label }: { label: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-3" style={{ color: '#475569' }}>
+      <WifiOffIcon />
+      <p className="text-sm font-semibold" style={{ color: '#94a3b8' }}>{label}</p>
+      <p className="text-xs text-center max-w-xs">
+        This feature requires an internet connection. Your project is safe — it will be available again when you reconnect.
+      </p>
+    </div>
+  );
+}
+function WifiOffIcon() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#334155' }}>
+      <line x1="1" y1="1" x2="23" y2="23" /><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" /><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" /><path d="M10.71 5.05A16 16 0 0 1 22.56 9" /><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><circle cx="12" cy="20" r="1" />
+    </svg>
+  );
+}
+
 function ViewRouter({ view }: { view: ViewType }) {
+  const { isOnline, backendReachable } = useNetworkStore();
+  const networkOk = isOnline && backendReachable !== false;
+
   return (
     <Suspense fallback={<ViewFallback />}>
       {view === 'dashboard'      && <Dashboard />}
@@ -68,11 +93,11 @@ function ViewRouter({ view }: { view: ViewType }) {
       {view === 'tracks'         && <TrackOrganizer />}
       {view === 'mix'            && <MixAssistant />}
       {view === 'live'           && <LiveMode />}
-      {view === 'chat'           && <AIChatPanel />}
-      {view === 'packs'          && <PacksBrowser />}
+      {view === 'chat'           && (networkOk ? <AIChatPanel /> : <OfflinePlaceholder label="AI Chat" />)}
+      {view === 'packs'          && (networkOk ? <PacksBrowser /> : <OfflinePlaceholder label="Packs Marketplace" />)}
       {view === 'daw'            && <DAWBridge />}
-      {view === 'coach'          && <AICoach />}
-      {view === 'analytics'      && <AnalyticsDashboard />}
+      {view === 'coach'          && (networkOk ? <AICoach /> : <OfflinePlaceholder label="AI Coach" />)}
+      {view === 'analytics'      && (networkOk ? <AnalyticsDashboard /> : <OfflinePlaceholder label="Analytics" />)}
       {view === 'plans'          && <PlansPage />}
       {view === 'legal'          && <LegalPages />}
       {view === 'audio'          && <AudioEnginePanel />}
@@ -120,7 +145,10 @@ export default function App() {
   const [authChecked, setAuthChecked] = React.useState(false);
   const [showOnboarding, setShowOnboarding] = React.useState(false);
   const isAuthenticated = useAppStore((s) => s.auth.isAuthenticated);
-  const setAuth = useAppStore((s) => s.setAuth);
+  const setAuth         = useAppStore((s) => s.setAuth);
+
+  // Initialise offline-first connectivity monitor + sync queue flusher
+  useOfflineFirst();
 
   useEffect(() => {
     const token = getAccessToken();

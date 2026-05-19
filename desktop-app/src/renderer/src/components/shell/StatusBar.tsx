@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
-import { useTransportStore } from '../../store/transportStore'
-import { useSaveStore }      from '../../store/saveStore'
+import { useTransportStore }       from '../../store/transportStore'
+import { useSaveStore }            from '../../store/saveStore'
+import { useDesktopNetworkStore }  from '../../store/networkStore'
 
 export default function StatusBar() {
   const { positionBar, positionBeat, bpm } = useTransportStore()
   const { status, historyOpen, toggleHistory } = useSaveStore()
-  const [cpu, setCpu]     = useState(0)
-  const [mem, setMem]     = useState(0)
-  const [xruns] = useState(0)
+  const { isOnline, aiAvailable } = useDesktopNetworkStore()
+  const [cpu, setCpu] = useState(0)
+  const [mem, setMem] = useState(0)
+  const [xruns]       = useState(0)
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -20,27 +22,26 @@ export default function StatusBar() {
   const bar  = String(positionBar).padStart(3, ' ')
   const beat = String(positionBeat).padStart(1, ' ')
 
-  // ── Save status label ────────────────────────────────────────────────────────
+  // ── Save status ───────────────────────────────────────────────────────────────
   let saveLabel: string
   let saveColor: string
   if (status.state === 'saving') {
-    saveLabel = 'Saving…'
-    saveColor = '#a78bfa'
+    saveLabel = 'Saving…';       saveColor = '#a78bfa'
   } else if (status.state === 'error') {
-    saveLabel = `Save error`
-    saveColor = '#ef4444'
+    saveLabel = 'Save error';    saveColor = '#ef4444'
   } else if (status.isDirty) {
-    saveLabel = `Unsaved · ${status.autoSaveIn}s`
-    saveColor = '#f59e0b'
+    saveLabel = `Unsaved · ${status.autoSaveIn}s`;  saveColor = '#f59e0b'
   } else if (status.lastSavedAt) {
-    const ago   = Math.round((Date.now() - status.lastSavedAt) / 1000)
-    const label = ago < 60 ? `${ago}s ago` : `${Math.floor(ago / 60)}m ago`
-    saveLabel   = `Saved ${label}`
-    saveColor   = '#475569'
+    const ago = Math.round((Date.now() - status.lastSavedAt) / 1000)
+    saveLabel = `Saved ${ago < 60 ? `${ago}s` : `${Math.floor(ago / 60)}m`} ago`
+    saveColor = '#475569'
   } else {
-    saveLabel = `Auto-save in ${status.autoSaveIn}s`
-    saveColor = '#334155'
+    saveLabel = `Auto-save in ${status.autoSaveIn}s`;  saveColor = '#334155'
   }
+
+  // ── Network indicator ─────────────────────────────────────────────────────────
+  const netLabel = isOnline ? (aiAvailable ? 'Online' : 'Server ↓') : 'Offline'
+  const netColor = isOnline ? (aiAvailable ? '#334155' : '#f59e0b') : '#ef4444'
 
   return (
     <div
@@ -48,9 +49,7 @@ export default function StatusBar() {
       style={{ background: '#06060d', borderTop: '1px solid #1c1c2e', color: '#475569' }}
     >
       {/* Position */}
-      <span className="text-studio-muted/70">
-        {bar}:{beat}.00
-      </span>
+      <span className="text-studio-muted/70">{bar}:{beat}.00</span>
 
       <Divider />
 
@@ -75,11 +74,16 @@ export default function StatusBar() {
       {/* Spacer */}
       <span className="flex-1" />
 
-      {/* Save status */}
-      <Divider />
-      <span style={{ color: saveColor, transition: 'color 0.3s' }}>
-        {saveLabel}
+      {/* Network */}
+      <span style={{ color: netColor, transition: 'color 0.3s' }}
+            title={isOnline ? (aiAvailable ? 'Connected — all features available' : 'Connected — server unreachable, AI paused') : 'Offline — DAW fully functional, AI/cloud paused'}>
+        {netLabel}
       </span>
+
+      <Divider />
+
+      {/* Save status */}
+      <span style={{ color: saveColor, transition: 'color 0.3s' }}>{saveLabel}</span>
 
       {/* History toggle */}
       <button

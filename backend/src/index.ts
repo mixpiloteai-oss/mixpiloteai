@@ -16,6 +16,8 @@ import subscriptionsRouter from './routes/subscriptions';
 import packsRouter from './routes/packs';
 import licenseRouter from './routes/license';
 import saveRouter    from './routes/save';
+import syncRouter    from './routes/sync';
+import { cacheHeaders } from './middleware/cacheHeaders';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 8080;
@@ -53,6 +55,7 @@ app.options('*', cors());
 
 app.use(express.json({ limit: '2mb' }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+app.use(cacheHeaders);
 
 // ── Routes ───────────────────────────────────────────────────
 app.use('/api/auth', authRouter);
@@ -63,6 +66,7 @@ app.use('/api/subscriptions', subscriptionsRouter);
 app.use('/api/packs', packsRouter);
 app.use('/api/license', licenseRouter);
 app.use('/api/save',    saveRouter);
+app.use('/api/sync',    syncRouter);
 
 // ── Health check (must respond 200 for Railway / Render probes) ──
 app.get('/health', (_req, res) => {

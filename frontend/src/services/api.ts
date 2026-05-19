@@ -1,10 +1,15 @@
 // ============================================================
-// NEUROTEK AI — Centralized API Client
+// NEUROTEK AI — Centralized API Client  (Offline-First)
 //
-// All requests go through this module.
-// JWT token is stored in memory (never in source code).
+// GET  requests: served from IndexedDB cache when offline;
+//                fresh responses are written to cache on success.
+// POST/PATCH/DELETE: queued in IndexedDB when offline and
+//                    replayed via /api/sync when reconnected.
+// Projects are NEVER discarded when connectivity is lost.
 // ============================================================
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import { cacheApiResponse, getCachedApiResponse } from './offlineCache';
+import { enqueue } from './syncQueue';
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
 
@@ -44,14 +49,73 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
+// ── Offline-first: serve cached GETs when offline ────────────
+apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+  if (!navigator.onLine && (config.method ?? 'get').toLowerCase() === 'get' && config.url) {
+    const cached = await getCachedApiResponse(config.url);
+    if (cached !== null) {
+      // Return a synthetic settled response so callers receive data uninterrupted
+      return Promise.reject(Object.assign(new Error('__offline_cache__'), {
+        __offlineCache: true,
+        __cachedData:   cached,
+      }));
+    }
+  }
+  return config;
+});
+
 // ── Auto-refresh expired tokens ─────────────────────────────
 let isRefreshing = false;
 let refreshQueue: Array<(token: string) => void> = [];
 
 apiClient.interceptors.response.use(
-  (res) => res,
-  async (error: AxiosError) => {
-    const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+  // Cache successful GET responses
+  async (res) => {
+    if ((res.config.method ?? 'get').toLowerCase() === 'get' && res.config.url && res.data) {
+      await cacheApiResponse(res.config.url, res.data).catch(() => {});
+    }
+    return res;
+  },
+  async (error: AxiosError & { __offlineCache?: boolean; __cachedData?: unknown }) => {
+    // ── Serve from cache (offline GET) ──────────────────────────────────────
+    if (error.__offlineCache) {
+      return Promise.resolve({ data: error.__cachedData, status: 200, statusText: 'OK (cached)', headers: {}, config: {} });
+    }
+
+    const isNetworkError = !error.response;
+    const config = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
+    const method = (config?.method ?? 'get').toLowerCase();
+
+    // ── Queue mutations that fail due to network loss ────────────────────────
+    if (isNetworkError && config && method !== 'get') {
+      const opType = `${method.toUpperCase()}_${(config.url ?? '').replace(/[^A-Z0-9_]/gi, '_').toUpperCase()}`;
+      await enqueue({
+        method:      (method.toUpperCase() as 'POST' | 'PUT' | 'PATCH' | 'DELETE'),
+        url:         config.url ?? '',
+        payload:     config.data ? JSON.parse(config.data as string) : undefined,
+        type:        opType,
+        accessToken: accessToken,
+      }).catch(() => {});
+      // Return a synthetic "queued" response so the UI doesn't crash
+      return Promise.resolve({
+        data:       { success: true, queued: true, offline: true },
+        status:     202,
+        statusText: 'Queued (offline)',
+        headers:    {},
+        config,
+      });
+    }
+
+    // ── Fallback to stale cache on network error (GET) ───────────────────────
+    if (isNetworkError && config && method === 'get' && config.url) {
+      const cached = await getCachedApiResponse(config.url).catch(() => null);
+      if (cached !== null) {
+        return Promise.resolve({ data: cached, status: 200, statusText: 'OK (stale cache)', headers: {}, config });
+      }
+    }
+
+    if (!config) return Promise.reject(error);
+    const original = config as InternalAxiosRequestConfig & { _retry?: boolean };
 
     if (
       error.response?.status === 401 &&

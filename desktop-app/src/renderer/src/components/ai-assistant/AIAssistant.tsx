@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
+import { useDesktopNetworkStore } from '../../store/networkStore'
+import { offlineAIChat } from '../../services/offlineAI'
 
 interface Message {
   id: string
@@ -29,6 +31,7 @@ export default function AIAssistant() {
   const [token]                   = useState<string | null>(() => localStorage.getItem('token'))
   const bottomRef                 = useRef<HTMLDivElement>(null)
   const inputRef                  = useRef<HTMLTextAreaElement>(null)
+  const { aiAvailable }           = useDesktopNetworkStore()
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -43,6 +46,17 @@ export default function AIAssistant() {
     setMessages(m => [...m, userMsg, placeholder])
     setGenerating(true)
 
+    // ── Offline fallback: local heuristic AI ──────────────────────────────────
+    if (!aiAvailable) {
+      const offlineReply = offlineAIChat(text)
+      setMessages(m => m.map(msg =>
+        msg.generating ? { ...msg, content: offlineReply.text, generating: false } : msg
+      ))
+      setGenerating(false)
+      inputRef.current?.focus()
+      return
+    }
+
     try {
       const res = await fetch(`${API_URL}/api/ai/generate`, {
         method:  'POST',
@@ -51,14 +65,17 @@ export default function AIAssistant() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ prompt: text, context: 'daw-assistant' }),
+        signal: AbortSignal.timeout(20_000),
       })
       const data = await res.json()
       const reply = data?.result ?? data?.content ?? data?.message ?? 'Pattern generated. Check your arrangement.'
       setMessages(m => m.map(msg => msg.generating ? { ...msg, content: reply, generating: false } : msg))
     } catch {
+      // Network dropped mid-request — fall back to offline AI
+      const fallback = offlineAIChat(text)
       setMessages(m => m.map(msg =>
         msg.generating
-          ? { ...msg, content: '⚠ Could not reach backend. Check your connection.', generating: false }
+          ? { ...msg, content: fallback.text, generating: false }
           : msg
       ))
     } finally {

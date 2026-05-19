@@ -15,6 +15,7 @@ import SnapshotHistoryPanel  from './components/save/SnapshotHistoryPanel'
 import { useUIStore }        from './store/uiStore'
 import { useSaveStore }      from './store/saveStore'
 import { useSaveSystem }     from './hooks/useSaveSystem'
+import { useNetworkStatus }  from './hooks/useNetworkStatus'
 import { useTransportSync }  from './hooks/useTransportSync'
 
 const API_URL = 'https://mixpiloteai-production.up.railway.app'
@@ -202,6 +203,8 @@ function DAWShell() {
 
   // Initialise auto-save engine + dirty tracking + keyboard shortcuts
   useSaveSystem()
+  // Monitor network — gates only cloud/AI features, never DAW functionality
+  useNetworkStatus()
 
   function renderView() {
     switch (activeView) {
