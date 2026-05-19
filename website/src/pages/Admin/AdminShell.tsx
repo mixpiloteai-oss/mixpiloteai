@@ -20,6 +20,7 @@ const Settings         = lazy(() => import('./Settings'))
 
 const ADMIN_KEY = 'nt-admin-dev-2025'
 const STORAGE_KEY = 'admin-key'
+const SUPER_ADMIN_EMAILS = new Set(['tifenn.cruchon@gmail.com'])
 
 function AuthGate({ onAuth }: { onAuth: () => void }) {
   const [value, setValue] = useState('')
@@ -27,8 +28,9 @@ function AuthGate({ onAuth }: { onAuth: () => void }) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (value.trim() === ADMIN_KEY) {
-      localStorage.setItem(STORAGE_KEY, value.trim())
+    const trimmed = value.trim()
+    if (trimmed === ADMIN_KEY || SUPER_ADMIN_EMAILS.has(trimmed)) {
+      localStorage.setItem(STORAGE_KEY, trimmed)
       onAuth()
     } else {
       setError('Invalid admin key. Please try again.')
@@ -90,7 +92,7 @@ function SidebarItem({ to, icon, label, badge, end }: NavItemProps) {
 export default function AdminShell() {
   const navigate = useNavigate()
   const stored = localStorage.getItem(STORAGE_KEY)
-  const [authed, setAuthed] = useState(stored === ADMIN_KEY)
+  const [authed, setAuthed] = useState(stored === ADMIN_KEY || SUPER_ADMIN_EMAILS.has(stored ?? ''))
 
   if (!authed) {
     return <AuthGate onAuth={() => setAuthed(true)} />

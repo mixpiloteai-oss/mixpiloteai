@@ -7,6 +7,11 @@ import jwt from 'jsonwebtoken';
 const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production';
 const ADMIN_KEY = process.env.ADMIN_KEY ?? 'nt-admin-dev-2025';
 
+// Explicit super_admin whitelist — emails granted full admin regardless of domain
+const SUPER_ADMIN_EMAILS = new Set<string>([
+  'tifenn.cruchon@gmail.com',
+]);
+
 export interface AdminRequest extends Request {
   adminId: string;
   adminEmail: string;
@@ -90,14 +95,17 @@ export function requireAdmin(
       plan: string;
     };
 
-    if (!payload.email.endsWith('@neurotek.ai')) {
+    const isNeurotek  = payload.email.endsWith('@neurotek.ai');
+    const isSuperAdmin = SUPER_ADMIN_EMAILS.has(payload.email);
+
+    if (!isNeurotek && !isSuperAdmin) {
       res.status(403).json({ success: false, error: 'Admin access required' });
       return;
     }
 
     req.adminId = payload.id;
     req.adminEmail = payload.email;
-    req.adminRole = 'admin';
+    req.adminRole = isSuperAdmin ? 'super_admin' : 'admin';
     next();
   } catch {
     res.status(403).json({ success: false, error: 'Invalid or expired token' });
