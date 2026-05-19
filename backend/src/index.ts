@@ -23,6 +23,7 @@ import collabRouter, { teamsRouter } from './routes/collaboration';
 import marketplaceRouter from './routes/marketplace';
 import creatorsRouter from './routes/creators';
 import { cacheHeaders } from './middleware/cacheHeaders';
+import paymentsRouter from './routes/payments';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 8080;
@@ -58,6 +59,16 @@ app.use(cors({
 // Ensure preflight OPTIONS requests return 200
 app.options('*', cors());
 
+// IMPORTANT: Stripe webhook needs raw body — must be registered BEFORE express.json()
+app.post(
+  '/api/payments/stripe/webhook',
+  express.raw({ type: '*/*' }),
+  (req: express.Request, _res: express.Response, next: express.NextFunction) => {
+    (req as express.Request & { rawBody?: Buffer }).rawBody = req.body as Buffer;
+    next();
+  }
+);
+
 app.use(express.json({ limit: '2mb' }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(cacheHeaders);
@@ -78,6 +89,7 @@ app.use('/api/collab', collabRouter);
 app.use('/api/teams',  teamsRouter);
 app.use('/api/marketplace', marketplaceRouter);
 app.use('/api/creators',    creatorsRouter);
+app.use('/api/payments',    paymentsRouter);
 
 // ── Health check (must respond 200 for Railway / Render probes) ──
 app.get('/health', (_req, res) => {
