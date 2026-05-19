@@ -2,7 +2,7 @@ import { create } from 'zustand'
 
 export type ViewId =
   | 'arrangement' | 'mixer' | 'pianoroll'
-  | 'ai' | 'ai-local' | 'live' | 'vst' | 'routing' | 'dashboard'
+  | 'ai' | 'ai-local' | 'performance' | 'live' | 'vst' | 'routing' | 'dashboard'
 
 interface UIStore {
   activeView: ViewId

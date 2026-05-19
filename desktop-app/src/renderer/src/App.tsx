@@ -11,12 +11,14 @@ import LiveMode from './components/live/LiveMode'
 import PluginBrowser from './components/plugin-browser/PluginBrowser'
 import RoutingMatrix from './components/routing/RoutingMatrix'
 import LocalAIPanel from './components/ai-local/LocalAIPanel'
+import PerformanceModeSelector from './components/performance/PerformanceModeSelector'
 import RecoveryDialog        from './components/save/RecoveryDialog'
 import SnapshotHistoryPanel  from './components/save/SnapshotHistoryPanel'
 import { useUIStore }        from './store/uiStore'
 import { useSaveStore }      from './store/saveStore'
 import { useSaveSystem }     from './hooks/useSaveSystem'
 import { useNetworkStatus }  from './hooks/useNetworkStatus'
+import { usePerformanceMode, applyBootMode } from './hooks/usePerformanceMode'
 import { useTransportSync }  from './hooks/useTransportSync'
 
 const API_URL = 'https://mixpiloteai-production.up.railway.app'
@@ -146,7 +148,8 @@ function Dashboard() {
     { id: 'live'        as const, icon: '▶', label: 'Live Mode',     sub: '6 × 8 clip launcher',       color: '#f59e0b' },
     { id: 'vst'         as const, icon: '⊕', label: 'Plugin Browser',sub: '10 plugins loaded',         color: '#ec4899' },
     { id: 'routing'     as const, icon: '⊗', label: 'Routing Matrix',sub: '11 active connections',     color: '#06b6d4' },
-    { id: 'ai-local'   as const, icon: '⊙', label: 'Local AI',      sub: 'Offline analysis · no cloud', color: '#06b6d4' },
+    { id: 'ai-local'    as const, icon: '⊙', label: 'Local AI',      sub: 'Offline analysis · no cloud', color: '#06b6d4' },
+    { id: 'performance' as const, icon: '⚙', label: 'Performance',   sub: 'Low PC / Studio / Live modes', color: '#f59e0b' },
   ]
 
   return (
@@ -205,8 +208,8 @@ function DAWShell() {
 
   // Initialise auto-save engine + dirty tracking + keyboard shortcuts
   useSaveSystem()
-  // Monitor network — gates only cloud/AI features, never DAW functionality
   useNetworkStatus()
+  usePerformanceMode()
 
   function renderView() {
     switch (activeView) {
@@ -217,6 +220,7 @@ function DAWShell() {
       case 'vst':         return <PluginBrowser />
       case 'routing':     return <RoutingMatrix />
       case 'ai-local':    return <LocalAIPanel />
+      case 'performance': return <PerformanceModeSelector />
       case 'dashboard':   return <Dashboard />
       default:            return <Dashboard />
     }
@@ -254,6 +258,9 @@ function DAWShell() {
 }
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
+
+// Apply saved performance mode before first render
+applyBootMode()
 
 export default function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
