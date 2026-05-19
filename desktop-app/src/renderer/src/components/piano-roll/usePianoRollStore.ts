@@ -1,6 +1,8 @@
 import { create } from 'zustand'
-import type { PRNote, PRTool, SnapGrid, AutomationParam } from './types'
-import { DEFAULT_AUTO_PARAMS } from './types'
+import type { PRNote, PRTool, SnapGrid, AutomationParam, ScaleMode, ScaleRoot } from './types'
+import { DEFAULT_AUTO_PARAMS, SNAP_BEATS } from './types'
+import { getScalePitches, snapPitchToScale, buildChord, getDiatonicChords, generateMelody } from '../../lib/musicTheory'
+import type { ChordType } from '../../lib/musicTheory'
 
 let _uid = 1
 const uid = () => `pr${_uid++}`
@@ -36,6 +38,11 @@ export interface PianoRollState {
   totalBeats:      number
   timeSigTop:      number
   autoParams:      AutomationParam[]
+  scaleEnabled:    boolean
+  scaleRoot:       ScaleRoot
+  scaleMode:       ScaleMode
+  aiPanelOpen:     boolean
+  scalePanelOpen:  boolean
 
   addNote(data: Omit<PRNote, 'id' | 'selected' | 'muted'>): PRNote
   removeNote(id: string): void
@@ -56,6 +63,25 @@ export interface PianoRollState {
   setVelocity(id: string, v: number): void
   loadNotes(notes: PRNote[]): void
   toggleAutoParam(id: string): void
+  // Scale
+  setScaleEnabled(on: boolean): void
+  setScaleRoot(root: ScaleRoot): void
+  setScaleMode(mode: ScaleMode): void
+  toggleAIPanel(): void
+  toggleScalePanel(): void
+  // Note properties
+  setNoteGlide(id: string, glide: boolean): void
+  setNoteProbability(id: string, prob: number): void
+  setNoteChannel(id: string, channel: number): void
+  // Edit operations
+  quantize(grid: SnapGrid, strength: number): void
+  humanize(amount: number): void
+  randomize(count: number, bars: number): void
+  snapToScale(): void
+  // AI generation
+  generateChord(rootMidi: number, type: ChordType, startBeat: number): void
+  generateProgression(degrees: number[], beatsPerChord: number, octave: number): void
+  generateMelodyAI(bars: number, density: 'sparse' | 'medium' | 'dense', octave: number): void
 }
 
 export const usePianoRollStore = create<PianoRollState>((set, get) => ({
@@ -71,6 +97,11 @@ export const usePianoRollStore = create<PianoRollState>((set, get) => ({
   totalBeats:      64,
   timeSigTop:      4,
   autoParams:      DEFAULT_AUTO_PARAMS,
+  scaleEnabled:    false,
+  scaleRoot:       'D',
+  scaleMode:       'minor',
+  aiPanelOpen:     false,
+  scalePanelOpen:  false,
 
   addNote(data) {
     const note: PRNote = { ...data, id: uid(), selected: false, muted: false }
@@ -171,5 +202,142 @@ export const usePianoRollStore = create<PianoRollState>((set, get) => ({
     set(s => ({
       autoParams: s.autoParams.map(p => p.id === id ? { ...p, visible: !p.visible } : p),
     }))
+  },
+
+  // ── Scale ────────────────────────────────────────────────────────────────
+  setScaleEnabled(on)   { set({ scaleEnabled: on }) },
+  setScaleRoot(root)    { set({ scaleRoot: root }) },
+  setScaleMode(mode)    { set({ scaleMode: mode }) },
+  toggleAIPanel()       { set(s => ({ aiPanelOpen: !s.aiPanelOpen })) },
+  toggleScalePanel()    { set(s => ({ scalePanelOpen: !s.scalePanelOpen })) },
+
+  // ── Note properties ──────────────────────────────────────────────────────
+  setNoteGlide(id, glide) {
+    set(s => ({ notes: s.notes.map(n => n.id === id ? { ...n, glide } : n) }))
+  },
+  setNoteProbability(id, prob) {
+    set(s => ({ notes: s.notes.map(n => n.id === id ? { ...n, probability: Math.max(0, Math.min(100, prob)) } : n) }))
+  },
+  setNoteChannel(id, channel) {
+    set(s => ({ notes: s.notes.map(n => n.id === id ? { ...n, channel: Math.max(0, Math.min(15, channel)) } : n) }))
+  },
+
+  // ── Quantize ─────────────────────────────────────────────────────────────
+  quantize(grid, strength) {
+    const snapVal = SNAP_BEATS[grid]
+    if (snapVal === 0) return
+    set(s => ({
+      notes: s.notes.map(n => {
+        if (!n.selected) return n
+        const snapped   = Math.round(n.startBeat / snapVal) * snapVal
+        const newStart  = n.startBeat + (snapped - n.startBeat) * strength
+        return { ...n, startBeat: Math.max(0, newStart) }
+      }),
+    }))
+  },
+
+  // ── Humanize ─────────────────────────────────────────────────────────────
+  humanize(amount) {
+    const maxTimeDev = amount * 0.1   // ±0.1 beats max
+    const maxVelDev  = amount * 15    // ±15 velocity max
+    set(s => ({
+      notes: s.notes.map((n, i) => {
+        if (!n.selected) return n
+        let seed = (i * 1664525 + 1013904223) | 0
+        seed = (seed * 1664525 + 1013904223) | 0
+        const tRand = ((seed >>> 0) / 0xFFFFFFFF - 0.5) * 2 * maxTimeDev
+        seed = (seed * 1664525 + 1013904223) | 0
+        const vRand = ((seed >>> 0) / 0xFFFFFFFF - 0.5) * 2 * maxVelDev
+        return {
+          ...n,
+          startBeat: Math.max(0, n.startBeat + tRand),
+          velocity:  Math.max(1, Math.min(127, Math.round(n.velocity + vRand))),
+        }
+      }),
+    }))
+  },
+
+  // ── Randomize ────────────────────────────────────────────────────────────
+  randomize(count, bars) {
+    const { scaleRoot, scaleMode, scaleEnabled, defaultVelocity, defaultLength, timeSigTop } = get()
+    const totalBeats     = bars * timeSigTop
+    const scalePitches   = scaleEnabled ? getScalePitches(scaleRoot, scaleMode) : null
+    const newNotes: PRNote[] = []
+    let seed = Date.now() | 0
+    for (let i = 0; i < count; i++) {
+      seed = (seed * 1664525 + 1013904223) | 0
+      const beat     = ((seed >>> 0) / 0xFFFFFFFF) * totalBeats
+      seed = (seed * 1664525 + 1013904223) | 0
+      const pitchBase = 48 + Math.floor(((seed >>> 0) / 0xFFFFFFFF) * 36)
+      const pitch     = scalePitches
+        ? snapPitchToScale(pitchBase, scaleRoot, scaleMode)
+        : pitchBase
+      seed = (seed * 1664525 + 1013904223) | 0
+      const velocity  = 60 + Math.floor(((seed >>> 0) / 0xFFFFFFFF) * 60)
+      newNotes.push({
+        id: uid(), pitch, startBeat: beat, lengthBeats: defaultLength,
+        velocity: Math.max(1, Math.min(127, velocity ?? defaultVelocity)),
+        selected: true, muted: false,
+      })
+    }
+    set(s => ({ notes: [...s.notes.map(n => ({ ...n, selected: false })), ...newNotes] }))
+  },
+
+  // ── Snap to scale ────────────────────────────────────────────────────────
+  snapToScale() {
+    const { scaleRoot, scaleMode } = get()
+    set(s => ({
+      notes: s.notes.map(n => {
+        if (!n.selected) return n
+        return { ...n, pitch: snapPitchToScale(n.pitch, scaleRoot, scaleMode) }
+      }),
+    }))
+  },
+
+  // ── Chord generator ──────────────────────────────────────────────────────
+  generateChord(rootMidi, type, startBeat) {
+    const { defaultVelocity } = get()
+    const chord = buildChord(rootMidi, type)
+    const newNotes: PRNote[] = chord.pitches.map((p, i) => ({
+      id: uid(), pitch: p, startBeat,
+      lengthBeats: 4,
+      velocity:    i === 0 ? defaultVelocity : Math.max(1, defaultVelocity - 10),
+      selected:    true, muted: false,
+    }))
+    set(s => ({ notes: [...s.notes.map(n => ({ ...n, selected: false })), ...newNotes] }))
+  },
+
+  // ── Progression generator ────────────────────────────────────────────────
+  generateProgression(degrees, beatsPerChord, octave) {
+    const { scaleRoot, scaleMode, defaultVelocity } = get()
+    const diatonicChords = getDiatonicChords(scaleRoot, scaleMode)
+    const newNotes: PRNote[] = []
+    degrees.forEach((deg, idx) => {
+      const chord     = diatonicChords[deg % 7]
+      const startBeat = idx * beatsPerChord
+      const basePitch = (octave + 1) * 12 + (chord.root % 12)
+      chord.pitches.forEach((p, noteIdx) => {
+        const pitch = basePitch + (p - chord.root)
+        newNotes.push({
+          id: uid(), pitch: Math.max(0, Math.min(127, pitch)),
+          startBeat, lengthBeats: beatsPerChord,
+          velocity: noteIdx === 0 ? defaultVelocity : Math.max(1, defaultVelocity - 12),
+          selected: true, muted: false,
+        })
+      })
+    })
+    set(s => ({ notes: [...s.notes.map(n => ({ ...n, selected: false })), ...newNotes] }))
+  },
+
+  // ── Melody AI ────────────────────────────────────────────────────────────
+  generateMelodyAI(bars, density, octave) {
+    const { scaleRoot, scaleMode, timeSigTop } = get()
+    const melodyNotes = generateMelody(scaleRoot, scaleMode, bars, timeSigTop, density, octave, Date.now() | 0)
+    const newNotes: PRNote[] = melodyNotes.map(m => ({
+      id: uid(), pitch: m.pitch, startBeat: m.beat,
+      lengthBeats: m.lengthBeats, velocity: m.velocity,
+      selected: true, muted: false,
+    }))
+    set(s => ({ notes: [...s.notes.map(n => ({ ...n, selected: false })), ...newNotes] }))
   },
 }))

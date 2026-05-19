@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback } from 'react'
 import { usePianoRollStore }                from './usePianoRollStore'
 import { isBlackKey, pitchName, SNAP_BEATS, snapFloor, type PRNote, type SnapGrid } from './types'
 import { getTransport }                     from '../../audio'
+import { getScalePitches, SCALE_ROOT_MIDI } from '../../lib/musicTheory'
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 
@@ -86,7 +87,10 @@ function drawSingleNote(
     return
   }
 
-  const a = note.muted ? 0.2 : (0.38 + (note.velocity / 127) * 0.62)
+  // Probability alpha (dim notes with probability < 100)
+  const prob     = note.probability ?? 100
+  const probAlpha = prob / 100
+  const a = (note.muted ? 0.2 : (0.38 + (note.velocity / 127) * 0.62)) * probAlpha
   const fill   = note.selected
     ? `rgba(167,139,250,${a})`
     : `rgba(124,58,237,${a})`
@@ -111,6 +115,26 @@ function drawSingleNote(
       ? 'rgba(255,255,255,0.35)'
       : 'rgba(255,255,255,0.18)'
     ctx.fillRect(x + 2, y + 1, Math.max(1, rw - 4), 1)
+  }
+
+  // Glide indicator — small triangle on the right edge
+  if (note.glide && w > 6) {
+    ctx.fillStyle = 'rgba(99,202,255,0.85)'
+    ctx.beginPath()
+    ctx.moveTo(x + w - 1, y + 1)
+    ctx.lineTo(x + w - 1, y + h - 1)
+    ctx.lineTo(x + w + 5, y + h / 2)
+    ctx.closePath()
+    ctx.fill()
+  }
+
+  // Probability badge (when not 100%)
+  if (prob < 100 && zoomY >= 12 && w >= 20) {
+    ctx.fillStyle = 'rgba(251,191,36,0.9)'
+    ctx.font      = `600 8px system-ui`
+    ctx.textAlign = 'right'
+    ctx.fillText(`${prob}%`, x + w - 5, y + h - 2)
+    ctx.textAlign = 'left'
   }
 
   // Resize handle
@@ -161,17 +185,39 @@ export default function NoteGrid({ ghostNotes = [] }: NoteGridProps) {
       const ctx = canvas.getContext('2d')
       if (!ctx) return
       const { w: W, h: H } = sizeRef.current
-      const { notes, snap, zoomX, zoomY, scrollX, scrollY, timeSigTop, totalBeats } = storeRef.current
+      const {
+        notes, snap, zoomX, zoomY, scrollX, scrollY, timeSigTop, totalBeats,
+        scaleEnabled, scaleRoot, scaleMode,
+      } = storeRef.current
       const d = dragRef.current
 
       ctx.clearRect(0, 0, W, H)
+
+      // Pre-compute scale pitch set for row tinting
+      const scalePitchSet = scaleEnabled
+        ? new Set(getScalePitches(scaleRoot, scaleMode).map(p => p % 12))
+        : null
+      const rootMidiMod = scaleEnabled ? SCALE_ROOT_MIDI[scaleRoot] % 12 : -1
 
       // ── Row backgrounds ──────────────────────────────────────────────
       const pitchTop = Math.min(127, Math.ceil((scrollY + H) / zoomY) + 1)
       const pitchBot = Math.max(0,   Math.floor(scrollY / zoomY) - 1)
       for (let p = pitchBot; p <= pitchTop; p++) {
-        const y = (127 - p) * zoomY - scrollY
-        ctx.fillStyle = isBlackKey(p) ? C_ROW_BLACK : C_ROW_WHITE
+        const y       = (127 - p) * zoomY - scrollY
+        const pc      = p % 12
+        const inScale = scalePitchSet?.has(pc) ?? false
+        const isRoot  = pc === rootMidiMod
+
+        let rowColor: string
+        if (isRoot && scaleEnabled) {
+          rowColor = isBlackKey(p) ? '#1a0a30' : '#1c0a36'
+        } else if (inScale) {
+          rowColor = isBlackKey(p) ? '#0f0820' : '#12092a'
+        } else {
+          rowColor = isBlackKey(p) ? C_ROW_BLACK : C_ROW_WHITE
+        }
+
+        ctx.fillStyle = rowColor
         ctx.fillRect(0, y, W, zoomY)
         if (p % 12 === 0) {         // C-note octave separator
           ctx.fillStyle = C_C_LINE
@@ -199,6 +245,30 @@ export default function NoteGrid({ ghostNotes = [] }: NoteGridProps) {
       // ── Ghost notes ──────────────────────────────────────────────────
       for (const gn of ghostRef.current) {
         drawSingleNote(ctx, gn, zoomX, zoomY, scrollX, scrollY, W, H, true)
+      }
+
+      // ── Glide lines (portamento connectors) ──────────────────────────
+      // Sort notes by startBeat to find consecutive glide connections
+      const sortedNotes = [...notes].sort((a, b) => a.startBeat - b.startBeat)
+      for (let i = 0; i < sortedNotes.length - 1; i++) {
+        const n = sortedNotes[i]!
+        if (!n.glide) continue
+        const next = sortedNotes[i + 1]
+        if (!next) continue
+        // Draw a bezier curve from n end to next start at different pitch
+        const x1 = (n.startBeat + n.lengthBeats) * zoomX - scrollX
+        const y1 = (127 - n.pitch) * zoomY - scrollY + zoomY / 2
+        const x2 = next.startBeat * zoomX - scrollX
+        const y2 = (127 - next.pitch) * zoomY - scrollY + zoomY / 2
+        if (x1 > W || x2 < 0) continue
+        ctx.strokeStyle = 'rgba(99,202,255,0.5)'
+        ctx.lineWidth   = 1.5
+        ctx.setLineDash([3, 3])
+        ctx.beginPath()
+        ctx.moveTo(x1, y1)
+        ctx.bezierCurveTo((x1 + x2) / 2, y1, (x1 + x2) / 2, y2, x2, y2)
+        ctx.stroke()
+        ctx.setLineDash([])
       }
 
       // ── Notes with optional move overlay ────────────────────────────

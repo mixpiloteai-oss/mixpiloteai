@@ -4,6 +4,8 @@ import PianoKeys              from './PianoKeys'
 import NoteGrid               from './NoteGrid'
 import VelocityLane           from './VelocityLane'
 import AutomationLanes        from './AutomationLanes'
+import ScalePanel             from './ScalePanel'
+import AIPanel                from './AIPanel'
 import type { PRTool, SnapGrid } from './types'
 
 // ─── Toolbar constants ────────────────────────────────────────────────────────
@@ -62,6 +64,11 @@ export default function PianoRollView() {
     deleteSelected,
     selectAll,
     deselectAll,
+    scaleEnabled,
+    aiPanelOpen,
+    scalePanelOpen,
+    toggleAIPanel,
+    toggleScalePanel,
   } = usePianoRollStore()
 
   const zoomXIdx  = ZOOM_STEPS.findIndex(z => Math.abs(z - zoomX / 64) < 0.01)
@@ -149,6 +156,46 @@ export default function PianoRollView() {
         <button onClick={duplicateSelected} style={actionBtnStyle}>Dup</button>
         <button onClick={deleteSelected}    style={actionBtnStyle}>Del</button>
 
+        <Separator />
+
+        {/* Scale toggle */}
+        <button
+          onClick={toggleScalePanel}
+          style={{
+            padding:      '2px 8px',
+            borderRadius: 4,
+            fontSize:     10,
+            fontWeight:   scalePanelOpen ? 600 : 400,
+            background:   (scalePanelOpen || scaleEnabled) ? 'rgba(124,58,237,0.22)' : 'transparent',
+            color:        (scalePanelOpen || scaleEnabled) ? '#a855f7' : '#475569',
+            border:       `1px solid ${(scalePanelOpen || scaleEnabled) ? 'rgba(124,58,237,0.4)' : 'transparent'}`,
+            cursor:       'pointer',
+            transition:   'all 0.12s',
+          }}
+          title="Toggle scale panel"
+        >
+          Scale
+        </button>
+
+        {/* AI toggle */}
+        <button
+          onClick={toggleAIPanel}
+          style={{
+            padding:      '2px 8px',
+            borderRadius: 4,
+            fontSize:     10,
+            fontWeight:   aiPanelOpen ? 600 : 400,
+            background:   aiPanelOpen ? 'rgba(139,92,246,0.22)' : 'transparent',
+            color:        aiPanelOpen ? '#c084fc' : '#475569',
+            border:       `1px solid ${aiPanelOpen ? 'rgba(139,92,246,0.4)' : 'transparent'}`,
+            cursor:       'pointer',
+            transition:   'all 0.12s',
+          }}
+          title="Toggle AI generation panel"
+        >
+          AI
+        </button>
+
         {/* Spacer */}
         <div style={{ flex: 1 }} />
 
@@ -157,6 +204,12 @@ export default function PianoRollView() {
           {bars} bars · {notes.length} notes
         </span>
       </div>
+
+      {/* ── Scale panel (collapsible) ───────────────────────────────────────── */}
+      {scalePanelOpen && <ScalePanel />}
+
+      {/* ── AI panel (collapsible) ──────────────────────────────────────────── */}
+      {aiPanelOpen && <AIPanel />}
 
       {/* ── Main content ────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>

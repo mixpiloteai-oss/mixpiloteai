@@ -10,6 +10,9 @@ export interface PRNote {
   velocity: number     // 1–127
   selected: boolean
   muted: boolean
+  glide?:       boolean   // portamento to next note
+  probability?: number    // 0–100, 100 = always plays
+  channel?:     number    // MIDI channel 0–15
 }
 
 export type PRTool = 'pointer' | 'pencil' | 'erase' | 'velocity'
@@ -69,3 +72,29 @@ export const DEFAULT_AUTO_PARAMS: AutomationParam[] = [
   { id: 'filter',   label: 'Filter Cutoff',min: 0,    max: 127, defaultValue: 64,  color: '#10b981', visible: false },
   { id: 'resonance',label: 'Resonance',    min: 0,    max: 127, defaultValue: 0,   color: '#ec4899', visible: false },
 ]
+
+// ─── Scale / Mode types (mirrored from musicTheory for use inside piano-roll) ─
+
+export type ScaleMode =
+  | 'major' | 'minor' | 'harmonic-minor' | 'melodic-minor'
+  | 'dorian' | 'phrygian' | 'lydian' | 'mixolydian' | 'locrian'
+  | 'pentatonic-major' | 'pentatonic-minor' | 'blues'
+
+export type ScaleRoot = 'C' | 'C#' | 'D' | 'D#' | 'E' | 'F' | 'F#' | 'G' | 'G#' | 'A' | 'A#' | 'B'
+
+export const SCALE_ROOT_NAMES: ScaleRoot[] = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B']
+
+export const SCALE_MODE_NAMES: Record<ScaleMode, string> = {
+  'major':            'Major',
+  'minor':            'Natural Minor',
+  'harmonic-minor':   'Harmonic Minor',
+  'melodic-minor':    'Melodic Minor',
+  'dorian':           'Dorian',
+  'phrygian':         'Phrygian',
+  'lydian':           'Lydian',
+  'mixolydian':       'Mixolydian',
+  'locrian':          'Locrian',
+  'pentatonic-major': 'Pentatonic Major',
+  'pentatonic-minor': 'Pentatonic Minor',
+  'blues':            'Blues',
+}
