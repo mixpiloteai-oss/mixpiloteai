@@ -1,5 +1,6 @@
 import type { ProjectSaveData, ProjectSnapshot } from './types'
 import { validateProjectSaveData } from './projectSchema'
+import { migrateToLatest, isMigrationError } from './ProjectMigrator'
 import { useProjectStore }   from '../../store/projectStore'
 import { useMixerStore }     from '../../components/mixer/useMixerStore'
 import { useTransportStore } from '../../store/transportStore'
@@ -69,8 +70,18 @@ export class ProjectSerializer {
    * directly elsewhere; the typed return is additive.
    */
   restore(data: unknown): { ok: true } | { ok: false; reason: string } {
-    // Strict schema validation first (checksum is verified by callers via verify()).
-    const result = validateProjectSaveData(data)
+    // Migrate to latest schema version before validation.
+    const migResult = migrateToLatest(data)
+    if (isMigrationError(migResult)) {
+      return { ok: false, reason: migResult.error }
+    }
+    if (migResult.didMigrate) {
+      console.info(`[ProjectSerializer] migrated project from schema v${migResult.fromVersion} to v${migResult.toVersion}`)
+      if (migResult.warnings.length) console.warn('[ProjectSerializer] migration warnings:', migResult.warnings)
+    }
+
+    // Strict schema validation (checksum is verified by callers via verify()).
+    const result = validateProjectSaveData(migResult.data)
     if (!result.ok) return { ok: false, reason: result.reason }
 
     const safe = result.data

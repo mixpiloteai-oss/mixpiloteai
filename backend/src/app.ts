@@ -41,7 +41,8 @@ import creatorsRouter from './routes/creators';
 import { cacheHeaders } from './middleware/cacheHeaders';
 import paymentsRouter from './routes/payments';
 import adminRouter from './routes/admin';
-import pluginsRouter from './routes/plugins';
+import pluginsRouter from './routes/plugins'
+import updatesRouter from './routes/updates';
 
 const app = express();
 
@@ -127,6 +128,7 @@ app.use('/api/creators',    creatorsRouter);
 app.use('/api/payments',    paymentsRouter);
 app.use('/api/admin',       adminRouter);
 app.use('/api/plugins',     pluginsRouter);
+app.use('/api/updates',     updatesRouter);
 
 app.get('/health', (_req, res) => {
   res.status(200).json({ ok: true });
