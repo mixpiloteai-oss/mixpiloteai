@@ -6,7 +6,7 @@
 //   app.post('/api/payments/stripe/webhook', express.raw({ type: '*/*' }), ...)
 // ============================================================
 import { Router, Request, Response, NextFunction } from 'express';
-import { AuthenticatedRequest } from '../middleware/auth';
+import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
 import { paymentsRateLimiter } from '../middleware/rateLimiter';
 import { logSecurityEvent } from '../utils/securityLog';
 
@@ -62,15 +62,6 @@ router.use((req: Request, res: Response, next: NextFunction) => {
   return paymentsRateLimiter(req, res, next);
 });
 
-// ── Helper: extract userId ────────────────────────────────────
-function getUserId(req: Request): string {
-  const authReq = req as AuthenticatedRequest;
-  const header = req.headers['x-user-id'];
-  if (typeof header === 'string' && header.trim() !== '') return header.trim();
-  if (authReq.user?.id) return authReq.user.id;
-  return 'anonymous';
-}
-
 // ── Helper: get IP address ─────────────────────────────────────
 function getIP(req: Request): string {
   const forwarded = req.headers['x-forwarded-for'];
@@ -114,8 +105,8 @@ const userSubscriptions = new Map<string, SubRecord>();
 // ══════════════════════════════════════════════════════════════
 
 // POST /stripe/intent
-router.post('/stripe/intent', async (req: Request, res: Response): Promise<void> => {
-  const userId = getUserId(req);
+router.post('/stripe/intent', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user!.id;
   const ip = getIP(req);
   const {
     amountCents,
