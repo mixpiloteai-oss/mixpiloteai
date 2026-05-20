@@ -25,6 +25,8 @@ import { useNetworkStatus }  from './hooks/useNetworkStatus'
 import { usePerformanceMode, applyBootMode } from './hooks/usePerformanceMode'
 import { useTransportSync }  from './hooks/useTransportSync'
 import UpdateBanner          from './components/updater/UpdateBanner'
+import AudioPerfHUD          from './components/audio/AudioPerfHUD'
+import { AudioEngine }       from './audio/AudioEngine'
 
 // ─── Login Screen ─────────────────────────────────────────────────────────────
 
@@ -309,6 +311,8 @@ export default function App() {
       <DAWShell />
       {/* Crash recovery dialog — rendered as overlay above DAWShell */}
       <RecoveryDialog />
+      {/* Audio performance HUD — keyboard-triggered (Ctrl+Shift+P) */}
+      <AudioPerfHUD perfMonitor={AudioEngine.getInstance().getPerfMonitor()} />
     </>
   )
 }

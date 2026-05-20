@@ -20,7 +20,10 @@ export class TrackChannel {
   readonly id:           string
   readonly gainNode:     GainNode
   readonly panNode:      StereoPannerNode
-  readonly analyserNode: AnalyserNode
+
+  // Lazy AnalyserNode — only created when metering is enabled
+  private _analyserNode: AnalyserNode | null = null
+  private _analyserEnabled = false
 
   private readonly engine:    AudioEngine
   private _gainDb  = 0
@@ -29,7 +32,7 @@ export class TrackChannel {
   private _soloed  = false
   private _soloMuted = false   // muted by mixer solo logic (not user mute)
 
-  private _analyserBuf:  Float32Array<ArrayBuffer>
+  private _analyserBuf:  Float32Array<ArrayBuffer> | null = null
   private _peakHold    = 0
   private _peakTime    = 0
 
@@ -37,20 +40,44 @@ export class TrackChannel {
     this.id     = id
     this.engine = engine
 
-    this.gainNode     = engine.ctx.createGain()
-    this.panNode      = engine.ctx.createStereoPanner()
-    this.analyserNode = engine.ctx.createAnalyser()
+    this.gainNode = engine.ctx.createGain()
+    this.panNode  = engine.ctx.createStereoPanner()
 
-    this.analyserNode.fftSize               = 256
-    this.analyserNode.smoothingTimeConstant = 0.0
-
-    // Chain: gain → pan → analyser → master bus
+    // Chain: gain → pan → master bus (analyser inserted lazily on enableMetering)
     this.gainNode.connect(this.panNode)
-    this.panNode.connect(this.analyserNode)
-    this.analyserNode.connect(engine.masterInput)
-
-    this._analyserBuf = new Float32Array(this.analyserNode.fftSize) as Float32Array<ArrayBuffer>
+    this.panNode.connect(engine.masterInput)
   }
+
+  /** Enable per-track level metering (creates AnalyserNode on demand). */
+  enableMetering(): void {
+    if (this._analyserEnabled) return
+    this._analyserEnabled = true
+    const analyser = this.engine.ctx.createAnalyser()
+    analyser.fftSize               = 128
+    analyser.smoothingTimeConstant = 0.0
+    this._analyserNode = analyser
+    this._analyserBuf  = new Float32Array(analyser.fftSize) as Float32Array<ArrayBuffer>
+    // Re-wire: pan → analyser → master
+    this.panNode.disconnect()
+    this.panNode.connect(analyser)
+    analyser.connect(this.engine.masterInput)
+  }
+
+  /** Disable per-track metering (disconnects AnalyserNode). */
+  disableMetering(): void {
+    if (!this._analyserEnabled || !this._analyserNode) return
+    this._analyserEnabled = false
+    const analyser = this._analyserNode
+    this._analyserNode = null
+    this._analyserBuf  = null
+    // Re-wire: pan → master (bypass analyser)
+    this.panNode.disconnect()
+    analyser.disconnect()
+    this.panNode.connect(this.engine.masterInput)
+  }
+
+  /** Backward-compat accessor (may be null when metering disabled). */
+  get analyserNode(): AnalyserNode | null { return this._analyserNode }
 
   /** The entry point — connect source nodes here. */
   get input(): AudioNode { return this.gainNode }
@@ -91,9 +118,13 @@ export class TrackChannel {
 
   // ── Metering ────────────────────────────────────────────────────────────
 
-  /** Call from rAF — not from Zustand/React render. */
+  /** Call from rAF — not from Zustand/React render. Returns silence if metering is disabled. */
   getLevel(): ChannelLevel {
-    this.analyserNode.getFloatTimeDomainData(this._analyserBuf)
+    if (!this._analyserEnabled || !this._analyserNode || !this._analyserBuf) {
+      return { rms: 0, peak: 0, dbfs: -Infinity }
+    }
+
+    this._analyserNode.getFloatTimeDomainData(this._analyserBuf)
 
     let sumSq = 0
     let peak  = 0
@@ -121,7 +152,7 @@ export class TrackChannel {
   dispose(): void {
     this.gainNode.disconnect()
     this.panNode.disconnect()
-    this.analyserNode.disconnect()
+    this._analyserNode?.disconnect()
   }
 
   // ── Internal ────────────────────────────────────────────────────────────
@@ -138,6 +169,7 @@ export class TrackChannel {
 export class TrackMixer {
   private readonly engine:   AudioEngine
   private _channels: Map<string, TrackChannel> = new Map()
+  private _soloSet:  Set<string> = new Set()   // cache for solo optimization
 
   constructor(engine: AudioEngine) {
     this.engine = engine
@@ -172,9 +204,26 @@ export class TrackMixer {
   /**
    * Call after any mute/solo state change.
    * If any track is soloed, all non-soloed tracks are "solo-muted".
+   * Uses _soloSet cache to skip full iteration when solo state is unchanged.
    */
   updateSolo(): void {
-    const anySoloed = [...this._channels.values()].some(ch => ch['_soloed'])
+    // Build new solo set
+    const newSoloSet = new Set<string>()
+    for (const [id, ch] of this._channels) {
+      if (ch['_soloed']) newSoloSet.add(id)
+    }
+
+    // Skip full update if the solo set is identical in size and membership
+    if (newSoloSet.size === this._soloSet.size) {
+      let same = true
+      for (const id of newSoloSet) {
+        if (!this._soloSet.has(id)) { same = false; break }
+      }
+      if (same) return
+    }
+
+    this._soloSet = newSoloSet
+    const anySoloed = this._soloSet.size > 0
     for (const ch of this._channels.values()) {
       ch.setSoloMuted(anySoloed && !ch['_soloed'])
     }

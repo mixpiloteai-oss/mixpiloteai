@@ -39,6 +39,11 @@ export class Clock {
   private _nextBeatTime     = 0   // AudioContext.currentTime of next scheduled beat
   private _beatIndex        = 0   // absolute beat counter since last start/seek
 
+  // AudioWorklet scheduler (replaces setInterval for lower jitter)
+  private _workletNode: AudioWorkletNode | null = null
+  private _workletSilencer: GainNode | null = null
+  private _workletReady     = false
+
   // Loop region (in beats, 0-based)
   private _loopEnabled      = false
   private _loopStartBeat    = 0
@@ -102,7 +107,12 @@ export class Clock {
     this._nextBeatTime = this.engine.currentTime
     this._running     = true
     this.engine.resume()
-    this._intervalId  = setInterval(() => this._tick(), SCHEDULER_MS)
+
+    // Always start setInterval as fallback; worklet init may clear it
+    this._intervalId = setInterval(() => this._tick(), SCHEDULER_MS)
+
+    // Attempt to upgrade to AudioWorklet scheduler (non-blocking)
+    this._initWorklet().catch(() => { /* keep setInterval fallback */ })
   }
 
   stop(): void {
@@ -110,6 +120,9 @@ export class Clock {
     if (this._intervalId !== null) {
       clearInterval(this._intervalId)
       this._intervalId = null
+    }
+    if (this._workletNode) {
+      this._workletNode.port.postMessage({ type: 'reset' })
     }
     this._beatIndex    = 0
     this._nextBeatTime = 0
@@ -135,6 +148,44 @@ export class Clock {
   onBeat(cb: BeatCallback): Unsubscribe {
     this._beatCallbacks.add(cb)
     return () => this._beatCallbacks.delete(cb)
+  }
+
+  // ── AudioWorklet initialisation ──────────────────────────────────────────
+
+  private async _initWorklet(): Promise<void> {
+    if (this._workletReady) return
+    const ctx = this.engine.ctx
+
+    // Build URL for the processor file via Vite's import.meta.url pattern
+    const schedulerUrl = new URL('./worklets/scheduler-processor.js', import.meta.url).href
+    await ctx.audioWorklet.addModule(schedulerUrl)
+
+    this._workletNode = new AudioWorkletNode(ctx, 'scheduler-processor', {
+      processorOptions: { intervalMs: SCHEDULER_MS },
+    })
+
+    // Connect through a silent gain node to keep the worklet alive
+    this._workletSilencer = ctx.createGain()
+    this._workletSilencer.gain.value = 0
+    this._workletNode.connect(this._workletSilencer)
+    this._workletSilencer.connect(ctx.destination)
+
+    this._workletNode.port.onmessage = (e) => {
+      if (e.data?.type === 'tick') this._onWorkletTick()
+    }
+
+    // Worklet ready — clear the setInterval fallback
+    this._workletReady = true
+    if (this._intervalId !== null) {
+      clearInterval(this._intervalId)
+      this._intervalId = null
+    }
+  }
+
+  /** Called from AudioWorklet message (high-precision path). */
+  private _onWorkletTick(): void {
+    if (!this._running) return
+    this._tick()
   }
 
   // ── Internal scheduler ───────────────────────────────────────────────────
