@@ -241,10 +241,30 @@ export const projectsApi = {
 
 // ── Subscriptions API ────────────────────────────────────────────
 export const subscriptionsApi = {
-  current:  () => apiGet<{ success: boolean; data: { plan: string; status: string } }>('/api/subscriptions/current'),
-  upgrade:  (plan: string, annual: boolean) => apiPost('/api/subscriptions/create-session', { plan, annual }),
-  cancel:   () => apiPost('/api/subscriptions/cancel', {}),
-  invoices: () => apiGet('/api/payments/invoices'),
+  // Get current subscription status (authoritative, from DB)
+  status: () => apiGet<{ success: boolean; data: {
+    plan: string; status: string; isActive: boolean; isPremium: boolean;
+    expiresAt: number | null; daysRemaining: number | null
+  } }>('/api/subscriptions/status'),
+
+  // Get full subscription details (with quota info)
+  current: () => apiGet<{ success: boolean; data: {
+    plan: string; status: string; isActive: boolean; isPremium: boolean;
+    expiresAt: number | null; daysRemaining: number | null
+  } }>('/api/subscriptions/current'),
+
+  // Upgrade via Stripe Checkout Session
+  createSession: (plan: string, annual: boolean) =>
+    apiPost<{ success: boolean; url: string; sessionId: string }>(
+      '/api/payments/stripe/session',
+      { type: 'plan', planId: plan, annual }
+    ),
+
+  // Cancel subscription
+  cancel: () => apiPost<{ success: boolean }>('/api/payments/cancel', {}),
+
+  // Get invoices
+  invoices: () => apiGet<{ success: boolean; data: unknown[] }>('/api/payments/invoices'),
 }
 
 export { BASE_URL }

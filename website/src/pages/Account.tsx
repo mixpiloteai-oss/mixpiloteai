@@ -1,9 +1,13 @@
 import { Link } from 'react-router-dom'
 import './Account.css'
+import { useSubscription } from '../hooks/useSubscription'
 
-const mockUser = { name: 'Alex Producer', email: 'alex@email.com', plan: 'Pro', generations: 87, generationsMax: 200, projects: 12, joined: 'January 2025' }
+const mockUser = { name: 'Alex Producer', email: 'alex@email.com', generations: 87, generationsMax: 200, projects: 12, joined: 'January 2025' }
 
 function Account() {
+  const { plan, isActive, daysRemaining, loading: subLoading } = useSubscription()
+  const planLabel = subLoading ? '…' : plan.charAt(0).toUpperCase() + plan.slice(1)
+
   return (
     <div className="account-page">
       <div className="account-hero">
@@ -23,7 +27,10 @@ function Account() {
               <div className="account-profile-info">
                 <h2 className="account-name">{mockUser.name}</h2>
                 <p className="account-email">{mockUser.email}</p>
-                <span className="account-plan-badge">{mockUser.plan}</span>
+                <span className="account-plan-badge">{planLabel}</span>
+                {isActive && daysRemaining !== null && daysRemaining <= 7 && (
+                  <span className="account-plan-warning">Expire dans {daysRemaining}j</span>
+                )}
               </div>
               <div className="account-profile-meta">
                 <div className="account-meta-item"><span className="account-meta-label">Member since</span><span className="account-meta-val">{mockUser.joined}</span></div>
@@ -63,7 +70,7 @@ function Account() {
                 <h3 className="account-section-title">Subscription</h3>
                 <div className="account-sub-row">
                   <div>
-                    <div className="account-sub-plan">{mockUser.plan} Plan</div>
+                    <div className="account-sub-plan">{planLabel} Plan</div>
                     <div className="account-sub-renew">Renews June 14, 2025</div>
                   </div>
                   <div className="account-sub-actions">

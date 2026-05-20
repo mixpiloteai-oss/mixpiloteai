@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { apiPost } from './lib/apiClient'
+import { apiPost, apiGet } from './lib/apiClient'
+import { useSubscriptionStore } from './store/subscriptionStore'
 import './styles/performance.css'
 import { usePerfMode } from './store/performanceModeStore'
 import TitleBar from './components/shell/TitleBar'
@@ -297,6 +298,17 @@ function DAWShell() {
 // Apply saved performance mode before first render
 applyBootMode()
 
+async function fetchSubscription() {
+  try {
+    const data = await apiGet<{ success: boolean; data: { plan: string; status: string; isActive: boolean; isPremium: boolean; expiresAt: number | null; daysRemaining: number | null } }>('/api/subscriptions/status')
+    if (data.success && data.data) {
+      useSubscriptionStore.getState().setSubscription(data.data)
+    }
+  } catch {
+    // fail silently — app works offline
+  }
+}
+
 export default function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
   const perfMode = usePerfMode()
@@ -313,6 +325,15 @@ export default function App() {
     window.electronAPI?.onNav(() => {})
     return () => { window.electronAPI?.removeAllListeners?.('nav') }
   }, [])
+
+  // Fetch subscription status when user logs in (token changes from null to a value)
+  useEffect(() => {
+    if (token && token !== 'demo') {
+      void fetchSubscription()
+    } else if (!token) {
+      useSubscriptionStore.getState().reset()
+    }
+  }, [token])
 
   const hasSeenWelcome = useOnboardingStore(s => s.hasSeenWelcome)
 

@@ -1,4 +1,5 @@
 import { useUIStore, type ViewId } from '../../store/uiStore'
+import PremiumBadge from '../shell/PremiumBadge'
 
 const NAV_ITEMS: { id: ViewId; label: string; icon: string }[] = [
   { id: 'arrangement', label: 'Arrangement', icon: '≡' },
@@ -30,6 +31,7 @@ export default function Sidebar() {
         N
       </div>
 
+      <div className="flex-1 flex flex-col gap-1">
       {NAV_ITEMS.map(({ id, label, icon }) => {
         const active = activeView === id
         return (
@@ -50,6 +52,10 @@ export default function Sidebar() {
           </button>
         )
       })}
+      </div>
+
+      {/* Premium badge / upgrade prompt */}
+      <PremiumBadge />
     </aside>
   )
 }
