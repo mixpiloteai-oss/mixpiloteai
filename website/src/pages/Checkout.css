@@ -103,6 +103,30 @@
 .sidebar-trust { display: flex; flex-direction: column; gap: 6px; padding-top: 14px; border-top: 1px solid var(--border); }
 .sidebar-trust p { font-size: 12px; color: var(--muted); }
 
+/* Stripe redirect flow — new screens */
+.checkout-container { max-width: 520px; margin: 0 auto; }
+
+.checkout-success, .checkout-canceled {
+  text-align: center; padding: 60px 24px;
+}
+.success-icon {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: var(--nt-green, #34d399); color: #fff; font-size: 28px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px;
+}
+.canceled-icon {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: var(--nt-red, #f87171); color: #fff; font-size: 28px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px;
+}
+.success-actions { display: flex; gap: 12px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
+.checkout-pay-btn { width: 100%; padding: 16px; font-size: 16px; font-weight: 700; margin-top: 20px; justify-content: center; }
+.checkout-stripe-note { text-align: center; font-size: 12px; color: var(--muted); margin-top: 10px; }
+.checkout-error { background: rgba(239,68,68,0.1); border: 1px solid var(--nt-red, #f87171); border-radius: 10px; padding: 12px 16px; color: var(--nt-red, #f87171); font-size: 14px; margin-top: 12px; }
+.success-plan { color: var(--purple, #a78bfa); font-size: 15px; margin-top: 8px; }
+
 /* Responsive */
 @media (max-width: 800px) {
   .checkout-layout { flex-direction: column; }

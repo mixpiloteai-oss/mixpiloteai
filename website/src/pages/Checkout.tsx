@@ -1,12 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams, Link, useNavigate } from 'react-router-dom'
-import { authTokens, isTokenExpired } from '../lib/api'
+import { useSearchParams, useNavigate } from 'react-router-dom'
+import { authTokens, isTokenExpired, apiGet, apiPost } from '../lib/api'
 import './Checkout.css'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type Step = 'details' | 'payment' | 'processing' | 'done'
-type PaymentMethod = 'card' | 'paypal'
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -22,67 +17,10 @@ const CREDIT_PACKS: Record<string, { credits: number; price: number }> = {
   '2000': { credits: 2000, price: 69.99 },
 }
 
-const EU_RATES: Record<string, number> = {
-  FR: 0.20, DE: 0.19, GB: 0.20, IT: 0.22, ES: 0.21, NL: 0.21,
-  BE: 0.21, PT: 0.23, AT: 0.20, PL: 0.23, SE: 0.25, DK: 0.25,
-  FI: 0.24, IE: 0.23, CZ: 0.21, HU: 0.27, RO: 0.19, SK: 0.20,
-}
-
-const EU_COUNTRIES = Object.keys(EU_RATES)
-
-const COUPON_CODES: Record<string, { label: string; discount: number }> = {
-  LAUNCH50: { label: '50% off first month', discount: 0.5 },
-  WELCOME:  { label: '$5 off your first payment', discount: 5 },
-}
-
-const COUNTRIES: { code: string; name: string }[] = [
-  { code: 'US', name: 'United States' },
-  { code: 'GB', name: 'United Kingdom' },
-  { code: 'CA', name: 'Canada' },
-  { code: 'AU', name: 'Australia' },
-  { code: 'FR', name: 'France' },
-  { code: 'DE', name: 'Germany' },
-  { code: 'IT', name: 'Italy' },
-  { code: 'ES', name: 'Spain' },
-  { code: 'NL', name: 'Netherlands' },
-  { code: 'BE', name: 'Belgium' },
-  { code: 'PT', name: 'Portugal' },
-  { code: 'AT', name: 'Austria' },
-  { code: 'PL', name: 'Poland' },
-  { code: 'SE', name: 'Sweden' },
-  { code: 'DK', name: 'Denmark' },
-  { code: 'FI', name: 'Finland' },
-  { code: 'IE', name: 'Ireland' },
-  { code: 'CZ', name: 'Czech Republic' },
-  { code: 'HU', name: 'Hungary' },
-  { code: 'RO', name: 'Romania' },
-  { code: 'SK', name: 'Slovakia' },
-  { code: 'JP', name: 'Japan' },
-  { code: 'BR', name: 'Brazil' },
-  { code: 'MX', name: 'Mexico' },
-  { code: 'OTHER', name: 'Other' },
-]
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getCardBrand(number: string): string {
-  const n = number.replace(/\s/g, '')
-  if (/^4/.test(n)) return 'Visa'
-  if (/^5[1-5]/.test(n)) return 'Mastercard'
-  if (/^3[47]/.test(n)) return 'Amex'
-  if (/^6/.test(n)) return 'Discover'
-  return ''
-}
-
-function formatCardNumber(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 16)
-  return digits.replace(/(.{4})/g, '$1 ').trim()
-}
-
-function formatExpiry(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 4)
-  if (digits.length >= 3) return `${digits.slice(0, 2)}/${digits.slice(2)}`
-  return digits
+function formatPrice(amount: number): string {
+  return `$${amount.toFixed(2)}`
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -90,8 +28,11 @@ function formatExpiry(raw: string): string {
 function Checkout() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [sessionData, setSessionData] = useState<{ planId?: string; type?: string } | null>(null)
 
-  // Defense-in-depth auth guard (ProtectedRoute already handles this at router level)
+  // Auth guard (defense-in-depth — ProtectedRoute already handles this at router level)
   useEffect(() => {
     const token = authTokens.get()
     if (!token || isTokenExpired()) {
@@ -99,353 +40,189 @@ function Checkout() {
     }
   }, [navigate])
 
+  const success = searchParams.get('success') === '1'
+  const canceled = searchParams.get('canceled') === '1'
+  const sessionId = searchParams.get('session_id') ?? ''
+
+  // Fetch session status on success
+  useEffect(() => {
+    if (success && sessionId) {
+      apiGet<{ success: boolean; planId?: string; type?: string }>(`/api/payments/stripe/session/${sessionId}`)
+        .then(data => setSessionData(data))
+        .catch(() => {}) // non-critical
+    }
+  }, [success, sessionId])
+
   // URL params
-  const plan    = searchParams.get('plan') ?? ''
-  const annualParam = searchParams.get('annual') === 'true'
-  const type    = searchParams.get('type') ?? 'plan'
-  const pkg     = searchParams.get('pkg') ?? ''
-  const productId = searchParams.get('productId') ?? ''
-  const marketplaceAmount = searchParams.get('amount') ?? ''
+  const plan               = searchParams.get('plan') ?? ''
+  const type               = searchParams.get('type') ?? 'plan'
+  const pkg                = searchParams.get('pkg') ?? ''
+  const annual             = searchParams.get('annual') === 'true'
+  const productId          = searchParams.get('productId') ?? ''
+  const marketplaceAmount  = searchParams.get('amount') ?? ''
+  const productName        = searchParams.get('productName') ?? 'Item'
 
   // Derived order info
-  const orderPlan = PLAN_INFO[plan]
+  const orderPlan  = PLAN_INFO[plan]
   const creditPack = CREDIT_PACKS[pkg]
 
   const basePrice: number = (() => {
     if (type === 'credits' && creditPack) return creditPack.price
     if (type === 'marketplace' && marketplaceAmount) return parseFloat(marketplaceAmount) / 100
-    if (orderPlan) return annualParam ? orderPlan.annualPrice : orderPlan.monthlyPrice
+    if (orderPlan) return annual ? orderPlan.annualPrice : orderPlan.monthlyPrice
     return 0
   })()
 
   const orderDescription: string = (() => {
     if (type === 'credits' && creditPack) return `${creditPack.credits.toLocaleString()} AI Credits`
-    if (type === 'marketplace') return `Marketplace item #${productId}`
-    if (orderPlan) return `${orderPlan.name} Plan${annualParam ? ' (Annual)' : ' (Monthly)'}`
+    if (type === 'marketplace') return productName
+    if (orderPlan) return `${orderPlan.name} Plan${annual ? ' (Annuel)' : ' (Mensuel)'}`
     return 'Unknown item'
   })()
 
-  // State
-  const [step, setStep] = useState<Step>('details')
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card')
-  const [couponCode, setCouponCode] = useState('')
-  const [couponApplied, setCouponApplied] = useState<{ code: string; discount: number; label: string } | null>(null)
-  const [couponError, setCouponError] = useState('')
-  const [country, setCountry] = useState('US')
-  const [vatNumber, setVatNumber] = useState('')
-  const [vatValid, setVatValid] = useState(false)
+  async function handleCheckout() {
+    setLoading(true)
+    setError('')
+    try {
+      const body: Record<string, unknown> = { type, annual, currency: 'usd' }
+      if (type === 'plan') body['planId'] = plan
+      if (type === 'credits') body['pkg'] = pkg
+      if (type === 'marketplace') {
+        body['productId'] = productId
+        body['productName'] = productName
+        body['amountCents'] = parseInt(marketplaceAmount, 10)
+      }
 
-  // Card fields
-  const [cardNumber, setCardNumber] = useState('')
-  const [cardExpiry, setCardExpiry] = useState('')
-  const [cardCVC, setCardCVC] = useState('')
-  const [cardName, setCardName] = useState('')
-  const [email, setEmail] = useState('')
+      const result = await apiPost<{ success: boolean; url: string; sessionId: string }>(
+        '/api/payments/stripe/session',
+        body
+      )
 
-  const isEU = EU_COUNTRIES.includes(country)
-  const vatRate = EU_RATES[country] ?? 0
-  const showVAT = isEU && !vatValid
-
-  // Pricing calc
-  const subtotal = (() => {
-    if (!couponApplied) return basePrice
-    if (couponApplied.discount < 1) return basePrice * (1 - couponApplied.discount)
-    return Math.max(0, basePrice - couponApplied.discount)
-  })()
-
-  const vatAmount = showVAT ? subtotal * vatRate : 0
-  const total = subtotal + vatAmount
-
-  const applyCoupon = () => {
-    const trimmed = couponCode.trim().toUpperCase()
-    const found = COUPON_CODES[trimmed]
-    if (found) {
-      setCouponApplied({ code: trimmed, ...found })
-      setCouponError('')
-    } else {
-      setCouponApplied(null)
-      setCouponError('Invalid coupon code.')
+      if (result.url) {
+        window.location.href = result.url // redirect to Stripe Hosted Checkout
+      } else {
+        setError('Failed to create checkout session. Please try again.')
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Payment initialization failed'
+      setError(msg)
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleVatNumberChange = (v: string) => {
-    setVatNumber(v)
-    // Naive: treat as valid if ≥ 8 chars
-    setVatValid(v.trim().length >= 8)
+  // ── Success screen ────────────────────────────────────────────────────────────
+  if (success) {
+    return (
+      <div className="checkout-page">
+        <div className="container">
+          <div className="checkout-container">
+            <div className="checkout-success">
+              <div className="success-icon">✓</div>
+              <h2>Paiement confirmé !</h2>
+              <p>Ton abonnement est maintenant actif. Tu peux accéder à toutes les fonctionnalités Neurotek AI.</p>
+              {sessionData?.planId && (
+                <p className="success-plan">Plan : <strong>{sessionData.planId}</strong></p>
+              )}
+              <div className="success-actions">
+                <a href="/download" className="nt-btn nt-btn-primary btn-primary">Télécharger l'application</a>
+                <a href="/billing" className="nt-btn nt-btn-ghost btn-secondary">Voir la facturation</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
-  const handlePay = () => {
-    setStep('processing')
-    setTimeout(() => setStep('done'), 2000)
+  // ── Canceled screen ───────────────────────────────────────────────────────────
+  if (canceled) {
+    return (
+      <div className="checkout-page">
+        <div className="container">
+          <div className="checkout-container">
+            <div className="checkout-canceled">
+              <div className="canceled-icon">✕</div>
+              <h2>Paiement annulé</h2>
+              <p>Ton paiement n'a pas été complété. Aucun montant n'a été débité.</p>
+              <button
+                className="nt-btn nt-btn-primary btn-primary"
+                onClick={() => navigate(-1)}
+              >
+                Réessayer
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
-  // Reset coupon error when typing
-  useEffect(() => { setCouponError('') }, [couponCode])
-
-  const cardBrand = getCardBrand(cardNumber)
-
+  // ── Checkout summary (main state) ─────────────────────────────────────────────
   return (
     <div className="checkout-page">
       <div className="container">
         <div className="checkout-layout">
-          {/* ── Main form ─────────────────────────────────────── */}
+          {/* ── Main checkout card ─────────────────────────────── */}
           <div className="checkout-form-card glass-card">
+            <div className="checkout-step">
+              <h2 className="checkout-step-title">Récapitulatif de commande</h2>
 
-            {/* ── Processing ─── */}
-            {step === 'processing' && (
-              <div className="checkout-step checkout-step-processing">
-                <div className="processing-spinner" />
-                <p className="processing-label">Securing your payment…</p>
-              </div>
-            )}
-
-            {/* ── Done ─── */}
-            {step === 'done' && (
-              <div className="checkout-step checkout-step-done">
-                <div className="success-checkmark">
-                  <svg viewBox="0 0 52 52">
-                    <circle className="success-circle" cx="26" cy="26" r="25" fill="none" />
-                    <path className="success-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
-                  </svg>
+              {/* Order detail */}
+              <div className="order-total-section">
+                <div className="order-summary-item">
+                  <span>{orderDescription}</span>
+                  <span>{formatPrice(basePrice)}</span>
                 </div>
-                <h2 className="done-title">Payment successful!</h2>
-                <p className="done-sub">
-                  Welcome to {type === 'credits' ? `${creditPack?.credits.toLocaleString() ?? ''} AI Credits` : (orderPlan?.name ?? 'your plan')} plan.
-                </p>
-                <p className="done-invoice">
-                  Your invoice will be emailed to <strong>{email || 'your email'}</strong>.
-                </p>
-                <Link to="/account" className="btn-primary done-cta">Go to Account →</Link>
-              </div>
-            )}
-
-            {/* ── Step 1: Details ─── */}
-            {step === 'details' && (
-              <div className="checkout-step">
-                <h2 className="checkout-step-title">Order details</h2>
-
-                {/* Email */}
-                <div className="form-group">
-                  <label className="form-label">Email address</label>
-                  <input
-                    type="email"
-                    className="form-input"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                  />
-                </div>
-
-                {/* Country */}
-                <div className="form-group">
-                  <label className="form-label">Country</label>
-                  <select
-                    className="form-input form-select"
-                    value={country}
-                    onChange={e => { setCountry(e.target.value); setVatNumber(''); setVatValid(false) }}
-                  >
-                    {COUNTRIES.map(c => (
-                      <option key={c.code} value={c.code}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* EU VAT */}
-                {isEU && (
-                  <div className="form-group vat-group">
-                    <label className="form-label">VAT number <span className="form-label-note">(optional — for B2B)</span></label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="e.g. FR12345678901"
-                      value={vatNumber}
-                      onChange={e => handleVatNumberChange(e.target.value)}
-                    />
-                    {vatValid && <p className="vat-valid-msg">✓ VAT number valid — zero-rated</p>}
-                    {isEU && !vatValid && (
-                      <p className="vat-info-msg">VAT ({Math.round(vatRate * 100)}%) will be applied for {COUNTRIES.find(c => c.code === country)?.name}.</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Coupon */}
-                <div className="form-group">
-                  <label className="form-label">Coupon code</label>
-                  <div className="coupon-row">
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="Optional (e.g. LAUNCH50)"
-                      value={couponCode}
-                      onChange={e => setCouponCode(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && applyCoupon()}
-                    />
-                    <button className="btn-secondary coupon-btn" onClick={applyCoupon}>Apply</button>
-                  </div>
-                  {couponApplied && <p className="coupon-ok">✓ {couponApplied.label}</p>}
-                  {couponError && <p className="coupon-err">✗ {couponError}</p>}
-                </div>
-
-                <button className="btn-primary checkout-next-btn" onClick={() => setStep('payment')}>
-                  Continue to Payment →
-                </button>
-              </div>
-            )}
-
-            {/* ── Step 2: Payment ─── */}
-            {step === 'payment' && (
-              <div className="checkout-step">
-                <button className="checkout-back-btn" onClick={() => setStep('details')}>
-                  ← Back
-                </button>
-                <h2 className="checkout-step-title">Payment</h2>
-
-                {/* Payment method tabs */}
-                <div className="payment-method-tabs">
-                  <button
-                    className={`payment-tab${paymentMethod === 'card' ? ' active' : ''}`}
-                    onClick={() => setPaymentMethod('card')}
-                  >
-                    💳 Card
-                  </button>
-                  <button
-                    className={`payment-tab${paymentMethod === 'paypal' ? ' active' : ''}`}
-                    onClick={() => setPaymentMethod('paypal')}
-                  >
-                    PayPal
-                  </button>
-                </div>
-
-                {paymentMethod === 'card' && (
-                  <div className="card-form">
-                    <div className="form-group">
-                      <label className="form-label">Card number</label>
-                      <div className="card-input-group">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          className="form-input card-number-input"
-                          placeholder="1234 5678 9012 3456"
-                          value={cardNumber}
-                          onChange={e => setCardNumber(formatCardNumber(e.target.value))}
-                          maxLength={19}
-                        />
-                        {cardBrand && <span className="card-brand-badge">{cardBrand}</span>}
-                      </div>
-                    </div>
-
-                    <div className="card-row">
-                      <div className="form-group">
-                        <label className="form-label">Expiry</label>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          className="form-input"
-                          placeholder="MM/YY"
-                          value={cardExpiry}
-                          onChange={e => setCardExpiry(formatExpiry(e.target.value))}
-                          maxLength={5}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">CVC</label>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          className="form-input"
-                          placeholder="123"
-                          value={cardCVC}
-                          onChange={e => setCardCVC(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                          maxLength={4}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Cardholder name</label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        placeholder="Alex Producer"
-                        value={cardName}
-                        onChange={e => setCardName(e.target.value)}
-                      />
-                    </div>
-
-                    <p className="stripe-lockup">🔒 Powered by <strong>Stripe</strong> — your card data is never stored on our servers.</p>
-                  </div>
-                )}
-
-                {paymentMethod === 'paypal' && (
-                  <div className="paypal-section">
-                    <div className="paypal-logo">PayPal</div>
-                    <p className="paypal-info">You'll be redirected to PayPal to complete your payment securely. After approval, you'll return here automatically.</p>
-                  </div>
-                )}
-
-                {/* Order total with VAT */}
-                <div className="order-total-section">
+                {annual && type === 'plan' && (
                   <div className="order-summary-item">
-                    <span>{orderDescription}</span>
-                    <span>${basePrice.toFixed(2)}</span>
+                    <span className="form-label-note">Facturation annuelle</span>
                   </div>
-                  {couponApplied && (
-                    <div className="order-summary-item order-summary-discount">
-                      <span>Coupon ({couponApplied.code})</span>
-                      <span>-${(basePrice - subtotal).toFixed(2)}</span>
-                    </div>
-                  )}
-                  {showVAT && (
-                    <div className="order-summary-item vat-row">
-                      <span>VAT ({Math.round(vatRate * 100)}%)</span>
-                      <span>${vatAmount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="order-summary-item order-total-row">
-                    <span>Total due today</span>
-                    <span className="order-total-amount">${total.toFixed(2)}</span>
-                  </div>
+                )}
+                <div className="order-summary-item order-total-row">
+                  <span>Total dû aujourd'hui</span>
+                  <span className="order-total-amount">{formatPrice(basePrice)}</span>
                 </div>
-
-                <button className="btn-primary checkout-pay-btn" onClick={handlePay}>
-                  Pay ${total.toFixed(2)}
-                </button>
               </div>
-            )}
+
+              {/* Error */}
+              {error && <div className="checkout-error">{error}</div>}
+
+              {/* Stripe redirect button */}
+              <button
+                className="btn-primary checkout-pay-btn"
+                onClick={handleCheckout}
+                disabled={loading || basePrice === 0}
+              >
+                {loading ? 'Redirection…' : `Payer ${formatPrice(basePrice)} — Stripe sécurisé 🔒`}
+              </button>
+
+              <p className="checkout-stripe-note">
+                Paiement sécurisé par Stripe. Vos données bancaires ne transitent jamais par nos serveurs.
+              </p>
+            </div>
           </div>
 
           {/* ── Sidebar ───────────────────────────────────────── */}
           <aside className="checkout-sidebar">
             <div className="glass-card checkout-sidebar-card">
-              <h3 className="sidebar-title">Order summary</h3>
+              <h3 className="sidebar-title">Résumé</h3>
               <div className="sidebar-item">
                 <span className="sidebar-item-name">{orderDescription}</span>
-                <span className="sidebar-item-price">${basePrice.toFixed(2)}</span>
+                <span className="sidebar-item-price">{formatPrice(basePrice)}</span>
               </div>
-              {annualParam && type === 'plan' && orderPlan && (
-                <div className="sidebar-note">Billed annually</div>
-              )}
-              {couponApplied && (
-                <div className="sidebar-item sidebar-discount">
-                  <span>Coupon: {couponApplied.code}</span>
-                  <span className="sidebar-discount-amount">-${(basePrice - subtotal).toFixed(2)}</span>
-                </div>
-              )}
-              {showVAT && step === 'payment' && (
-                <div className="sidebar-item sidebar-vat">
-                  <span>VAT ({Math.round(vatRate * 100)}%)</span>
-                  <span>${vatAmount.toFixed(2)}</span>
-                </div>
+              {annual && type === 'plan' && orderPlan && (
+                <div className="sidebar-note">Facturation annuelle</div>
               )}
               <div className="sidebar-divider" />
               <div className="sidebar-total">
                 <span>Total</span>
-                <span>${total.toFixed(2)}</span>
+                <span>{formatPrice(basePrice)}</span>
               </div>
               <div className="sidebar-trust">
                 <p>🔒 SSL Encrypted</p>
-                <p>↩️ 14-day refund guarantee</p>
-                <p>✓ Cancel subscription anytime</p>
+                <p>↩️ Garantie remboursement 14 jours</p>
+                <p>✓ Annulez votre abonnement à tout moment</p>
               </div>
             </div>
           </aside>

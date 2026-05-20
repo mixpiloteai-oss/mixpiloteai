@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { authTokens, isTokenExpired } from '../lib/api'
+import { authTokens, isTokenExpired, apiGet } from '../lib/api'
 import './Billing.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -44,15 +44,27 @@ interface CreditActivity {
   note: string
 }
 
+// ─── API types ────────────────────────────────────────────────────────────────
+
+interface SubData {
+  planId: string
+  status: string
+  renewsAt?: number
+  cancelAtPeriodEnd?: boolean
+}
+
+interface InvoiceItem {
+  id: string
+  number?: string
+  totalCents: number
+  currency?: string
+  status: string
+  createdAt: number
+  paymentMethod?: string
+}
+
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
-const MOCK_INVOICES: Invoice[] = [
-  { id: 'INV-2025-001', date: 'May 1, 2025',   description: 'Pro Plan — Monthly',  amount: 9.99,  vat: 0,    total: 9.99,  status: 'paid' },
-  { id: 'INV-2025-002', date: 'Apr 1, 2025',   description: 'Pro Plan — Monthly',  amount: 9.99,  vat: 0,    total: 9.99,  status: 'paid' },
-  { id: 'INV-2025-003', date: 'Mar 1, 2025',   description: 'Pro Plan — Monthly',  amount: 9.99,  vat: 2.00, total: 11.99, status: 'paid' },
-  { id: 'INV-2025-004', date: 'Feb 1, 2025',   description: '500 AI Credits',       amount: 19.99, vat: 0,    total: 19.99, status: 'paid' },
-  { id: 'INV-2025-005', date: 'Jun 1, 2025',   description: 'Pro Plan — Monthly',  amount: 9.99,  vat: 0,    total: 9.99,  status: 'pending' },
-]
 
 const MOCK_PAYMENT_METHODS: PaymentMethodItem[] = [
   { id: 'pm1', type: 'card',   label: 'Visa',     detail: '**** 4242 · exp 12/26', isDefault: true },
@@ -116,6 +128,29 @@ function Billing() {
     }
   }, [navigate])
 
+  // ── API data ────────────────────────────────────────────────────────────────
+  const [subscription, setSubscription] = useState<SubData | null>(null)
+  const [invoices, setInvoices] = useState<InvoiceItem[]>([])
+  const [loadingData, setLoadingData] = useState(true)
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [subRes, invRes] = await Promise.all([
+          apiGet<{ success: boolean; data: SubData | null }>('/api/payments/subscription'),
+          apiGet<{ success: boolean; data: InvoiceItem[] }>('/api/payments/invoices'),
+        ])
+        if (subRes.data) setSubscription(subRes.data)
+        if (invRes.data) setInvoices(invRes.data)
+      } catch {
+        // silently keep empty state
+      } finally {
+        setLoadingData(false)
+      }
+    }
+    fetchData()
+  }, [])
+
   const [activeTab, setActiveTab] = useState<BillingTab>('plan')
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [cancelDone, setCancelDone] = useState(false)
@@ -130,8 +165,21 @@ function Billing() {
   const creditsTotal = 500
   const creditsPct = (creditsBalance / creditsTotal) * 100
 
-  // Simulated plan info
-  const currentPlan = { name: 'Pro', price: 9.99, status: cancelDone ? 'cancelled' : 'active', renewsDate: 'June 14, 2025' }
+  // Derive plan info from API subscription (fallback to free plan)
+  const planNames: Record<string, string> = { pro: 'Pro', studio: 'Studio', label: 'Label', free: 'Free' }
+  const planPrices: Record<string, number> = { pro: 9.99, studio: 24.99, label: 79.99, free: 0 }
+  const subPlanId = subscription?.planId ?? 'free'
+  const subStatus = cancelDone ? 'cancelled' : (subscription?.status ?? 'active')
+  const renewsAt = subscription?.renewsAt
+  const renewsDate = renewsAt
+    ? new Date(renewsAt * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : 'June 14, 2025'
+  const currentPlan = {
+    name: planNames[subPlanId] ?? subPlanId,
+    price: planPrices[subPlanId] ?? 0,
+    status: subStatus,
+    renewsDate,
+  }
 
   const visibleMethods = MOCK_PAYMENT_METHODS.filter(m => !removedMethods.includes(m.id))
 
@@ -272,9 +320,11 @@ function Billing() {
             <div className="billing-tab-content">
               <div className="glass-card billing-section-card">
                 <h3 className="billing-section-title">Invoices</h3>
-                {MOCK_INVOICES.length === 0 ? (
+                {loadingData ? (
+                  <div className="billing-loading">Chargement…</div>
+                ) : invoices.length === 0 ? (
                   <div className="billing-empty">
-                    <p>No invoices yet.</p>
+                    <p>Aucune facture.</p>
                   </div>
                 ) : (
                   <div className="invoice-table-wrap">
@@ -283,24 +333,24 @@ function Billing() {
                         <tr>
                           <th>Invoice #</th>
                           <th>Date</th>
-                          <th>Description</th>
-                          <th>Amount</th>
-                          <th>VAT</th>
                           <th>Total</th>
+                          <th>Method</th>
                           <th>Status</th>
                           <th></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {MOCK_INVOICES.map(inv => (
+                        {invoices.map(inv => (
                           <tr key={inv.id}>
-                            <td className="invoice-id">{inv.id}</td>
-                            <td className="invoice-date">{inv.date}</td>
-                            <td>{inv.description}</td>
-                            <td>${inv.amount.toFixed(2)}</td>
-                            <td>{inv.vat > 0 ? `$${inv.vat.toFixed(2)}` : '—'}</td>
-                            <td className="invoice-total">${inv.total.toFixed(2)}</td>
-                            <td><StatusBadge status={inv.status} /></td>
+                            <td className="invoice-id">{inv.number ?? inv.id}</td>
+                            <td className="invoice-date">
+                              {new Date(inv.createdAt * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </td>
+                            <td className="invoice-total">
+                              {((inv.totalCents ?? 0) / 100).toLocaleString('en-US', { style: 'currency', currency: inv.currency?.toUpperCase() ?? 'USD' })}
+                            </td>
+                            <td style={{ color: 'var(--muted)', fontSize: 13 }}>{inv.paymentMethod ?? '—'}</td>
+                            <td><StatusBadge status={inv.status as Invoice['status']} /></td>
                             <td>
                               <button
                                 className="invoice-download-btn"
