@@ -347,6 +347,105 @@ export async function createRefund(
   return stripeRequest<StripeRefund>('POST', '/refunds', params);
 }
 
+// ── Checkout Session ──────────────────────────────────────────
+
+export interface CheckoutSessionParams {
+  userId: string
+  customerEmail: string
+  mode: 'payment' | 'subscription'
+  lineItems: Array<{
+    priceId?: string
+    amount?: number
+    currency?: string
+    name?: string
+    description?: string
+    quantity: number
+  }>
+  successUrl: string
+  cancelUrl: string
+  metadata?: Record<string, string>
+  couponId?: string
+  trialDays?: number
+}
+
+export interface CheckoutSessionResult {
+  id: string
+  url: string
+  status?: string
+}
+
+export async function createCheckoutSession(params: CheckoutSessionParams): Promise<CheckoutSessionResult> {
+  if (IS_MOCK) {
+    const id = mockId('cs')
+    return {
+      id,
+      url: `${params.successUrl.replace('{CHECKOUT_SESSION_ID}', id)}&mock=1`,
+      status: 'open',
+    }
+  }
+
+  const bodyParams: Record<string, string> = {
+    mode: params.mode,
+    customer_email: params.customerEmail,
+    success_url: params.successUrl,
+    cancel_url: params.cancelUrl,
+  }
+
+  params.lineItems.forEach((item, i) => {
+    if (item.priceId) {
+      bodyParams[`line_items[${i}][price]`] = item.priceId
+    } else {
+      bodyParams[`line_items[${i}][price_data][currency]`] = item.currency ?? 'usd'
+      bodyParams[`line_items[${i}][price_data][unit_amount]`] = String(item.amount)
+      bodyParams[`line_items[${i}][price_data][product_data][name]`] = item.name ?? 'Neurotek AI'
+      if (item.description) {
+        bodyParams[`line_items[${i}][price_data][product_data][description]`] = item.description
+      }
+    }
+    bodyParams[`line_items[${i}][quantity]`] = String(item.quantity)
+  })
+
+  bodyParams[`metadata[userId]`] = params.userId
+  if (params.metadata) {
+    for (const [k, v] of Object.entries(params.metadata)) {
+      bodyParams[`metadata[${k}]`] = v
+    }
+  }
+
+  if (params.trialDays && params.mode === 'subscription') {
+    bodyParams['subscription_data[trial_period_days]'] = String(params.trialDays)
+  }
+
+  if (params.couponId) {
+    bodyParams['discounts[0][coupon]'] = params.couponId
+  }
+
+  return stripeRequest<{ id: string; url: string; status: string }>('POST', '/checkout/sessions', bodyParams)
+}
+
+export async function retrieveCheckoutSession(sessionId: string): Promise<{
+  id: string
+  status: string
+  payment_status: string
+  customer_email: string | null
+  metadata: Record<string, string>
+  subscription?: string
+  payment_intent?: string
+  amount_total?: number
+  currency?: string
+}> {
+  if (IS_MOCK) {
+    return {
+      id: sessionId,
+      status: 'complete',
+      payment_status: 'paid',
+      customer_email: null,
+      metadata: { userId: 'demo' },
+    }
+  }
+  return stripeRequest(`GET`, `/checkout/sessions/${encodeURIComponent(sessionId)}`)
+}
+
 export function verifyWebhookSignature(
   rawBody: string,
   signature: string,
