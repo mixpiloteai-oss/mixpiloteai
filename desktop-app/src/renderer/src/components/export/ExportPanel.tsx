@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import { useExport } from '../../hooks/useExport'
+import { useProjectStore } from '../../store/projectStore'
 import { QUALITY_PRESETS, type ExportQualityPreset, type ExportFormat, type QualityConfig } from '../../audio/export/ExportPipeline'
 import type { StemDefinition } from '../../audio/export/StemsExporter'
 import type { NormMode } from '../../audio/export/Normalizer'
@@ -383,6 +384,10 @@ export default function ExportPanel() {
 
   const running = status === 'running'
 
+  // Compute project duration from store: totalBars × beats-per-bar / BPM × 60
+  const project = useProjectStore(s => s.project)
+  const projectDurationSec = Math.round((project.totalBars * project.timeSignatureNumerator) / project.bpm * 60)
+
   function handleMetaChange(field: string, val: string) {
     if (field === 'title')   setMetaTitle(val)
     if (field === 'artist')  setMetaArtist(val)
@@ -413,7 +418,7 @@ export default function ExportPanel() {
     const config = preset === 'custom' ? customConfig : undefined
     await runExport({
       projectName: 'Dark Hardtek Session',
-      durationSec: 128,   // TODO: wire from projectStore
+      durationSec: projectDurationSec,
       preset: effectivePreset,
       config,
       metadata: {
@@ -442,7 +447,7 @@ export default function ExportPanel() {
         dither:       cfg.dither,
         bitDepth:     cfg.bitDepth,
         sampleRate:   cfg.sampleRate,
-        durationSec:  128,
+        durationSec:  projectDurationSec,
       },
     })
   }

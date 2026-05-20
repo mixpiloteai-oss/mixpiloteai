@@ -33,14 +33,19 @@ function getUserId(req: Request): string {
 
 // GET /api/marketplace/products
 router.get('/products', (req: Request, res: Response) => {
-  const { category, tags, search, sort, page, limit } = req.query
+  const { category, tags, sort } = req.query
+  const search = typeof req.query.search === 'string'
+    ? req.query.search.trim().slice(0, 200)
+    : undefined
+  const page = Math.max(1, parseInt(req.query.page as string) || 1)
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20))
   const result = getProducts({
     category: category as ProductCategory | undefined,
     tags: tags as string | undefined,
-    search: search as string | undefined,
+    search,
     sort: sort as 'trending' | 'newest' | 'popular' | 'price-asc' | 'price-desc' | 'free' | undefined,
-    page: page ? Number(page) : 1,
-    limit: limit ? Math.min(Number(limit), 100) : 20,
+    page,
+    limit,
   })
   res.json({ success: true, data: result })
 })

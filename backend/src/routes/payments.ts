@@ -49,6 +49,7 @@ import {
 } from '../services/invoiceService';
 
 import { log, getUserHistory } from '../services/paymentLogService';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -186,9 +187,10 @@ router.post('/stripe/intent', async (req: Request, res: Response): Promise<void>
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
+    logger.error('[payments] stripe/intent', err);
     recordPaymentFailure(userId);
     log({ userId, event: 'payment_failed', amountCents, currency, paymentMethod: 'stripe', planId, ipAddress: ip, success: false, errorMessage: msg });
-    res.status(500).json({ success: false, error: msg });
+    res.status(500).json({ success: false, error: 'Payment processing failed' });
   }
 });
 
@@ -231,9 +233,10 @@ router.post('/stripe/confirm', async (req: Request, res: Response): Promise<void
     res.json({ success: true, invoiceId: invoice.id, status: intent.status });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
+    logger.error('[payments] stripe/confirm', err);
     recordPaymentFailure(userId);
     log({ userId, event: 'payment_failed', paymentMethod: 'stripe', stripeIntentId: paymentIntentId, success: false, errorMessage: msg });
-    res.status(500).json({ success: false, error: msg });
+    res.status(500).json({ success: false, error: 'Payment processing failed' });
   }
 });
 
@@ -338,8 +341,8 @@ router.post('/paypal/create-order', async (req: Request, res: Response): Promise
 
     res.json({ success: true, orderId: order.id, approvalUrl: approvalLink });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
-    res.status(500).json({ success: false, error: msg });
+    logger.error('[payments] paypal/create-order', err);
+    res.status(500).json({ success: false, error: 'Payment processing failed' });
   }
 });
 
@@ -381,8 +384,8 @@ router.post('/paypal/capture', async (req: Request, res: Response): Promise<void
 
     res.json({ success: true, invoiceId: invoice.id, captureStatus: capture.status });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
-    res.status(500).json({ success: false, error: msg });
+    logger.error('[payments] paypal/capture', err);
+    res.status(500).json({ success: false, error: 'Payment processing failed' });
   }
 });
 
@@ -499,8 +502,9 @@ router.post('/subscribe', async (req: Request, res: Response): Promise<void> => 
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
+    logger.error('[payments] subscribe', err);
     log({ userId, event: 'payment_failed', planId, paymentMethod, success: false, errorMessage: msg });
-    res.status(500).json({ success: false, error: msg });
+    res.status(500).json({ success: false, error: 'Payment processing failed' });
   }
 });
 
@@ -546,8 +550,8 @@ router.post('/cancel', async (req: Request, res: Response): Promise<void> => {
 
     res.json({ success: true, canceledImmediately: immediately, cancelAt: sub.cancelAt });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
-    res.status(500).json({ success: false, error: msg });
+    logger.error('[payments] cancel', err);
+    res.status(500).json({ success: false, error: 'Payment processing failed' });
   }
 });
 
@@ -587,8 +591,8 @@ router.post('/upgrade', async (req: Request, res: Response): Promise<void> => {
 
     res.json({ success: true, planId, upgraded: true });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
-    res.status(500).json({ success: false, error: msg });
+    logger.error('[payments] upgrade', err);
+    res.status(500).json({ success: false, error: 'Payment processing failed' });
   }
 });
 
@@ -648,8 +652,8 @@ router.post('/marketplace/buy', async (req: Request, res: Response): Promise<voi
       res.json({ success: true, orderId: order.id, approvalUrl, vatCalculation: vatCalc });
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
-    res.status(500).json({ success: false, error: msg });
+    logger.error('[payments] marketplace/buy', err);
+    res.status(500).json({ success: false, error: 'Payment processing failed' });
   }
 });
 
@@ -705,8 +709,8 @@ router.post('/credits', async (req: Request, res: Response): Promise<void> => {
       res.json({ success: true, orderId: order.id, approvalUrl, credits: pkgData.credits, vatCalculation: vatCalc });
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
-    res.status(500).json({ success: false, error: msg });
+    logger.error('[payments] credits', err);
+    res.status(500).json({ success: false, error: 'Payment processing failed' });
   }
 });
 
@@ -837,8 +841,8 @@ router.post('/refund', async (req: Request, res: Response): Promise<void> => {
       invoiceId: inv?.id,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
-    res.status(500).json({ success: false, error: msg });
+    logger.error('[payments] refund', err);
+    res.status(500).json({ success: false, error: 'Payment processing failed' });
   }
 });
 

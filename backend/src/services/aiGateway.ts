@@ -4,6 +4,7 @@
 // The Claude API key NEVER leaves the server.
 // ============================================================
 import Anthropic from '@anthropic-ai/sdk';
+import { createHash } from 'node:crypto';
 import { SYSTEM_PROMPTS, buildUserPrompt } from '../prompts/systemPrompts';
 import { aiDedupCache } from '../lib/serverCache';
 
@@ -60,7 +61,16 @@ export async function callClaude(req: AIRequest): Promise<AIResponse> {
   const systemPrompt = SYSTEM_PROMPTS[req.messageType] ?? SYSTEM_PROMPTS.chat;
   const maxTokens = MAX_TOKENS_BY_PLAN[req.plan] ?? 512;
 
-  const dedupKey = `${req.userId}:${req.messageType}:${req.userMessage.slice(0, 100)}`
+  const contextHash = req.projectContext
+    ? createHash('sha256').update(JSON.stringify(req.projectContext)).digest('hex').slice(0, 16)
+    : ''
+  const historyHash = req.history?.length
+    ? createHash('sha256').update(JSON.stringify(req.history)).digest('hex').slice(0, 16)
+    : ''
+  const dedupKey = createHash('sha256')
+    .update(`${req.userId}:${req.messageType}:${req.userMessage}:${contextHash}:${historyHash}`)
+    .digest('hex')
+    .slice(0, 32)
   const cached = aiDedupCache.get(dedupKey)
   if (cached !== undefined) {
     return { content: cached, model: 'cache-hit', inputTokens: 0, outputTokens: 0 }

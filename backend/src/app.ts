@@ -69,7 +69,7 @@ const extraOrigins = process.env.CORS_ORIGINS
 
 const allowedOrigins = Array.from(new Set([...STATIC_ORIGINS, ...extraOrigins]));
 
-const PROJECT_VERCEL_RE = /^https:\/\/mixpiloteai(-[a-z0-9-]+)?\.vercel\.app$/;
+const PROJECT_VERCEL_RE = /^https:\/\/mixpiloteai(-staging|-preview|-dev)?\.vercel\.app$/;
 
 app.use(cors({
   origin: (origin, callback) => {

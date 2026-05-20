@@ -49,12 +49,12 @@ router.post('/chat', asyncHandler(async (req: AuthenticatedRequest, res: Respons
   await executeAI(req, res, { userId: req.user!.id, plan: req.user!.plan, messageType, userMessage: message, projectContext: context, history }, messageType);
 }));
 
-router.post('/generate-template', async (req: AuthenticatedRequest, res: Response) => {
+router.post('/generate-template', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { genre, bpm, mood } = req.body;
   if (!genre || !bpm) return res.status(400).json({ success: false, error: 'genre and bpm are required' });
   const message = `Generate a complete ${genre} template at ${bpm} BPM${mood ? ` with a ${mood} mood` : ''}. Include full track list, FX chains, routing, and production notes.`;
   await executeAI(req, res, { userId: req.user!.id, plan: req.user!.plan, messageType: 'template', userMessage: message, projectContext: { genre, bpm, mood } }, 'template');
-});
+}));
 
 router.post('/analyse-mix', async (req: AuthenticatedRequest, res: Response) => {
   const { tracks, genre, bpm } = req.body;
