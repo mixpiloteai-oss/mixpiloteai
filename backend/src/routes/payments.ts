@@ -573,6 +573,16 @@ router.post('/paypal/capture', requireAuth, async (req: AuthenticatedRequest, re
 
     log({ userId, event: 'payment_succeeded', amountCents, currency: 'usd', paymentMethod: 'paypal', paypalOrderId: orderId, success: true });
 
+    await logPaymentEvent({
+      user_id: userId,
+      event_type: 'paypal_order_captured',
+      amount_cents: amountCents,
+      currency: 'usd',
+      payment_method: 'paypal',
+      success: true,
+      metadata: { orderId },
+    })
+
     const invoice = createInvoice({
       userId,
       customerName: req.user!.name,
@@ -771,7 +781,7 @@ router.post('/paypal/webhook', asyncHandler(async (req: Request, res: Response) 
     // Other events (e.g. BILLING.SUBSCRIPTION.CREATED) are informational — no action needed
 
   } catch (err) {
-    logger.error('[paypal-webhook] processing error', err instanceof Error ? err.message : String(err))
+    logger.error('[paypal-webhook] processing error', { error: err instanceof Error ? err.message : String(err) })
     // Do NOT return 500 — PayPal would retry. Return 200 and log the error.
   }
 
@@ -850,6 +860,24 @@ router.post('/subscribe', requireAuth, async (req: AuthenticatedRequest, res: Re
       subscriptionId = sub.id;
       status = sub.status;
       renewsAt = Math.floor(Date.now() / 1000) + 30 * 86400;
+
+      // Sync to Supabase (pending until ACTIVATED webhook fires)
+      await syncSubscriptionToDb({
+        user_id: userId,
+        paypal_subscription_id: sub.id,
+        plan_id: planId,
+        status: 'trialing',
+        payment_method: 'paypal',
+        current_period_start: Math.floor(Date.now() / 1000),
+      })
+      await logPaymentEvent({
+        user_id: userId,
+        event_type: 'paypal_subscription_created',
+        payment_method: 'paypal',
+        plan_id: planId,
+        success: true,
+        metadata: { subscriptionId: sub.id },
+      })
     }
 
     // Store sub record
@@ -936,6 +964,19 @@ router.post('/cancel', requireAuth, async (req: AuthenticatedRequest, res: Respo
       await stripeCancelSub(sub.subscriptionId, immediately);
     } else {
       await ppCancelSub(sub.subscriptionId, 'User requested cancellation');
+      await syncSubscriptionToDb({
+        user_id: userId,
+        paypal_subscription_id: sub.subscriptionId,
+        plan_id: 'free',
+        status: 'canceled',
+        payment_method: 'paypal',
+      })
+      await logPaymentEvent({
+        user_id: userId,
+        event_type: 'subscription_canceled',
+        payment_method: 'paypal',
+        success: true,
+      })
     }
 
     if (immediately) {
@@ -1201,14 +1242,16 @@ router.get('/invoices/:id', (req: Request, res: Response): void => {
 // POST /refund
 router.post('/refund', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const userId = req.user!.id;
-  const { paymentIntentId, reason, amountCents } = req.body as {
-    paymentIntentId: string;
+  const { paymentIntentId, reason, amountCents, paymentMethod, captureId } = req.body as {
+    paymentIntentId?: string;
     reason?: string;
     amountCents?: number;
+    paymentMethod?: 'stripe' | 'paypal';
+    captureId?: string;
   };
 
-  if (!paymentIntentId) {
-    res.status(400).json({ success: false, error: 'paymentIntentId is required' });
+  if (!paymentIntentId && !captureId) {
+    res.status(400).json({ success: false, error: 'paymentIntentId or captureId is required' });
     return;
   }
 
@@ -1219,10 +1262,29 @@ router.post('/refund', requireAuth, async (req: AuthenticatedRequest, res: Respo
     userId,
     route: '/api/payments/refund',
     reason: reason ?? 'refund requested',
-    meta: { paymentIntentId, amountCents },
+    meta: { paymentIntentId, captureId, amountCents },
   });
 
   try {
+    if (paymentMethod === 'paypal' && captureId) {
+      const refundAmountUSD = amountCents ? (amountCents / 100).toFixed(2) : undefined
+      const refund = await ppRefundCapture(captureId, refundAmountUSD, reason)
+      await logPaymentEvent({
+        user_id: userId,
+        event_type: 'paypal_refund_issued',
+        payment_method: 'paypal',
+        success: true,
+        metadata: { captureId, refundId: refund.id },
+      })
+      res.json({ success: true, refundId: refund.id })
+      return
+    }
+
+    if (!paymentIntentId) {
+      res.status(400).json({ success: false, error: 'paymentIntentId is required for Stripe refunds' });
+      return;
+    }
+
     const refund = await stripeCreateRefund(paymentIntentId, amountCents, reason);
 
     // Find and mark invoice as refunded

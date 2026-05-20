@@ -31,6 +31,7 @@ function Checkout() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [sessionData, setSessionData] = useState<{ planId?: string; type?: string } | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'paypal'>('stripe')
 
   // Auth guard (defense-in-depth — ProtectedRoute already handles this at router level)
   useEffect(() => {
@@ -44,6 +45,15 @@ function Checkout() {
   const canceled = searchParams.get('canceled') === '1'
   const sessionId = searchParams.get('session_id') ?? ''
 
+  // PayPal return detection
+  const paypalToken = searchParams.get('token')          // order ID for one-time
+  const paypalSubscriptionId = searchParams.get('subscription_id')  // for subscriptions
+  const paypalPayerId = searchParams.get('PayerID')
+
+  // PayPal order capture state
+  const [paypalCaptureState, setPaypalCaptureState] = useState<'idle' | 'capturing' | 'done' | 'error'>('idle')
+  const [paypalCaptureError, setPaypalCaptureError] = useState('')
+
   // Fetch session status on success
   useEffect(() => {
     if (success && sessionId) {
@@ -52,6 +62,29 @@ function Checkout() {
         .catch(() => {}) // non-critical
     }
   }, [success, sessionId])
+
+  // Auto-capture PayPal order on return
+  useEffect(() => {
+    if (paypalToken && paypalPayerId && paypalCaptureState === 'idle') {
+      setPaypalCaptureState('capturing')
+      apiPost<{ success: boolean; invoiceId?: string; status?: string }>(
+        '/api/payments/paypal/capture',
+        { orderId: paypalToken }
+      )
+        .then(result => {
+          if (result.success) {
+            setPaypalCaptureState('done')
+          } else {
+            setPaypalCaptureState('error')
+            setPaypalCaptureError('Capture failed. Please contact support.')
+          }
+        })
+        .catch(e => {
+          setPaypalCaptureState('error')
+          setPaypalCaptureError(e instanceof Error ? e.message : 'Capture failed')
+        })
+    }
+  }, [paypalToken, paypalPayerId, paypalCaptureState])
 
   // URL params
   const plan               = searchParams.get('plan') ?? ''
@@ -109,6 +142,146 @@ function Checkout() {
     } finally {
       setLoading(false)
     }
+  }
+
+  async function handlePayPalCheckout() {
+    setLoading(true)
+    setError('')
+    try {
+      let approvalUrl: string
+
+      if (type === 'plan' && plan) {
+        // Subscription
+        const result = await apiPost<{ success: boolean; subscriptionId: string; approvalUrl: string; status: string }>(
+          '/api/payments/subscribe',
+          {
+            planId: plan,
+            paymentMethod: 'paypal',
+            annual,
+          }
+        )
+        approvalUrl = result.approvalUrl
+      } else {
+        // One-time purchase (credits or marketplace)
+        let amountUSD: string
+        let description: string
+
+        if (type === 'credits' && creditPack) {
+          amountUSD = creditPack.price.toFixed(2)
+          description = `${creditPack.credits} AI Credits`
+        } else if (type === 'marketplace' && marketplaceAmount) {
+          amountUSD = (parseFloat(marketplaceAmount) / 100).toFixed(2)
+          description = productName
+        } else {
+          setError('Invalid payment parameters')
+          setLoading(false)
+          return
+        }
+
+        const result = await apiPost<{ success: boolean; orderId: string; approvalUrl: string }>(
+          '/api/payments/paypal/create-order',
+          {
+            amountUSD,
+            description,
+            productType: type,
+            country: 'US',
+          }
+        )
+        approvalUrl = result.approvalUrl
+      }
+
+      if (approvalUrl) {
+        window.location.href = approvalUrl
+      } else {
+        setError('PayPal checkout unavailable. Please try Stripe.')
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'PayPal initialization failed'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ── PayPal capturing screen ───────────────────────────────────────────────────
+  if (paypalToken && paypalPayerId && paypalCaptureState === 'capturing') {
+    return (
+      <div className="checkout-page">
+        <div className="container">
+          <div className="checkout-container">
+            <div className="checkout-processing">
+              <div className="processing-spinner" />
+              <p>Confirmation du paiement PayPal...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── PayPal order captured successfully ────────────────────────────────────────
+  if (paypalToken && paypalPayerId && paypalCaptureState === 'done') {
+    return (
+      <div className="checkout-page">
+        <div className="container">
+          <div className="checkout-container">
+            <div className="checkout-success">
+              <div className="success-icon">✓</div>
+              <h2>Paiement confirmé !</h2>
+              <p>Ton abonnement est maintenant actif. Tu peux accéder à toutes les fonctionnalités Neurotek AI.</p>
+              <div className="success-actions">
+                <a href="/download" className="nt-btn nt-btn-primary btn-primary">Télécharger l'application</a>
+                <a href="/billing" className="nt-btn nt-btn-ghost btn-secondary">Voir la facturation</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── PayPal capture error ──────────────────────────────────────────────────────
+  if (paypalToken && paypalPayerId && paypalCaptureState === 'error') {
+    return (
+      <div className="checkout-page">
+        <div className="container">
+          <div className="checkout-container">
+            <div className="checkout-canceled">
+              <div className="canceled-icon">✕</div>
+              <h2>Erreur de paiement PayPal</h2>
+              <p>{paypalCaptureError || 'Une erreur est survenue lors de la confirmation du paiement.'}</p>
+              <button
+                className="nt-btn nt-btn-primary btn-primary"
+                onClick={() => navigate(-1)}
+              >
+                Réessayer
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── PayPal subscription activated ────────────────────────────────────────────
+  if (paypalSubscriptionId && !paypalToken) {
+    return (
+      <div className="checkout-page">
+        <div className="container">
+          <div className="checkout-container">
+            <div className="checkout-success">
+              <div className="success-icon">✓</div>
+              <h2>Abonnement PayPal activé !</h2>
+              <p>Ton abonnement PayPal est en cours d'activation. Tu recevras une confirmation par email.</p>
+              <div className="success-actions">
+                <a href="/download" className="nt-btn nt-btn-primary btn-primary">Télécharger l'application</a>
+                <a href="/billing" className="nt-btn nt-btn-ghost btn-secondary">Voir la facturation</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   // ── Success screen ────────────────────────────────────────────────────────────
@@ -185,17 +358,45 @@ function Checkout() {
                 </div>
               </div>
 
+              {/* Payment method toggle */}
+              <div className="checkout-method-toggle">
+                <button
+                  type="button"
+                  className={`method-btn ${paymentMethod === 'stripe' ? 'active' : ''}`}
+                  onClick={() => setPaymentMethod('stripe')}
+                >
+                  💳 Carte bancaire
+                </button>
+                <button
+                  type="button"
+                  className={`method-btn ${paymentMethod === 'paypal' ? 'active' : ''}`}
+                  onClick={() => setPaymentMethod('paypal')}
+                >
+                  <span className="paypal-text">Pay<span>Pal</span></span>
+                </button>
+              </div>
+
               {/* Error */}
               {error && <div className="checkout-error">{error}</div>}
 
-              {/* Stripe redirect button */}
-              <button
-                className="btn-primary checkout-pay-btn"
-                onClick={handleCheckout}
-                disabled={loading || basePrice === 0}
-              >
-                {loading ? 'Redirection…' : `Payer ${formatPrice(basePrice)} — Stripe sécurisé 🔒`}
-              </button>
+              {/* Pay button — dispatches by payment method */}
+              {paymentMethod === 'stripe' ? (
+                <button
+                  className="btn-primary checkout-pay-btn"
+                  onClick={handleCheckout}
+                  disabled={loading || basePrice === 0}
+                >
+                  {loading ? 'Redirection...' : `Payer ${formatPrice(basePrice)} — Stripe 🔒`}
+                </button>
+              ) : (
+                <button
+                  className="btn-paypal checkout-pay-btn"
+                  onClick={handlePayPalCheckout}
+                  disabled={loading || basePrice === 0}
+                >
+                  {loading ? 'Redirection PayPal...' : `Payer ${formatPrice(basePrice)} avec PayPal`}
+                </button>
+              )}
 
               <p className="checkout-stripe-note">
                 Paiement sécurisé par Stripe. Vos données bancaires ne transitent jamais par nos serveurs.
