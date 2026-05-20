@@ -13,6 +13,7 @@ import { registerPluginIPC }         from './modules/pluginIPC'
 import { logCrash, registerCrashIPC } from './modules/errorReporter'
 import { initStartupGuard } from './modules/startupGuard'
 import { registerVersionManagerIPC, performRollback } from './modules/versionManager'
+import { startProductionMonitor } from './modules/productionMonitor'
 
 // ── Global crash safety net ───────────────────────────────────────────────────
 // Plugins run in forked child processes (see modules/pluginHost.ts), so most
@@ -192,6 +193,8 @@ app.whenReady().then(() => {
   // Native audio engine IPC + process management
   registerAudioIPCHandlers(ipcMain, () => mainWindow)
   getAudioEngineProcess().start().catch(e => console.warn('[main] audio engine start failed:', e))
+
+  startProductionMonitor()
 
   createWindow()
 

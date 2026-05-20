@@ -5,6 +5,8 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import ErrorBoundary from './components/ErrorBoundary'
 import { initAudioEngine } from './audio'
+import { initRendererErrorReporter } from './lib/rendererErrorReporter'
+initRendererErrorReporter()
 
 // Pre-warm singletons (AudioContext is not created until user gesture)
 initAudioEngine()

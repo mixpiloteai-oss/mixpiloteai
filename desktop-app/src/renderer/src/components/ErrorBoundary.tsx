@@ -1,4 +1,5 @@
 import React from 'react'
+import { reportBoundaryError } from '../lib/rendererErrorReporter'
 
 interface Props {
   children: React.ReactNode
@@ -47,6 +48,8 @@ export default class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
+    reportBoundaryError(error)
+
     const payload = {
       source:  'renderer' as const,
       message: error.message,
