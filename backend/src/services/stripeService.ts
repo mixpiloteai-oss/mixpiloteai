@@ -361,6 +361,11 @@ export function verifyWebhookSignature(
     const expected = parts['v1'];
     if (!timestamp || !expected) return false;
 
+    // Fix 5: Replay attack protection — reject events older than 5 minutes
+    const ts = parseInt(timestamp, 10);
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (Math.abs(nowSec - ts) > 300) return false;
+
     const payload = `${timestamp}.${rawBody}`;
     const computed = createHmac('sha256', secret).update(payload).digest('hex');
     return computed === expected;

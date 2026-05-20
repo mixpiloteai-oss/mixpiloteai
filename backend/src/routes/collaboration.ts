@@ -97,6 +97,24 @@ function formatSSE(event: CollabEvent): string {
  */
 router.get('/stream/:projectId', requireAuthSSE, (req: Request, res: Response) => {
   const { projectId } = req.params;
+
+  // Fix 1: Verify the authenticated user has access to this project
+  const authedUser = (req as AuthenticatedRequest).user;
+  const authedUserId = authedUser?.id;
+  const project = db.getProject(projectId);
+  const teamPerm = teamService.getProjectPermission(projectId);
+  const hasTeamAccess = teamPerm
+    ? (authedUserId !== undefined && (authedUserId in teamPerm.memberPermissions || teamService.getUserProjectRole(authedUserId, projectId) !== null))
+    : false;
+  if (!project && !hasTeamAccess) {
+    res.status(403).json({ success: false, error: 'Forbidden' });
+    return;
+  }
+  if (project && project.userId && authedUserId && project.userId !== authedUserId && !hasTeamAccess) {
+    res.status(403).json({ success: false, error: 'Forbidden' });
+    return;
+  }
+
   const userId = (typeof req.query['userId'] === 'string' && req.query['userId'])
     ? req.query['userId']
     : getUserId(req);
@@ -115,6 +133,13 @@ router.get('/stream/:projectId', requireAuthSSE, (req: Request, res: Response) =
   res.flushHeaders();
 
   const room = collabService.getOrCreateRoom(projectId);
+
+  // Fix 3: Reject connection if room is full
+  if (room.connections.size >= collabService.MAX_CONNECTIONS_PER_ROOM) {
+    res.write(formatSSE({ type: 'error', message: 'Room is full' }));
+    res.end();
+    return;
+  }
 
   const presence: RoomPresence = {
     userId,
@@ -159,10 +184,17 @@ router.get('/stream/:projectId', requireAuthSSE, (req: Request, res: Response) =
  * POST /api/collab/ops
  * Body: { projectId, userId, userName, userColor, type, payload, rev }
  */
-router.post('/ops', requireAuth, (req: Request, res: Response) => {
+router.post('/ops', requireAuth, collabOpsRateLimiter, (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });
+    return;
+  }
+
+  // Fix 4: Payload size validation
+  const payloadStr = JSON.stringify(req.body);
+  if (payloadStr.length > 10_000) {
+    res.status(413).json({ success: false, error: 'Payload too large' });
     return;
   }
 
@@ -172,12 +204,44 @@ router.post('/ops', requireAuth, (req: Request, res: Response) => {
     res.status(400).json({ success: false, error: 'projectId required' });
     return;
   }
+
+  // Fix 4: Validate userName, userColor, rev
+  if (userName !== undefined && (typeof userName !== 'string' || (userName as string).length > 50)) {
+    res.status(400).json({ success: false, error: 'userName must be a string of max 50 chars' });
+    return;
+  }
+  if (userColor !== undefined && (typeof userColor !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(userColor as string))) {
+    res.status(400).json({ success: false, error: 'userColor must be a valid hex color (#rrggbb)' });
+    return;
+  }
+  if (rev !== undefined && (typeof rev !== 'number' || !Number.isInteger(rev) || (rev as number) < 0)) {
+    res.status(400).json({ success: false, error: 'rev must be a non-negative integer' });
+    return;
+  }
+
   if (!isCollabOpType(type)) {
     res.status(400).json({ success: false, error: 'Invalid op type' });
     return;
   }
   if (!isRecord(payload)) {
     res.status(400).json({ success: false, error: 'payload must be an object' });
+    return;
+  }
+
+  // Fix 1: Verify the authenticated user has access to this project
+  const authedUser = (req as AuthenticatedRequest).user;
+  const authedUserId = authedUser?.id;
+  const project = db.getProject(projectId);
+  const teamPerm = teamService.getProjectPermission(projectId);
+  const hasTeamAccess = teamPerm
+    ? (authedUserId !== undefined && (authedUserId in teamPerm.memberPermissions || teamService.getUserProjectRole(authedUserId, projectId) !== null))
+    : false;
+  if (!project && !hasTeamAccess) {
+    res.status(403).json({ success: false, error: 'Forbidden' });
+    return;
+  }
+  if (project && project.userId && authedUserId && project.userId !== authedUserId && !hasTeamAccess) {
+    res.status(403).json({ success: false, error: 'Forbidden' });
     return;
   }
 

@@ -69,6 +69,7 @@ const evictionTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const MAX_OPS = 500;
 const EVICT_DELAY_MS = 30 * 60 * 1000; // 30 minutes
 const RECENT_OPS_ON_CONNECT = 50;
+export const MAX_CONNECTIONS_PER_ROOM = 50;
 
 // ── Helpers ───────────────────────────────────────────────────
 

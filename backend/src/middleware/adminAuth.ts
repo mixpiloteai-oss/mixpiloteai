@@ -235,13 +235,11 @@ export function requireAdmin(
     return;
   }
 
-  // 2. Bearer JWT (Authorization header or ?token= query param for SSE)
+  // 2. Bearer JWT (Authorization header only — query param is excluded to prevent token leakage in logs)
   let token: string | undefined;
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
     token = authHeader.slice(7);
-  } else if (typeof req.query['token'] === 'string') {
-    token = req.query['token'];
   }
 
   if (!token) {
