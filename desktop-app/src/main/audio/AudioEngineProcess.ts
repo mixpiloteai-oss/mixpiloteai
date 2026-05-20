@@ -107,7 +107,7 @@ export class AudioEngineProcess extends EventEmitter {
   }
 
   play():                                 void { this.send({ cmd: 'play' }) }
-  stop():                                 void { this.send({ cmd: 'stop' }) }
+  stopPlayback():                         void { this.send({ cmd: 'stop' }) }
   pause():                                void { this.send({ cmd: 'pause' }) }
   seek(bar: number, beat = 1):            void { this.send({ cmd: 'seek', bar, beat }) }
   setBpm(bpm: number):                    void { this.send({ cmd: 'set_bpm', bpm }) }

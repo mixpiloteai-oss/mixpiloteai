@@ -62,7 +62,7 @@ export function registerAudioIPCHandlers(ipcMain: IpcMain, getWindow: () => Brow
   // ── Transport ─────────────────────────────────────────────────────────────
 
   ipcMain.handle('audio-play',  () => { proc.play();  return true })
-  ipcMain.handle('audio-stop',  () => { proc.stop();  return true })
+  ipcMain.handle('audio-stop',  () => { proc.stopPlayback();  return true })
   ipcMain.handle('audio-pause', () => { proc.pause(); return true })
 
   ipcMain.handle('audio-seek', (_e, bar: number, beat = 1) => {
