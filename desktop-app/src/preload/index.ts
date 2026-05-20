@@ -29,8 +29,8 @@ const api = {
   offlineList:       () => ipcRenderer.invoke('offline-list'),
   offlineDelete:     (id: string) => ipcRenderer.invoke('offline-delete', id),
   // Settings
-  saveSetting:       (key: string, val: unknown) => ipcRenderer.invoke('save-setting', key, val),
-  loadSetting:       (key: string) => ipcRenderer.invoke('load-setting', key),
+  saveSetting:       (key: string, val: unknown) => ipcRenderer.invoke('settings-set', key, val),
+  loadSetting:       (key: string) => ipcRenderer.invoke('settings-get', key),
   settingsGet:       (key: string) => ipcRenderer.invoke('settings-get', key),
   settingsSet:       (key: string, val: unknown) => ipcRenderer.invoke('settings-set', key, val),
   settingsGetAll:    () => ipcRenderer.invoke('settings-get-all'),

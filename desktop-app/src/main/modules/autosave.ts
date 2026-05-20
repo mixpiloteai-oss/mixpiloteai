@@ -182,7 +182,6 @@ const autosaveModule = {
       memory:   process.memoryUsage(),
     }))
     ipcMain.handle('show-notification', () => { /* stub — notification requires display */ })
-    ipcMain.handle('check-update',      () => null)
   },
 }
 

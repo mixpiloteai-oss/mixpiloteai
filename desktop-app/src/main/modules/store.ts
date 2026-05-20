@@ -12,8 +12,6 @@ const module = {
     ipcMain.handle('settings-set',     (_e, key: string, val)   => settings.set(key, val))
     ipcMain.handle('settings-get-all', ()                        => settings.store)
     ipcMain.handle('settings-reset',   (_e, key: string)        => settings.delete(key))
-    ipcMain.handle('save-setting',     (_e, key: string, val)   => settings.set(key, val))
-    ipcMain.handle('load-setting',     (_e, key: string)        => settings.get(key))
 
     const offlineDir = join(app.getPath('userData'), 'offline-projects')
     if (!existsSync(offlineDir)) mkdirSync(offlineDir, { recursive: true })
