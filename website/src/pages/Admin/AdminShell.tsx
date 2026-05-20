@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
-import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
+import { Routes, Route, NavLink } from 'react-router-dom'
 import './admin.css'
 import { adminLogin, adminLogout, isAdminAuthed } from './services/adminApi'
 
@@ -107,24 +107,24 @@ function SidebarItem({ to, icon, label, badge, end }: NavItemProps) {
 // ── Main Shell ─────────────────────────────────────────────────────────────────
 
 export default function AdminShell() {
-  const navigate = useNavigate()
   const [authed, setAuthed] = useState(isAdminAuthed)
   const [userEmail, setUserEmail] = useState(
     () => localStorage.getItem('admin-user-email') ?? 'admin@neurotek.ai'
   )
 
-  // Re-check auth on mount and when localStorage changes (other tabs logging out)
+  // Watch for cross-tab logout (storage event) — flip to unauthed so the
+  // AuthGate renders inline. Do NOT navigate away from /admin: the gate
+  // lives at this same URL so the user lands on the login form, not the
+  // public site's /login page.
   useEffect(() => {
     const recheck = () => {
       if (!isAdminAuthed()) {
         setAuthed(false)
-        navigate('/login')
       }
     }
-    recheck()
     window.addEventListener('storage', recheck)
     return () => window.removeEventListener('storage', recheck)
-  }, [navigate])
+  }, [])
 
   // Clickjacking defense: refuse to render inside an iframe
   const isFramed = typeof window !== 'undefined' && window.self !== window.top
@@ -155,7 +155,7 @@ export default function AdminShell() {
     await adminLogout()
     localStorage.removeItem('admin-user-email')
     setAuthed(false)
-    navigate('/admin')
+    // Stay on /admin so the AuthGate renders (do not navigate to a different URL)
   }
 
   const initials = userEmail
