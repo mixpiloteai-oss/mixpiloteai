@@ -1,6 +1,7 @@
 // ============================================================
 // NEUROTEK AI — Marketplace Service (in-memory)
 // ============================================================
+import { mediumCache, shortCache } from '../lib/serverCache'
 
 export type ProductCategory =
   | 'kick' | 'hat' | 'snare' | 'perc' | 'preset' | 'template'
@@ -665,6 +666,11 @@ export function getProducts(filters: GetProductsOpts = {}): {
   page: number
   pages: number
 } {
+  const sortedOptions = Object.fromEntries(Object.entries(filters).sort(([a], [b]) => a.localeCompare(b)))
+  const cacheKey = `market:list:${JSON.stringify(sortedOptions)}`
+  const hit = mediumCache.get(cacheKey)
+  if (hit) return hit as { products: MarketProduct[]; total: number; page: number; pages: number }
+
   const { category, tags, search, sort = 'trending', page = 1, limit = 20 } = filters
 
   let result = Array.from(products.values()).filter((p) => p.status === 'approved')
@@ -698,11 +704,17 @@ export function getProducts(filters: GetProductsOpts = {}): {
   const total = result.length
   const pages = Math.ceil(total / limit)
   const start = (page - 1) * limit
-  return { products: result.slice(start, start + limit), total, page, pages }
+  const pagedResult = { products: result.slice(start, start + limit), total, page, pages }
+  mediumCache.set(cacheKey, pagedResult, 3 * 60_000)
+  return pagedResult
 }
 
 export function getProduct(id: string): MarketProduct | null {
-  return products.get(id) ?? null
+  const hit = mediumCache.get(`market:product:${id}`)
+  if (hit) return hit as MarketProduct
+  const product = products.get(id) ?? null
+  if (product) mediumCache.set(`market:product:${id}`, product, 10 * 60_000)
+  return product
 }
 
 export function getFeatured(): MarketProduct[] {
@@ -735,6 +747,8 @@ export function toggleLike(productId: string, userId: string): { liked: boolean;
     p.likes += 1
   }
   p.updatedAt = Date.now()
+  mediumCache.invalidatePrefix('market:list:')
+  mediumCache.delete(`market:product:${productId}`)
   return { liked: !alreadyLiked, likes: p.likes }
 }
 
@@ -743,6 +757,8 @@ export function recordDownload(productId: string, _userId: string): void {
   if (p) {
     p.downloads += 1
     p.updatedAt = Date.now()
+    mediumCache.invalidatePrefix('market:list:')
+    mediumCache.delete(`market:product:${productId}`)
   }
 }
 
@@ -816,6 +832,8 @@ export function moderateProduct(
   if (!p) return null
   p.status = status
   p.updatedAt = Date.now()
+  mediumCache.invalidatePrefix('market:list:')
+  mediumCache.delete(`market:product:${id}`)
   return p
 }
 
