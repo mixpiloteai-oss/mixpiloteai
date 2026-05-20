@@ -738,3 +738,14 @@
   .lp-cta-actions .lp-btn-primary,
   .lp-cta-actions .lp-btn-ghost { text-align: center; justify-content: center; }
 }
+
+/* ── Guide débutant link ────────────────────────────────────────── */
+.lp-guide-link {
+  font-size: 13px;
+  color: var(--nt-muted);
+  text-decoration: none;
+  display: inline-block;
+  margin-top: 12px;
+  transition: color 0.15s;
+}
+.lp-guide-link:hover { color: var(--nt-purple-400); }
