@@ -5,8 +5,10 @@
 //! audio callback both operate through this module.
 
 pub mod automation;
+pub mod buffering;
 pub mod graph;
 pub mod mixer;
+pub mod profiler;
 pub mod track;
 pub mod transport;
 
@@ -21,7 +23,9 @@ use parking_lot::Mutex;
 
 use crate::{
     engine::{
+        buffering::BufferManager,
         mixer::Mixer,
+        profiler::AudioProfiler,
         track::{Track, TrackBuffer, TrackType},
         transport::Transport,
     },
@@ -125,6 +129,10 @@ pub struct AudioEngine {
     /// How many blocks between level snapshots (approx. 10 fps at 512 frames / 44100 Hz).
     level_report_interval: u32,
 
+    // Profiling and monitoring
+    profiler: AudioProfiler,
+    buffer_manager: BufferManager,
+
     // Channels
     cmd_rx: Receiver<Command>,
     event_tx: Sender<Event>,
@@ -157,6 +165,8 @@ impl AudioEngine {
             max_frames,
             level_report_counter: 0,
             level_report_interval: report_interval,
+            profiler: AudioProfiler::new(sample_rate, max_frames as u32),
+            buffer_manager: BufferManager::new(2), // Stereo
             cmd_rx,
             event_tx,
             shared,
@@ -173,6 +183,13 @@ impl AudioEngine {
     ///
     /// `output` is an interleaved stereo float buffer (2 × frames samples).
     pub fn process_block(&mut self, output: &mut [f32], frames: usize) {
+        // Start profiling this callback
+        let xrun_severity = self.profiler.on_callback_start();
+        if xrun_severity > 0 {
+            warn!("Xrun detected (severity: {}%)", xrun_severity);
+            self.buffer_manager.handle_underrun(frames);
+        }
+
         // Drain pending commands (non-blocking).
         self.drain_commands();
 
@@ -194,8 +211,25 @@ impl AudioEngine {
             frames,
         );
 
+        // Analyze audio for quality metrics (clipping, levels)
+        self.profiler.analyze_audio(&self.output_buffer[..out_len]);
+
+        // Apply anti-crackling measures
+        self.buffer_manager.apply_anti_crackling(&mut self.output_buffer[..out_len]);
+
         // Copy to driver output.
         output[..out_len].copy_from_slice(&self.output_buffer[..out_len]);
+
+        // Track buffer manager state
+        self.buffer_manager.on_frame_processed();
+
+        // Update stability metrics
+        self.profiler.update_stability();
+        self.profiler.update_cpu_load();
+
+        // Finish profiling
+        let cpu_load = self.shared.cpu_load();
+        self.profiler.on_callback_end(cpu_load as f32);
 
         // Periodic level report.
         self.level_report_counter += 1;
@@ -203,6 +237,11 @@ impl AudioEngine {
             self.level_report_counter = 0;
             self.emit_levels();
             self.emit_position();
+
+            // Also emit audio quality diagnostics periodically
+            if self.profiler.is_degraded() {
+                debug!("{}", self.profiler.diagnostic_report());
+            }
         }
     }
 

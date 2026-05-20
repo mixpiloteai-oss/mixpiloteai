@@ -132,6 +132,17 @@ pub struct DeviceInfo {
     pub name: String,
 }
 
+/// Audio quality and performance metrics.
+#[derive(Debug, Clone, Serialize)]
+pub struct AudioDiagnostics {
+    pub cpu_load: f32,
+    pub peak_level: f32,
+    pub rms_level: f32,
+    pub clipped_samples: u32,
+    pub frame_time_variance: f32,
+    pub xrun_count: u32,
+}
+
 /// All outgoing events the audio engine can emit.
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "event", rename_all = "snake_case")]
@@ -179,6 +190,10 @@ pub enum Event {
         tracks: Vec<LevelInfo>,
         master: MasterLevel,
     },
+
+    /// Audio quality and performance diagnostics.
+    #[allow(dead_code)]
+    Diagnostics(AudioDiagnostics),
 
     /// Engine-level error.
     Error { code: String, message: String },
