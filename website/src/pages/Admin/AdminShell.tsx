@@ -7,6 +7,8 @@ const AdminDashboard   = lazy(() => import('./AdminDashboard'))
 const CMS              = lazy(() => import('./CMS'))
 const Monitoring       = lazy(() => import('./Monitoring'))
 const Analytics        = lazy(() => import('./Analytics'))
+const RealtimeStats    = lazy(() => import('./RealtimeStats'))
+const ErrorLogs        = lazy(() => import('./ErrorLogs'))
 const Security         = lazy(() => import('./Security'))
 const Users            = lazy(() => import('./Users'))
 const Subscriptions    = lazy(() => import('./Subscriptions'))
@@ -179,9 +181,11 @@ export default function AdminShell() {
         {/* OVERVIEW */}
         <div className="admin-nav-group">
           <div className="admin-nav-group-label">Overview</div>
-          <SidebarItem to="/admin"          icon="⬡" label="Dashboard"  end />
+          <SidebarItem to="/admin"           icon="⬡" label="Dashboard"  end />
+          <SidebarItem to="/admin/realtime"  icon="◉" label="Realtime"   />
           <SidebarItem to="/admin/monitoring" icon="◈" label="Monitoring" />
           <SidebarItem to="/admin/analytics"  icon="∿" label="Analytics"  />
+          <SidebarItem to="/admin/error-logs" icon="⚠" label="Error Logs" />
         </div>
 
         {/* MANAGEMENT */}
@@ -241,6 +245,8 @@ export default function AdminShell() {
         }>
           <Routes>
             <Route path="/"             element={<AdminDashboard />} />
+            <Route path="/realtime"     element={<RealtimeStats />} />
+            <Route path="/error-logs"   element={<ErrorLogs />} />
             <Route path="/monitoring"   element={<Monitoring />} />
             <Route path="/analytics"    element={<Analytics />} />
             <Route path="/security"     element={<Security />} />

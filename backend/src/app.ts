@@ -42,6 +42,7 @@ import { cacheHeaders } from './middleware/cacheHeaders';
 import { apiSecurity, sanitizeResponse } from './middleware/apiSecurity';
 import paymentsRouter from './routes/payments';
 import adminRouter from './routes/admin';
+import adminRealtimeRouter from './routes/adminRealtime';
 import cmsRouter from './routes/cms';
 import pluginsRouter from './routes/plugins'
 import updatesRouter from './routes/updates';
@@ -137,6 +138,7 @@ app.use('/api/teams',  teamsRouter);
 app.use('/api/marketplace', marketplaceRouter);
 app.use('/api/creators',    creatorsRouter);
 app.use('/api/payments',    paymentsRouter);
+app.use('/api/admin/realtime', adminRealtimeRouter);
 app.use('/api/admin',       adminRouter);
 app.use('/api/cms',         cmsRouter);
 app.use('/api/plugins',     pluginsRouter);

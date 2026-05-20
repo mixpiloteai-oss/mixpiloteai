@@ -3,6 +3,7 @@
 // ============================================================
 import { logger } from './logger';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { activityFeed, ActivityType, ActivitySeverity } from '../lib/activityFeed';
 
 export type SecurityEventType =
   | 'auth_failure'
@@ -60,6 +61,30 @@ export function logSecurityEvent(event: SecurityEvent): void {
   } else {
     logger.info('security.event', payload);
   }
+
+  // Mirror to live activity feed for admin dashboard
+  try {
+    const sev: ActivitySeverity =
+      event.severity === 'critical' ? 'error'
+        : event.severity === 'warn' ? 'warn'
+        : 'info';
+    const type: ActivityType =
+      event.type.startsWith('auth_') || event.type === 'logout' || event.type === 'logout_all' ? 'auth'
+        : event.type === 'payment_attempt' ? 'payment'
+        : event.type === 'admin_login' ? 'admin_action'
+        : ['rate_limited', 'oversized_request', 'suspicious_payload', 'invalid_token', 'forbidden', 'cors_blocked'].includes(event.type) ? 'error'
+        : 'system';
+
+    activityFeed.push({
+      type,
+      severity: sev,
+      message: `${event.type}${event.reason ? `: ${event.reason}` : ''}`,
+      userId: event.userId,
+      email: event.email,
+      ip: event.ip,
+      meta: { route: event.route, ...event.meta },
+    });
+  } catch { /* never crash the request */ }
 
   // Optionally persist to Supabase (fire-and-forget).
   if (isSupabaseConfigured && supabase) {
