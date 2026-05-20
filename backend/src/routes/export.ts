@@ -12,6 +12,7 @@ import {
   type ExportFormat,
 } from '../services/exportService'
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth'
+import { requirePlan } from '../middleware/requirePlan'
 
 const router = Router()
 
@@ -22,8 +23,8 @@ function getUserId(req: Request): string {
   return (req.headers['x-user-id'] as string) ?? 'anonymous'
 }
 
-// POST /api/export/jobs — register a new export job
-router.post('/jobs', requireAuth, (req: Request, res: Response) => {
+// POST /api/export/jobs — register a new export job (pro+ only)
+router.post('/jobs', requireAuth, requirePlan('pro'), (req: Request, res: Response) => {
   const { projectId, projectName, format, preset } = req.body
   if (!projectId || !format || !preset) {
     return res.status(400).json({ success: false, error: 'projectId, format and preset are required' })

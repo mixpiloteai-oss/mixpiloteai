@@ -11,6 +11,7 @@ import type { CollabOp, CollabOpType, CollabEvent, RoomPresence } from '../servi
 import * as teamService from '../services/teamService';
 import type { TeamRole } from '../services/teamService';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
+import { requirePlan } from '../middleware/requirePlan';
 import { JWT_SECRET } from '../lib/config';
 import { db } from '../data/mockDB';
 import rateLimit from 'express-rate-limit';
@@ -95,7 +96,7 @@ function formatSSE(event: CollabEvent): string {
  * GET /api/collab/stream/:projectId
  * Query: ?userId=&userName=&userColor=
  */
-router.get('/stream/:projectId', requireAuthSSE, (req: Request, res: Response) => {
+router.get('/stream/:projectId', requireAuthSSE, requirePlan('studio'), (req: Request, res: Response) => {
   const { projectId } = req.params;
 
   // Fix 1: Verify the authenticated user has access to this project
@@ -184,7 +185,7 @@ router.get('/stream/:projectId', requireAuthSSE, (req: Request, res: Response) =
  * POST /api/collab/ops
  * Body: { projectId, userId, userName, userColor, type, payload, rev }
  */
-router.post('/ops', requireAuth, collabOpsRateLimiter, (req: Request, res: Response) => {
+router.post('/ops', requireAuth, requirePlan('studio'), collabOpsRateLimiter, (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });

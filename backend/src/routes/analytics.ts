@@ -3,6 +3,7 @@
 // ============================================================
 import { Router, Response } from 'express';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
+import { requirePlan } from '../middleware/requirePlan';
 import { getTodayUsage, getDailyLimit } from '../data/mockDB';
 import { getPlan } from '../data/plans';
 
@@ -33,15 +34,10 @@ export function trackRequest(userId: string, tokensIn: number, tokensOut: number
   analyticsStore.set(userId, history.slice(-30));
 }
 
-router.get('/me', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.get('/me', requireAuth, requirePlan('pro'), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const userId     = req.user!.id;
   const plan       = (req.user?.plan ?? 'free') as any;
   const planConfig = getPlan(plan);
-
-  if (!planConfig.analyticsAccess) {
-    res.status(403).json({ success: false, error: 'Analytics requires Creator plan or higher', code: 'PLAN_UPGRADE_REQUIRED' });
-    return;
-  }
 
   const history    = analyticsStore.get(userId) ?? [];
   const today      = new Date().toISOString().slice(0, 10);
