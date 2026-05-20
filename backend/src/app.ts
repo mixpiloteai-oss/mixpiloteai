@@ -39,6 +39,7 @@ import collabRouter, { teamsRouter } from './routes/collaboration';
 import marketplaceRouter from './routes/marketplace';
 import creatorsRouter from './routes/creators';
 import { cacheHeaders } from './middleware/cacheHeaders';
+import { apiSecurity, sanitizeResponse } from './middleware/apiSecurity';
 import paymentsRouter from './routes/payments';
 import adminRouter from './routes/admin';
 import cmsRouter from './routes/cms';
@@ -113,6 +114,10 @@ app.use(cacheHeaders);
 app.use(trackResponse);
 app.use(generalRateLimiter);
 app.use(requestMetrics);
+
+// API security: body size enforcement + payload scanning + response sanitization
+app.use(apiSecurity);
+app.use(sanitizeResponse);
 
 // ── Routes ───────────────────────────────────────────────────
 app.use('/api/auth', blockSuspicious, authRouter);

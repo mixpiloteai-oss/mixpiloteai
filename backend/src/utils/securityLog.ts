@@ -14,7 +14,12 @@ export type SecurityEventType =
   | 'suspicious_request'
   | 'payment_attempt'
   | 'file_rejected'
-  | 'cors_blocked';
+  | 'cors_blocked'
+  | 'account_locked'
+  | 'logout'
+  | 'logout_all'
+  | 'oversized_request'
+  | 'suspicious_payload';
 
 export type SecuritySeverity = 'info' | 'warn' | 'critical';
 

@@ -46,9 +46,11 @@ router.post('/report', generalRateLimiter, (req: Request, res: Response) => {
 
   // Fire-and-forget to Supabase if configured
   if (isSupabaseConfigured && supabase) {
-    supabase.from('client_errors').insert([report]).then(({ error }) => {
-      if (error) logger.warn('client_errors insert failed', { error: error.message })
-    }).catch(() => {})
+    Promise.resolve(supabase.from('client_errors').insert([report]))
+      .then(({ error }) => {
+        if (error) logger.warn('client_errors insert failed', { error: error.message })
+      })
+      .catch(() => { /* ignore */ })
   }
 
   res.status(202).json({ ok: true })

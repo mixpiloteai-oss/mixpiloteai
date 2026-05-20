@@ -1,15 +1,20 @@
 // ============================================================
 // NEUROTEK AI — Auth Middleware
 // ============================================================
+// Validates Bearer JWT tokens with full claim checking and
+// revocation support via the central tokenService.
+// ============================================================
+
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import { verifyAccessToken } from '../lib/tokenService';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
-    id: string;
+    id:    string;
     email: string;
-    name: string;
-    plan: string;
+    name:  string;
+    plan:  string;
+    jti?:  string;
   };
 }
 
@@ -21,12 +26,10 @@ if (process.env.NODE_ENV === 'production') {
   }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production';
-
 export function requireAuth(
   req: AuthenticatedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): void {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
@@ -34,39 +37,47 @@ export function requireAuth(
     return;
   }
 
-  const token = authHeader.slice(7);
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as {
-      id: string;
-      email: string;
-      name: string;
-      plan: string;
-    };
-    req.user = payload;
-    next();
-  } catch {
-    res.status(401).json({ success: false, error: 'Invalid or expired token' });
+  const token = authHeader.slice(7).trim();
+  if (!token) {
+    res.status(401).json({ success: false, error: 'No token provided' });
+    return;
   }
+
+  const payload = verifyAccessToken(token);
+  if (!payload) {
+    res.status(401).json({ success: false, error: 'Invalid or expired token' });
+    return;
+  }
+
+  req.user = {
+    id:    payload.id,
+    email: payload.email,
+    name:  payload.name,
+    plan:  payload.plan,
+    jti:   payload.jti,
+  };
+  next();
 }
 
 export function optionalAuth(
   req: AuthenticatedRequest,
   _res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): void {
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
-    try {
-      const token = authHeader.slice(7);
-      const payload = jwt.verify(token, JWT_SECRET) as {
-        id: string;
-        email: string;
-        name: string;
-        plan: string;
-      };
-      req.user = payload;
-    } catch {
-      // ignore invalid tokens for optional auth
+    const token = authHeader.slice(7).trim();
+    if (token) {
+      const payload = verifyAccessToken(token);
+      if (payload) {
+        req.user = {
+          id:    payload.id,
+          email: payload.email,
+          name:  payload.name,
+          plan:  payload.plan,
+          jti:   payload.jti,
+        };
+      }
     }
   }
   next();
