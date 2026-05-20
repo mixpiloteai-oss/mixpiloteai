@@ -256,6 +256,9 @@ export function submitOp(op: CollabOp): CommittedOp | null {
   return committed;
 }
 
+// Debounce cursor-move presence broadcasts: max 1 broadcast per user per 100ms
+const presenceBroadcastTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
 export function updatePresence(
   roomId: string,
   userId: string,
@@ -273,7 +276,17 @@ export function updatePresence(
     return;
   }
 
-  broadcastToRoom(room, { type: 'presence', presence: getPresenceList(room) });
+  // Debounce: cancel pending broadcast for this user, schedule new one in 100ms
+  const timerKey = `${roomId}:${userId}`
+  const existing_timer = presenceBroadcastTimers.get(timerKey)
+  if (existing_timer !== undefined) clearTimeout(existing_timer)
+
+  const timer = setTimeout(() => {
+    presenceBroadcastTimers.delete(timerKey)
+    const r = rooms.get(roomId)
+    if (r) broadcastToRoom(r, { type: 'presence', presence: getPresenceList(r) })
+  }, 100)
+  presenceBroadcastTimers.set(timerKey, timer)
 }
 
 export function getRoomHistory(roomId: string, sinceRev: number): CommittedOp[] {
@@ -303,4 +316,13 @@ export function getRoomByProjectId(projectId: string): CollabRoom | undefined {
   const roomId = projectRoomMap.get(projectId);
   if (!roomId) return undefined;
   return rooms.get(roomId);
+}
+
+/** Returns the total number of active SSE connections across all rooms. */
+export function getTotalConnections(): number {
+  let total = 0
+  for (const room of rooms.values()) {
+    total += room.connections.size
+  }
+  return total
 }

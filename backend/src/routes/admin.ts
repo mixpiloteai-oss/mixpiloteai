@@ -229,13 +229,14 @@ router.get('/stats', async (_req: Request, res: Response): Promise<void> => {
 // Monitoring
 // ══════════════════════════════════════════════════════════════
 
-router.get('/monitoring', (_req: Request, res: Response) => {
+router.get('/monitoring', async (_req: Request, res: Response): Promise<void> => {
+  const services = await getServiceStatuses();
   res.json({
     success: true,
     data: {
       latest: getLatestMetric(),
       metrics: getMetrics(30),
-      services: getServiceStatuses(),
+      services,
     },
   });
 });

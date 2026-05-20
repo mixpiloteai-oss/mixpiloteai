@@ -1,5 +1,8 @@
 // ─── Versioned Save Service ───────────────────────────────────────────────────
 
+import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { logger } from '../utils/logger'
+
 const MAX_VERSIONS_PER_PROJECT = 50
 
 interface ProjectVersion {
@@ -59,10 +62,56 @@ export const saveService = {
     // Prune oldest beyond limit
     while (list.length > MAX_VERSIONS_PER_PROJECT) list.shift()
     const { data: _d, ...meta } = version
+
+    // Persist to Supabase when configured (fire-and-forget — don't block response)
+    if (isSupabaseConfigured && supabase) {
+      const row = {
+        id:         meta.id,
+        project_id: projectId,
+        label:      meta.label,
+        type:       meta.type,
+        size_bytes: meta.sizeBytes,
+        checksum:   meta.checksum,
+        data:       JSON.stringify(version.data),
+        created_at: new Date(meta.createdAt).toISOString(),
+      }
+      Promise.resolve(supabase.from('project_versions').insert([row])).then(({ error }) => {
+        if (error) logger.warn('project_versions insert failed', { error: error.message })
+      }).catch(() => {})
+    }
+
     return meta
   },
 
   listVersions(projectId: string): VersionMeta[] {
+    if ((!store.has(projectId) || getList(projectId).length === 0) && isSupabaseConfigured && supabase) {
+      // Async load from Supabase — non-blocking, returns in-memory data immediately
+      // The next request will benefit from the loaded data
+      Promise.resolve(
+        supabase
+          .from('project_versions')
+          .select('id, project_id, label, type, size_bytes, checksum, created_at')
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: true })
+          .limit(MAX_VERSIONS_PER_PROJECT)
+      ).then(({ data, error }) => {
+        if (!error && data && data.length > 0 && !store.has(projectId)) {
+          // Reconstruct in-memory list (without data payload to save RAM)
+          const versions: ProjectVersion[] = data.map(row => ({
+            id:        row.id as string,
+            projectId: row.project_id as string,
+            label:     row.label as string,
+            type:      (row.type as 'manual' | 'auto' | 'pre-action') ?? 'manual',
+            createdAt: new Date(row.created_at as string).getTime(),
+            sizeBytes: row.size_bytes as number,
+            checksum:  row.checksum as string,
+            data:      null,  // data not loaded into RAM — fetched on demand
+          }))
+          store.set(projectId, versions)
+        }
+      }).catch(() => {})
+    }
+
     return getList(projectId)
       .slice()
       .sort((a, b) => b.createdAt - a.createdAt)
