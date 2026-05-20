@@ -20,6 +20,8 @@ import CollabPanel from './components/collaboration/CollabPanel'
 import MarketplaceBrowser from './components/marketplace/MarketplaceBrowser'
 import RecoveryDialog        from './components/save/RecoveryDialog'
 import SnapshotHistoryPanel  from './components/save/SnapshotHistoryPanel'
+import OnboardingWelcome     from './components/onboarding/OnboardingWelcome'
+import { useOnboardingStore } from './store/onboardingStore'
 import { useUIStore }        from './store/uiStore'
 import { useSaveStore }      from './store/saveStore'
 import { useSaveSystem }     from './hooks/useSaveSystem'
@@ -312,6 +314,8 @@ export default function App() {
     return () => { window.electronAPI?.removeAllListeners?.('nav') }
   }, [])
 
+  const hasSeenWelcome = useOnboardingStore(s => s.hasSeenWelcome)
+
   if (!token) return <LoginScreen onAuth={setToken} />
   return (
     <>
@@ -321,6 +325,8 @@ export default function App() {
       <RecoveryDialog />
       {/* Audio performance HUD — keyboard-triggered (Ctrl+Shift+P) */}
       <AudioPerfHUD perfMonitor={AudioEngine.getInstance().getPerfMonitor()} />
+      {/* Onboarding wizard — shown on first launch */}
+      {!hasSeenWelcome && <OnboardingWelcome />}
     </>
   )
 }

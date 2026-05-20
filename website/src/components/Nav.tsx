@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { to: '/changelog',  label: 'Changelog' },
   { to: '/support',       label: 'Support' },
   { to: '/collaboration', label: 'Collab' },
+  { to: '/get-started',  label: 'Guide' },
 ]
 
 function Nav() {

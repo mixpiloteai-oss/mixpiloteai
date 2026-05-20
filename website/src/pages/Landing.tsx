@@ -226,6 +226,10 @@ function Landing() {
               </button>
             </div>
 
+            <div className="anim-float-up anim-float-up-4" style={{ textAlign: 'left' }}>
+              <Link to="/get-started" className="lp-guide-link">Nouveau ? Commence ici →</Link>
+            </div>
+
             <div className="lp-social-proof anim-float-up anim-float-up-4">
               <span className="lp-stars" aria-label="5 stars">★★★★★</span>
               <span>4.9 · 12,400 producers</span>

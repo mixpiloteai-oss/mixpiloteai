@@ -14,6 +14,7 @@ import Merch       from './pages/Merch'
 import Privacy     from './pages/Privacy'
 import Terms         from './pages/Terms'
 import Collaboration from './pages/Collaboration'
+import GetStarted   from './pages/GetStarted/GetStarted'
 import AdminShell   from './pages/Admin/AdminShell'
 import CreatorProfile    from './pages/CreatorProfile'
 import CreatorDashboard from './pages/CreatorDashboard'
@@ -80,6 +81,7 @@ function App() {
           <Route path="/privacy"   element={<Privacy />} />
           <Route path="/terms"         element={<Terms />} />
           <Route path="/collaboration" element={<Collaboration />} />
+          <Route path="/get-started"   element={<GetStarted />} />
 
           {/* Cloud features — disabled when offline */}
           <Route path="/marketplace" element={
