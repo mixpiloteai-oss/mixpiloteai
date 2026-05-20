@@ -1,5 +1,8 @@
 import { autoUpdater, UpdateInfo, ProgressInfo } from 'electron-updater'
 import { BrowserWindow, ipcMain, app, dialog } from 'electron'
+import { backupCurrentVersion } from './versionManager'
+import { markUpdatePending } from './startupGuard'
+import { verifyFileIntegrity } from './updateIntegrity'
 
 const log = {
   info: (msg: string, ...args: unknown[]) => console.info('[updater]', msg, ...args),
@@ -60,6 +63,7 @@ const module = {
     autoUpdater.on('update-downloaded', (info: UpdateInfo) => {
       log.info('update downloaded', info.version)
       emit(win, 'update-downloaded', { version: info.version })
+      emit(win, 'update-integrity-ready', { version: info.version })
       // Show native dialog as fallback if renderer can't respond
       dialog.showMessageBox({
         type: 'info',
@@ -99,10 +103,16 @@ const module = {
     })
 
     ipcMainRef.handle('install-update', () => {
+      backupCurrentVersion()
+      markUpdatePending()
       autoUpdater.quitAndInstall(false, true)
     })
 
     ipcMainRef.handle('get-version', () => app.getVersion())
+
+    ipcMainRef.handle('verify-update-file', (_event, filePath: string, sha256: string) => {
+      return verifyFileIntegrity(filePath, sha256)
+    })
 
     // -- Schedule auto-check (5s after startup) ----------------------------
     setTimeout(() => {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-type UpdateState = 'idle' | 'available' | 'downloading' | 'downloaded' | 'error'
+type UpdateState = 'idle' | 'available' | 'downloading' | 'downloaded' | 'error' | 'rollback-available'
 
 interface UpdateAvailableInfo { version: string; releaseDate?: string; releaseNotes?: unknown }
 interface UpdateProgressInfo  { percent: number; transferred: number; total: number; bytesPerSecond: number }
@@ -10,15 +10,20 @@ interface UpdateErrorInfo { message: string }
 const SESSION_KEY = 'update-banner-dismissed'
 
 export default function UpdateBanner() {
-  const [state, setState]     = useState<UpdateState>('idle')
-  const [version, setVersion] = useState('')
-  const [percent, setPercent] = useState(0)
-  const [error, setError]     = useState('')
-  const [visible, setVisible] = useState(true)
+  const [state, setState]         = useState<UpdateState>('idle')
+  const [version, setVersion]     = useState('')
+  const [percent, setPercent]     = useState(0)
+  const [error, setError]         = useState('')
+  const [visible, setVisible]     = useState(true)
+  const [canRollback, setCanRollback] = useState(false)
 
   useEffect(() => {
     const api = window.electronAPI
     if (!api) return
+
+    window.electronAPI?.versionCanRollback?.().then((result: unknown) => {
+      setCanRollback(Boolean(result))
+    }).catch(() => { /* ignore */ })
 
     api.onUpdateAvailable?.((info: unknown) => {
       const i = info as UpdateAvailableInfo
@@ -65,6 +70,10 @@ export default function UpdateBanner() {
   function handleLater() {
     sessionStorage.setItem(SESSION_KEY, '1')
     setVisible(false)
+  }
+
+  function handleRollback() {
+    window.electronAPI?.versionRollback?.()
   }
 
   function handleDismissError() {
@@ -151,6 +160,7 @@ export default function UpdateBanner() {
         {spacer}
         <button style={btnPrimaryStyle} onClick={handleInstall}>Restart Now</button>
         <button style={btnGhostStyle}   onClick={handleLater}>Later</button>
+        {canRollback && <button style={btnGhostStyle} onClick={handleRollback}>Rollback</button>}
       </div>
     )
   }
@@ -161,6 +171,7 @@ export default function UpdateBanner() {
         <span style={{ color: '#ef4444' }}>Update check failed:</span>
         <span style={{ color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 400 }}>{error}</span>
         {spacer}
+        {canRollback && <button style={btnGhostStyle} onClick={handleRollback}>Rollback to Previous</button>}
         <button style={btnGhostStyle} onClick={handleDismissError}>Dismiss</button>
       </div>
     )

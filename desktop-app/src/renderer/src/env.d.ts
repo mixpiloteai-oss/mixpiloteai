@@ -55,8 +55,13 @@ interface ElectronAPI {
   onUpdateNotAvailable: (cb: (info: unknown) => void) => void
   onUpdateProgress:     (cb: (info: unknown) => void) => void
   onUpdateDownloaded:   (cb: (info: unknown) => void) => void
-  onUpdateError:        (cb: (info: unknown) => void) => void
+  onUpdateError:            (cb: (info: unknown) => void) => void
+  onUpdateIntegrityReady:   (cb: (info: unknown) => void) => void
   onCrashRecoveryAvailable: (cb: (info: unknown) => void) => void
+  versionHistory:     () => Promise<unknown>
+  versionCanRollback: () => Promise<boolean>
+  versionRollback:    () => Promise<{ ok: boolean; reason?: string }>
+  verifyUpdateFile:   (filePath: string, sha256: string) => Promise<unknown>
   pluginScan:                () => Promise<unknown[]>
   pluginLoad:                (path: string, format: string) => Promise<{ instanceId: string; name: string; vendor: string; paramCount: number; pid: number }>
   pluginUnload:              (instanceId: string) => Promise<{ ok: boolean }>

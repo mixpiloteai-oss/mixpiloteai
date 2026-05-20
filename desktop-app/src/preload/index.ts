@@ -129,6 +129,13 @@ const api = {
   onUpdateProgress:         (cb: (info: unknown) => void) => ipcRenderer.on('update-progress', (_e, i) => cb(i)),
   onUpdateDownloaded:       (cb: (info: unknown) => void) => ipcRenderer.on('update-downloaded', (_e, i) => cb(i)),
   onUpdateError:            (cb: (info: unknown) => void) => ipcRenderer.on('update-error', (_e, i) => cb(i)),
+  onUpdateIntegrityReady:   (cb: (info: unknown) => void) => ipcRenderer.on('update-integrity-ready', (_e, i) => cb(i)),
+  // Version management
+  versionHistory:           () => ipcRenderer.invoke('version-history'),
+  versionCanRollback:       () => ipcRenderer.invoke('version-can-rollback'),
+  versionRollback:          () => ipcRenderer.invoke('version-rollback'),
+  // Integrity
+  verifyUpdateFile:         (filePath: string, sha256: string) => ipcRenderer.invoke('verify-update-file', filePath, sha256),
   onTriggerSave:            (cb: () => void) => ipcRenderer.on('trigger-save', cb),
   onTriggerLoad:            (cb: () => void) => ipcRenderer.on('trigger-load', cb),
   onAutosaveComplete:       (cb: (info: unknown) => void) => ipcRenderer.on('autosave-complete', (_e, i) => cb(i)),

@@ -12,6 +12,7 @@ import { getAudioEngineProcess }     from './audio/AudioEngineProcess'
 import { registerPluginIPC }         from './modules/pluginIPC'
 import { logCrash, registerCrashIPC } from './modules/errorReporter'
 import { initStartupGuard } from './modules/startupGuard'
+import { registerVersionManagerIPC, performRollback } from './modules/versionManager'
 
 // ── Global crash safety net ───────────────────────────────────────────────────
 // Plugins run in forked child processes (see modules/pluginHost.ts), so most
@@ -164,7 +165,7 @@ ipcMain.handle('save-file-dialog', async (_e, opts) => {
 
 // ── App lifecycle ─────────────────────────────────────────────
 app.whenReady().then(() => {
-  initStartupGuard()
+  initStartupGuard(() => { performRollback() })
 
   electronApp.setAppUserModelId('ai.neurotek.studio')
 
@@ -182,6 +183,7 @@ app.whenReady().then(() => {
   updaterModule.register(ipcMain, mainWindow)
 
   // Plugin system: sandboxed host processes, blacklist, presets
+  registerVersionManagerIPC()
   registerPluginIPC(ipcMain, () => mainWindow)
 
   // Persistent crash log (accessible from renderer via preload `crash` API)
