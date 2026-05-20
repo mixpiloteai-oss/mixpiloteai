@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useOnboardingStore } from '../../store/onboardingStore'
 import { useUIStore } from '../../store/uiStore'
 
@@ -456,12 +456,16 @@ export default function OnboardingWelcome() {
 
   const setView = useUIStore(s => s.setView)
 
-  // Auto-start on first render if not yet active
-  if (!isActive) {
-    // Trigger start on mount via side-effect-free call — use a one-time trigger
-    startOnboarding()
-    return null
-  }
+  // Auto-start on mount if not yet active
+  useEffect(() => {
+    if (!isActive) {
+      startOnboarding()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Don't render until active
+  if (!isActive) return null
 
   function handleSkip() {
     skipOnboarding()
