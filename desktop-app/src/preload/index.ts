@@ -119,6 +119,20 @@ const api = {
   pluginDeletePreset:       (pluginId: string, presetId: string) => ipcRenderer.invoke('plugin-delete-preset', pluginId, presetId),
   pluginRenamePreset:       (pluginId: string, presetId: string, name: string) => ipcRenderer.invoke('plugin-rename-preset', pluginId, presetId, name),
   onPluginCrashed:          (cb: (info: unknown) => void) => ipcRenderer.on('plugin-crashed', (_e, i) => cb(i)),
+  // Plugin health / recovery
+  pluginGetHealth:          () => ipcRenderer.invoke('plugin-get-health'),
+  pluginGetInstanceHealth:  (instanceId: string) => ipcRenderer.invoke('plugin-get-instance-health', instanceId),
+  pluginHotReload:          (instanceId: string) => ipcRenderer.invoke('plugin-hot-reload', instanceId),
+  pluginSaveState:          (instanceId: string, pluginPath: string, format: string, parameters: Record<string, number>, trackId?: string) =>
+    ipcRenderer.invoke('plugin-save-state', instanceId, pluginPath, format, parameters, trackId),
+  pluginGetRecoveredId:     (oldInstanceId: string) => ipcRenderer.invoke('plugin-get-recovered-id', oldInstanceId),
+  pluginScanClearCache:     () => ipcRenderer.invoke('plugin-scan-clear-cache'),
+  pluginScanCleanupCache:   () => ipcRenderer.invoke('plugin-scan-cleanup-cache'),
+  pluginScanCacheStats:     () => ipcRenderer.invoke('plugin-scan-cache-stats'),
+  onPluginRecovered:        (cb: (info: unknown) => void) => ipcRenderer.on('plugin-recovered', (_e, i) => cb(i)),
+  onPluginRecoveryFailed:   (cb: (info: unknown) => void) => ipcRenderer.on('plugin-recovery-failed', (_e, i) => cb(i)),
+  onPluginRecoveryAbandoned:(cb: (info: unknown) => void) => ipcRenderer.on('plugin-recovery-abandoned', (_e, i) => cb(i)),
+  onPluginResourceWarning:  (cb: (info: unknown) => void) => ipcRenderer.on('plugin-resource-warning', (_e, i) => cb(i)),
   // Events from main
   onNav:                    (cb: (view: string) => void) => ipcRenderer.on('nav', (_e, v) => cb(v)),
   onOpenSettings:           (cb: () => void) => ipcRenderer.on('open-settings', cb),
