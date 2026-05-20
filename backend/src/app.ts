@@ -45,6 +45,9 @@ import pluginsRouter from './routes/plugins';
 
 const app = express();
 
+// Disable Express's default "X-Powered-By: Express" header — information disclosure.
+app.disable('x-powered-by');
+
 // ── Middleware ───────────────────────────────────────────────
 app.use(requestId);
 app.use(securityHeaders);
