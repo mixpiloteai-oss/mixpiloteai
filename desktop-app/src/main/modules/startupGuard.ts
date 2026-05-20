@@ -10,9 +10,21 @@ const GUARD_FILE = () => path.join(app.getPath('userData'), 'startup-guard.json'
 const STABLE_AFTER_MS = 30_000
 const MAX_CRASH_STARTS = 3
 
-interface GuardData { count: number; lastAt: number }
+interface GuardData { count: number; lastAt: number; afterUpdate?: boolean }
 
-export function initStartupGuard(): void {
+export function markUpdatePending(): void {
+  const file = GUARD_FILE()
+  try {
+    let data: GuardData = { count: 0, lastAt: 0 }
+    if (fs.existsSync(file)) {
+      data = JSON.parse(fs.readFileSync(file, 'utf8')) as GuardData
+    }
+    data.afterUpdate = true
+    fs.writeFileSync(file, JSON.stringify(data), 'utf8')
+  } catch { /* ignore */ }
+}
+
+export function initStartupGuard(onRollback?: () => void): void {
   const file = GUARD_FILE()
   let data: GuardData = { count: 0, lastAt: 0 }
 
@@ -28,12 +40,17 @@ export function initStartupGuard(): void {
 
   if (data.count >= MAX_CRASH_STARTS) {
     // Show recovery dialog before the main window appears
+    const isAfterUpdate = data.afterUpdate === true
+    const baseButtons = ['Reset Settings', 'Reinstall', 'Continue Anyway']
+    const buttons = isAfterUpdate ? [...baseButtons, 'Rollback Update'] : baseButtons
     const choice = dialog.showMessageBoxSync({
       type: 'warning',
       title: 'Neurotek Studio -- Recovery',
-      message: `Neurotek Studio crashed ${data.count} times during startup.`,
+      message: isAfterUpdate
+        ? `Neurotek Studio crashed ${data.count} times during startup after a recent update.`
+        : `Neurotek Studio crashed ${data.count} times during startup.`,
       detail: 'Would you like to reset settings to defaults, or open the downloads page to reinstall?',
-      buttons: ['Reset Settings', 'Reinstall', 'Continue Anyway'],
+      buttons,
       defaultId: 0,
       cancelId: 2,
     })
@@ -49,6 +66,9 @@ export function initStartupGuard(): void {
     } else if (choice === 1) {
       shell.openExternal('https://mixpiloteai.com/download')
       app.quit()
+      return
+    } else if (choice === 3 && isAfterUpdate && onRollback) {
+      onRollback()
       return
     }
     // Reset counter after showing dialog
