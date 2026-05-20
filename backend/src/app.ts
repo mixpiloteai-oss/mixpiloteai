@@ -43,6 +43,9 @@ import paymentsRouter from './routes/payments';
 import adminRouter from './routes/admin';
 import pluginsRouter from './routes/plugins'
 import updatesRouter from './routes/updates';
+import errorsRouter  from './routes/errors';
+import metricsRouter from './routes/metrics';
+import { requestMetrics, getMetricsSummary } from './middleware/requestMetrics';
 
 const app = express();
 
@@ -107,6 +110,7 @@ app.use(cacheHeaders);
 
 app.use(trackResponse);
 app.use(generalRateLimiter);
+app.use(requestMetrics);
 
 // ── Routes ───────────────────────────────────────────────────
 app.use('/api/auth', blockSuspicious, authRouter);
@@ -129,9 +133,21 @@ app.use('/api/payments',    paymentsRouter);
 app.use('/api/admin',       adminRouter);
 app.use('/api/plugins',     pluginsRouter);
 app.use('/api/updates',     updatesRouter);
+app.use('/api/errors',      errorsRouter);
+app.use('/api/metrics',     metricsRouter);
 
 app.get('/health', (_req, res) => {
   res.status(200).json({ ok: true });
+});
+
+app.get('/health/detailed', (_req, res) => {
+  const summary = getMetricsSummary();
+  res.status(200).json({
+    ok:      true,
+    version: process.env['npm_package_version'] ?? '0.2.0',
+    env:     process.env.NODE_ENV ?? 'development',
+    ...summary,
+  });
 });
 
 app.use(errorHandler);
