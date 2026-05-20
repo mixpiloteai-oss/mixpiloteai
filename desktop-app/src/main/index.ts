@@ -13,7 +13,9 @@ import { registerPluginIPC }         from './modules/pluginIPC'
 import { logCrash, registerCrashIPC } from './modules/errorReporter'
 import { initStartupGuard } from './modules/startupGuard'
 import { registerVersionManagerIPC, performRollback } from './modules/versionManager'
-import { startProductionMonitor } from './modules/productionMonitor'
+import { startProductionMonitor, stopProductionMonitor } from './modules/productionMonitor'
+import { registerStabilityIPC } from './modules/stability'
+import { initCrashRecovery } from './modules/crashRecovery'
 
 // ── Global crash safety net ───────────────────────────────────────────────────
 // Plugins run in forked child processes (see modules/pluginHost.ts), so most
@@ -165,8 +167,9 @@ ipcMain.handle('save-file-dialog', async (_e, opts) => {
 })
 
 // ── App lifecycle ─────────────────────────────────────────────
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   initStartupGuard(() => { performRollback() })
+  await initCrashRecovery()
 
   electronApp.setAppUserModelId('ai.neurotek.studio')
 
@@ -190,6 +193,9 @@ app.whenReady().then(() => {
   // Persistent crash log (accessible from renderer via preload `crash` API)
   registerCrashIPC(ipcMain)
 
+  // Stability monitoring and auto-recovery
+  registerStabilityIPC(ipcMain, () => mainWindow)
+
   // Native audio engine IPC + process management
   registerAudioIPCHandlers(ipcMain, () => mainWindow)
   getAudioEngineProcess().start().catch(e => console.warn('[main] audio engine start failed:', e))
@@ -209,3 +215,20 @@ app.on('window-all-closed', () => {
 
 powerMonitor.on('suspend', () => mainWindow?.webContents.send('power-event', 'suspend'))
 powerMonitor.on('resume',  () => mainWindow?.webContents.send('power-event', 'resume'))
+
+// ── Graceful shutdown ─────────────────────────────────────────────────────
+app.on('before-quit', () => {
+  console.log('[main] before-quit: cleaning up')
+  stopProductionMonitor()
+  getAudioEngineProcess().stop()
+})
+
+process.on('SIGINT', () => {
+  console.log('[main] SIGINT received: shutting down gracefully')
+  app.quit()
+})
+
+process.on('SIGTERM', () => {
+  console.log('[main] SIGTERM received: shutting down gracefully')
+  app.quit()
+})

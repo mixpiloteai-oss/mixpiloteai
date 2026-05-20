@@ -50,7 +50,10 @@ export class AudioEngineProcess extends EventEmitter {
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   async start(driver = 'default', device = '', sampleRate = 44100, bufferSize = 512): Promise<void> {
-    if (this._proc) return
+    if (this._proc) {
+      console.warn('[AudioEngineProcess] start called but process already running')
+      return
+    }
 
     const binaryPath = this._findBinary()
     if (!binaryPath) {
@@ -69,40 +72,88 @@ export class AudioEngineProcess extends EventEmitter {
 
     console.log(`[AudioEngineProcess] spawning: ${binaryPath} ${args.join(' ')}`)
 
-    this._proc = spawn(binaryPath, args, {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env:   { ...process.env, RUST_LOG: 'info' },
-    })
-
-    this._proc.on('exit',  (code, sig) => this._onExit(code, sig))
-    this._proc.on('error', (err)       => this._onError(err))
-
-    if (this._proc.stderr) {
-      this._proc.stderr.on('data', (d: Buffer) => {
-        const line = d.toString().trim()
-        if (line) console.log(`[audio-engine] ${line}`)
+    try {
+      this._proc = spawn(binaryPath, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env:   { ...process.env, RUST_LOG: 'info' },
       })
-    }
 
-    if (this._proc.stdout) {
-      const rl = createInterface({ input: this._proc.stdout, crlfDelay: Infinity })
-      rl.on('line', (line) => this._handleLine(line.trim()))
+      // Timeout guard: if process doesn't send 'ready' within 10s, consider it dead
+      const readyTimeout = setTimeout(() => {
+        if (!this._ready && this._proc) {
+          console.error('[AudioEngineProcess] ready timeout — killing stalled process')
+          this._proc.kill('SIGKILL')
+          this._proc = null
+          this._ready = false
+        }
+      }, 10_000)
+
+      this._proc.on('exit',  (code, sig) => {
+        clearTimeout(readyTimeout)
+        this._onExit(code, sig)
+      })
+      this._proc.on('error', (err) => {
+        clearTimeout(readyTimeout)
+        this._onError(err)
+      })
+
+      if (this._proc.stderr) {
+        this._proc.stderr.on('data', (d: Buffer) => {
+          const line = d.toString().trim()
+          if (line) console.log(`[audio-engine] ${line}`)
+        })
+      }
+
+      if (this._proc.stdout) {
+        const rl = createInterface({ input: this._proc.stdout, crlfDelay: Infinity })
+        rl.on('line', (line) => this._handleLine(line.trim()))
+      }
+    } catch (err) {
+      console.error('[AudioEngineProcess] spawn error:', err)
+      this._proc = null
+      this._ready = false
+      throw err
     }
   }
 
   stop(): void {
-    if (!this._proc) return
-    this.send({ cmd: 'shutdown' })
-    setTimeout(() => {
-      if (this._proc) { this._proc.kill('SIGTERM'); this._proc = null }
-    }, 1000)
+    if (!this._proc) {
+      this._ready = false
+      return
+    }
+
     this._ready = false
+
+    try {
+      this.send({ cmd: 'shutdown' })
+    } catch { /* already dead */ }
+
+    // Forcefully kill if not exited within timeout
+    const killTimeout = setTimeout(() => {
+      if (this._proc) {
+        console.warn('[AudioEngineProcess] kill timeout, forcing SIGKILL')
+        try { this._proc.kill('SIGKILL') } catch { /* already dead */ }
+        this._proc = null
+      }
+    }, 2_000)
+
+    // Cleanup on exit
+    this._proc?.once('exit', () => {
+      clearTimeout(killTimeout)
+      this._proc = null
+    })
   }
 
   // ── Command sending ───────────────────────────────────────────────────────
 
   send(cmd: EngineCommand): void {
-    if (!this._ready) { this._cmdQueue.push(cmd); return }
+    if (!this._ready) {
+      // Buffer commands only if we expect to be ready soon
+      if (this._restarts < this._maxRestarts) {
+        this._cmdQueue.push(cmd)
+      }
+      return
+    }
     this._write(cmd)
   }
 
@@ -140,50 +191,79 @@ export class AudioEngineProcess extends EventEmitter {
   // ── Internal ──────────────────────────────────────────────────────────────
 
   private _write(cmd: EngineCommand): void {
-    if (!this._proc?.stdin?.writable) return
+    if (!this._proc?.stdin?.writable) {
+      console.warn('[AudioEngineProcess] stdin not writable, dropping command:', cmd.cmd)
+      return
+    }
     try {
-      this._proc.stdin.write(JSON.stringify(cmd) + '\n')
+      const json = JSON.stringify(cmd)
+      this._proc.stdin.write(json + '\n')
     } catch (err) {
-      console.error('[AudioEngineProcess] write error:', err)
+      console.error('[AudioEngineProcess] write failed:', err, 'cmd:', cmd.cmd)
+      // Don't crash on write errors — process may be dying
     }
   }
 
   private _handleLine(line: string): void {
-    if (!line || line[0] !== '{') return
+    if (!line || !line.startsWith('{')) return
+
     try {
       const evt = JSON.parse(line) as EngineEvent
+      if (!evt.event) return
+
       if (evt.event === 'ready') {
         this._ready = true
+        this._restarts = 0  // Reset restart counter on successful startup
         // Flush buffered commands
-        for (const cmd of this._cmdQueue) this._write(cmd)
+        const cmds = this._cmdQueue.slice()
         this._cmdQueue = []
+        for (const cmd of cmds) {
+          try {
+            this._write(cmd)
+          } catch (e) {
+            console.error('[AudioEngineProcess] failed to flush queued command:', e)
+          }
+        }
         this.emit('ready')
       }
+
       this.emit('event', evt)
       this.emit(evt.event, evt)  // named event for direct subscription
     } catch (err) {
-      console.warn('[AudioEngineProcess] parse error:', err, line)
+      console.warn('[AudioEngineProcess] parse error:', err instanceof Error ? err.message : String(err))
+      // Malformed line, but don't crash — continue parsing
     }
   }
 
   private _onExit(code: number | null, signal: string | null): void {
+    if (this._proc?.pid) {
+      console.log(`[AudioEngineProcess] exited — pid=${this._proc.pid} code=${code} signal=${signal}`)
+    } else {
+      console.log(`[AudioEngineProcess] exited — code=${code} signal=${signal}`)
+    }
+
     this._proc  = null
     this._ready = false
-    console.warn(`[AudioEngineProcess] exited — code=${code} signal=${signal}`)
     this.emit('exit', { code, signal })
 
-    // Auto-restart unless shutdown intentionally
-    if (code !== 0 && this._restarts < this._maxRestarts) {
+    // Auto-restart unless shutdown intentionally (code 0) or max retries exceeded
+    if (code !== 0 && code !== null && this._restarts < this._maxRestarts) {
       this._restarts++
-      const delay = Math.min(1000 * this._restarts, 10000)
-      console.log(`[AudioEngineProcess] restarting in ${delay}ms (attempt ${this._restarts})`)
-      setTimeout(() => this.start(), delay)
+      const delay = Math.min(1000 * Math.pow(1.5, this._restarts - 1), 10_000)
+      console.log(`[AudioEngineProcess] restarting in ${Math.round(delay)}ms (attempt ${this._restarts}/${this._maxRestarts})`)
+      setTimeout(() => {
+        this.start().catch(e => console.error('[AudioEngineProcess] restart failed:', e))
+      }, delay)
+    } else if (this._restarts >= this._maxRestarts) {
+      console.error(`[AudioEngineProcess] max restart attempts (${this._maxRestarts}) exceeded`)
+      this.emit('max-restarts-exceeded')
     }
   }
 
   private _onError(err: Error): void {
-    console.error('[AudioEngineProcess] spawn error:', err)
+    console.error('[AudioEngineProcess] spawn error:', err.message)
     this.emit('error', err)
+    // Don't auto-restart on spawn error — caller should handle
   }
 
   private _findBinary(): string | null {

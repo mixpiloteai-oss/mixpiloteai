@@ -3,12 +3,38 @@
  *
  * Renderer → IPC → AudioIPCHandler → AudioEngineProcess → native engine
  * native engine → AudioEngineProcess → IPC push → renderer window
+ *
+ * All handlers include error reporting and graceful degradation.
  */
 
 import type { IpcMain, BrowserWindow } from 'electron'
 import { getAudioEngineProcess }        from './AudioEngineProcess'
 import { DriverDetector }               from './DriverDetector'
+import { logCrash }                     from '../modules/errorReporter'
 import type { EngineEvent }             from './AudioEngineProcess'
+
+// ── Helper: wrap handlers with error logging ────────────────────────────────
+
+function safeHandle<T extends any[], R>(
+  ipc: typeof ipcMain,
+  channel: string,
+  fn: (...args: T) => Promise<R> | R,
+): void {
+  ipc.handle(channel, async (e, ...args) => {
+    try {
+      return await fn(...(args as T))
+    } catch (err) {
+      console.error(`[audio-ipc] ${channel} error:`, err)
+      await logCrash({
+        source: 'audio',
+        message: `IPC handler ${channel} failed: ${(err as Error).message}`,
+        stack: (err as Error).stack,
+        meta: { kind: 'audio-ipc-error', channel },
+      }).catch(() => { /* ignore */ })
+      throw err
+    }
+  })
+}
 
 export function registerAudioIPCHandlers(ipcMain: IpcMain, getWindow: () => BrowserWindow | null): void {
   const proc     = getAudioEngineProcess()
@@ -17,131 +43,141 @@ export function registerAudioIPCHandlers(ipcMain: IpcMain, getWindow: () => Brow
   // ── Forward native engine events to renderer ─────────────────────────────
 
   proc.on('event', (evt: EngineEvent) => {
-    const win = getWindow()
-    if (!win) return
-    win.webContents.send('native-audio-event', evt)
+    try {
+      const win = getWindow()
+      if (!win || win.isDestroyed()) return
+      win.webContents.send('native-audio-event', evt)
+    } catch (err) {
+      console.warn('[audio-ipc] failed to send event:', err)
+    }
   })
 
-  proc.on('exit', ({ code, signal }: { code: number | null; signal: string | null }) => {
-    const win = getWindow()
-    win?.webContents.send('native-audio-event', {
-      event: 'engine_exit', code, signal,
-    })
+  proc.on('exit', ({ code, signal }) => {
+    try {
+      const win = getWindow()
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('native-audio-event', {
+          event: 'engine_exit', code, signal,
+        })
+      }
+    } catch { /* already dead */ }
+  })
+
+  proc.on('error', (err: Error) => {
+    console.error('[audio-ipc] engine error:', err.message)
+    logCrash({
+      source: 'audio',
+      message: `Engine error: ${err.message}`,
+      stack: err.stack,
+      meta: { kind: 'audio-engine-error' },
+    }).catch(() => { /* ignore */ })
   })
 
   // ── Driver / device detection ─────────────────────────────────────────────
 
-  ipcMain.handle('audio-detect-drivers', async () => {
-    return detector.detectDrivers()
-  })
-
-  ipcMain.handle('audio-detect-devices', async () => {
-    return detector.detectDevices()
-  })
-
-  ipcMain.handle('audio-preferred-driver', () => {
-    return detector.getPreferredDriver()
-  })
+  safeHandle(ipcMain, 'audio-detect-drivers', async () => detector.detectDrivers())
+  safeHandle(ipcMain, 'audio-detect-devices', async () => detector.detectDevices())
+  safeHandle(ipcMain, 'audio-preferred-driver', () => detector.getPreferredDriver())
 
   // ── Engine lifecycle ──────────────────────────────────────────────────────
 
-  ipcMain.handle('audio-engine-start', async (_e, opts: {
+  safeHandle(ipcMain, 'audio-engine-start', async (opts: {
     driver?: string; device?: string; sampleRate?: number; bufferSize?: number
   } = {}) => {
     await proc.start(opts.driver, opts.device, opts.sampleRate, opts.bufferSize)
     return { ok: true }
   })
 
-  ipcMain.handle('audio-engine-stop', () => {
+  safeHandle(ipcMain, 'audio-engine-stop', () => {
     proc.stop()
     return { ok: true }
   })
 
-  ipcMain.handle('audio-engine-ready', () => proc.ready)
+  safeHandle(ipcMain, 'audio-engine-ready', () => proc.ready)
 
   // ── Transport ─────────────────────────────────────────────────────────────
 
-  ipcMain.handle('audio-play',  () => { proc.play();  return true })
-  ipcMain.handle('audio-stop',  () => { proc.stopPlayback();  return true })
-  ipcMain.handle('audio-pause', () => { proc.pause(); return true })
+  safeHandle(ipcMain, 'audio-play', () => { proc.play(); return true })
+  safeHandle(ipcMain, 'audio-stop', () => { proc.stopPlayback(); return true })
+  safeHandle(ipcMain, 'audio-pause', () => { proc.pause(); return true })
 
-  ipcMain.handle('audio-seek', (_e, bar: number, beat = 1) => {
+  safeHandle(ipcMain, 'audio-seek', (bar: number, beat = 1) => {
     proc.seek(bar, beat); return true
   })
 
-  ipcMain.handle('audio-set-bpm', (_e, bpm: number) => {
+  safeHandle(ipcMain, 'audio-set-bpm', (bpm: number) => {
     proc.setBpm(bpm); return true
   })
 
-  ipcMain.handle('audio-set-time-sig', (_e, numerator: number, denominator: number) => {
+  safeHandle(ipcMain, 'audio-set-time-sig', (numerator: number, denominator: number) => {
     proc.setTimeSig(numerator, denominator); return true
   })
 
-  ipcMain.handle('audio-set-loop', (_e, enabled: boolean, startBar: number, endBar: number) => {
+  safeHandle(ipcMain, 'audio-set-loop', (enabled: boolean, startBar: number, endBar: number) => {
     proc.setLoop(enabled, startBar, endBar); return true
   })
 
-  ipcMain.handle('audio-get-state', () => {
+  safeHandle(ipcMain, 'audio-get-state', () => {
     proc.getState(); return true
   })
 
   // ── Master ────────────────────────────────────────────────────────────────
 
-  ipcMain.handle('audio-set-master-gain', (_e, db: number) => {
+  safeHandle(ipcMain, 'audio-set-master-gain', (db: number) => {
     proc.setMasterGain(db); return true
   })
 
   // ── Tracks ────────────────────────────────────────────────────────────────
 
-  ipcMain.handle('audio-add-track', (_e, id: string, type: string, name: string, color?: string) => {
+  safeHandle(ipcMain, 'audio-add-track', (id: string, type: string, name: string, color?: string) => {
     proc.addTrack(id, type, name, color); return true
   })
 
-  ipcMain.handle('audio-remove-track', (_e, id: string) => {
+  safeHandle(ipcMain, 'audio-remove-track', (id: string) => {
     proc.removeTrack(id); return true
   })
 
-  ipcMain.handle('audio-set-track-gain', (_e, id: string, db: number) => {
+  safeHandle(ipcMain, 'audio-set-track-gain', (id: string, db: number) => {
     proc.setTrackGain(id, db); return true
   })
 
-  ipcMain.handle('audio-set-track-pan', (_e, id: string, pan: number) => {
+  safeHandle(ipcMain, 'audio-set-track-pan', (id: string, pan: number) => {
     proc.setTrackPan(id, pan); return true
   })
 
-  ipcMain.handle('audio-mute-track', (_e, id: string, muted: boolean) => {
+  safeHandle(ipcMain, 'audio-mute-track', (id: string, muted: boolean) => {
     proc.muteTrack(id, muted); return true
   })
 
-  ipcMain.handle('audio-solo-track', (_e, id: string, soloed: boolean) => {
+  safeHandle(ipcMain, 'audio-solo-track', (id: string, soloed: boolean) => {
     proc.soloTrack(id, soloed); return true
   })
 
-  ipcMain.handle('audio-arm-track', (_e, id: string, armed: boolean) => {
+  safeHandle(ipcMain, 'audio-arm-track', (id: string, armed: boolean) => {
     proc.armTrack(id, armed); return true
   })
 
   // ── Routing / sends ───────────────────────────────────────────────────────
 
-  ipcMain.handle('audio-add-send', (_e, fromId: string, toId: string, gainDb: number, preFader: boolean) => {
+  safeHandle(ipcMain, 'audio-add-send', (fromId: string, toId: string, gainDb: number, preFader: boolean) => {
     proc.addSend(fromId, toId, gainDb, preFader); return true
   })
 
   // ── Driver settings ───────────────────────────────────────────────────────
 
-  ipcMain.handle('audio-set-driver', (_e, driver: string, device: string) => {
+  safeHandle(ipcMain, 'audio-set-driver', (driver: string, device: string) => {
     proc.setDriver(driver, device); return true
   })
 
-  ipcMain.handle('audio-set-buffer-size', (_e, frames: number) => {
+  safeHandle(ipcMain, 'audio-set-buffer-size', (frames: number) => {
     proc.setBufferSize(frames); return true
   })
 
-  ipcMain.handle('audio-set-sample-rate', (_e, rate: number) => {
+  safeHandle(ipcMain, 'audio-set-sample-rate', (rate: number) => {
     proc.setSampleRate(rate); return true
   })
 
-  ipcMain.handle('audio-query-devices', () => {
+  safeHandle(ipcMain, 'audio-query-devices', () => {
     proc.queryDevices(); return true
   })
 }
