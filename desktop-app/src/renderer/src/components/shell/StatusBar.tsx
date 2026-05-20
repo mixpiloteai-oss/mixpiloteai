@@ -2,11 +2,19 @@ import { useEffect, useState } from 'react'
 import { useTransportStore }       from '../../store/transportStore'
 import { useSaveStore }            from '../../store/saveStore'
 import { useDesktopNetworkStore }  from '../../store/networkStore'
+import { usePerformanceModeStore, type PerformanceMode } from '../../store/performanceModeStore'
+
+const PERF_MODE_ORDER: PerformanceMode[] = ['quality', 'balanced', 'studio', 'low-config']
+const PERF_MODE_COLORS: Record<PerformanceMode, string> = {
+  quality: '#10b981', balanced: '#7c3aed', studio: '#f59e0b', 'low-config': '#06b6d4',
+}
 
 export default function StatusBar() {
   const { positionBar, positionBeat, bpm } = useTransportStore()
   const { status, historyOpen, toggleHistory } = useSaveStore()
   const { isOnline, aiAvailable } = useDesktopNetworkStore()
+  const perfMode = usePerformanceModeStore(s => s.mode)
+  const setPerfMode = usePerformanceModeStore(s => s.setMode)
   const [cpu, setCpu] = useState(0)
   const [mem, setMem] = useState(0)
   const [xruns]       = useState(0)
@@ -107,6 +115,29 @@ export default function StatusBar() {
         }}
       >
         History
+      </button>
+
+      <Divider />
+
+      {/* Performance mode indicator — click to cycle, Ctrl+Shift+M also cycles */}
+      <button
+        onClick={() => {
+          const idx = PERF_MODE_ORDER.indexOf(perfMode)
+          setPerfMode(PERF_MODE_ORDER[(idx + 1) % PERF_MODE_ORDER.length])
+        }}
+        title={`Performance mode: ${perfMode}. Click or press Ctrl+Shift+M to cycle.`}
+        style={{
+          padding:      '1px 5px',
+          borderRadius: 3,
+          background:   `${PERF_MODE_COLORS[perfMode]}15`,
+          border:       `1px solid ${PERF_MODE_COLORS[perfMode]}35`,
+          color:        PERF_MODE_COLORS[perfMode],
+          fontSize:     9,
+          cursor:       'pointer',
+          fontFamily:   'inherit',
+        }}
+      >
+        {perfMode}
       </button>
 
       <Divider />

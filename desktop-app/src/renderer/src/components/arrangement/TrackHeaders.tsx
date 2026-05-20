@@ -203,16 +203,20 @@ interface Props {
 }
 
 export default function TrackHeaders({ scrollY, rulerHeight }: Props) {
-  const { project, selectedTrackId, selectTrack, toggleMute, toggleSolo, toggleArm, setTrackHeight, addTrack } =
-    useProjectStore()
+  const tracks          = useProjectStore(s => s.project.tracks)
+  const selectedTrackId = useProjectStore(s => s.selectedTrackId)
+  const selectTrack     = useProjectStore(s => s.selectTrack)
+  const toggleMute      = useProjectStore(s => s.toggleMute)
+  const toggleSolo      = useProjectStore(s => s.toggleSolo)
+  const toggleArm       = useProjectStore(s => s.toggleArm)
+  const setTrackHeight  = useProjectStore(s => s.setTrackHeight)
+  const addTrack        = useProjectStore(s => s.addTrack)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Sync vertical scroll
   useEffect(() => {
     if (containerRef.current) containerRef.current.scrollTop = scrollY
   }, [scrollY])
-
-  const { tracks } = project
 
   return (
     <div style={{

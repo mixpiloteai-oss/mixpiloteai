@@ -62,24 +62,29 @@ function StripDivider({ label }: { label: string }) {
 // ─── Main MixerView ───────────────────────────────────────────────────────────
 
 export default function MixerView() {
-  const { project }                                     = useProjectStore()
-  const { buses, masterLimiter, monitoring, spectrumOpen, setMasterLimiter, setMonitoring, toggleSpectrum } =
-    useMixerStore()
+  const tracks          = useProjectStore(s => s.project.tracks)
+  const buses           = useMixerStore(s => s.buses)
+  const masterLimiter   = useMixerStore(s => s.masterLimiter)
+  const monitoring      = useMixerStore(s => s.monitoring)
+  const spectrumOpen    = useMixerStore(s => s.spectrumOpen)
+  const setMasterLimiter = useMixerStore(s => s.setMasterLimiter)
+  const setMonitoring   = useMixerStore(s => s.setMonitoring)
+  const toggleSpectrum  = useMixerStore(s => s.toggleSpectrum)
 
   // Build level functions once per track (stable across re-renders)
-  const trackIdKey = project.tracks.map(t => t.id).join(',')
-  const busIdKey   = buses.map(b => b.id).join(',')
+  const trackIdKey = tracks.map((t: { id: string }) => t.id).join(',')
+  const busIdKey   = buses.map((b: { id: string }) => b.id).join(',')
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const trackLevelFns = useMemo(() => Object.fromEntries(project.tracks.map(t => [t.id, makeTrackLevelFn(t)])), [trackIdKey])
+  const trackLevelFns = useMemo(() => Object.fromEntries(tracks.map(t => [t.id, makeTrackLevelFn(t)])), [trackIdKey])
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const busLevelFns   = useMemo(() => Object.fromEntries(buses.map(b => [b.id, makeBusLevelFn(b)])),           [busIdKey])
 
   // Spectrum data — use stable string deps instead of object references to avoid spurious recomputes
-  const trackIdColorKey = project.tracks.map(t => `${t.id}:${t.color}`).join(',')
-  const busIdColorKey   = buses.map(b => `${b.id}:${b.color}:${b.type}`).join(',')
+  const trackIdColorKey = tracks.map((t: { id: string; color: string }) => `${t.id}:${t.color}`).join(',')
+  const busIdColorKey   = buses.map((b: { id: string; color: string; type: string }) => `${b.id}:${b.color}:${b.type}`).join(',')
   const spectrumTracks = useMemo<TrackSpectrum[]>(() => [
-    ...project.tracks.map(t => ({
+    ...tracks.map(t => ({
       trackId:  t.id,
       type:     t.type as TrackSpectrum['type'],
       color:    t.color,
@@ -137,7 +142,7 @@ export default function MixerView() {
         <div style={{ flex: 1 }} />
 
         <span style={{ fontSize: 9, color: '#1c1c2e', fontFamily: 'monospace' }}>
-          {project.tracks.length} ch · {groupBuses.length} grp · {fxBuses.length} fx
+          {tracks.length} ch · {groupBuses.length} grp · {fxBuses.length} fx
         </span>
       </div>
 
@@ -165,7 +170,7 @@ export default function MixerView() {
         }}>
 
           {/* Track channels */}
-          {project.tracks.map((track, i) => (
+          {tracks.map((track, i) => (
             <TrackChannelStrip
               key={track.id}
               track={track}

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { apiPost } from './lib/apiClient'
+import './styles/performance.css'
+import { usePerfMode } from './store/performanceModeStore'
 import TitleBar from './components/shell/TitleBar'
 import Sidebar from './components/shell/Sidebar'
 import StatusBar from './components/shell/StatusBar'
@@ -295,6 +297,12 @@ applyBootMode()
 
 export default function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
+  const perfMode = usePerfMode()
+
+  // Sync performance mode to DOM so performance.css selectors take effect
+  useEffect(() => {
+    document.body.dataset.perfMode = perfMode
+  }, [perfMode])
 
   // Drive transport position display via rAF (must run at root level)
   useTransportSync()

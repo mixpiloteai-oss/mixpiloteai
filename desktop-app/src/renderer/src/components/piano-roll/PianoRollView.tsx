@@ -53,23 +53,23 @@ function Separator() {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function PianoRollView() {
-  const {
-    snap,     setSnap,
-    zoomX,    zoomY,
-    setZoom,
-    totalBeats,
-    timeSigTop,
-    notes,
-    duplicateSelected,
-    deleteSelected,
-    selectAll,
-    deselectAll,
-    scaleEnabled,
-    aiPanelOpen,
-    scalePanelOpen,
-    toggleAIPanel,
-    toggleScalePanel,
-  } = usePianoRollStore()
+  const snap             = usePianoRollStore(s => s.snap)
+  const setSnap          = usePianoRollStore(s => s.setSnap)
+  const zoomX            = usePianoRollStore(s => s.zoomX)
+  const zoomY            = usePianoRollStore(s => s.zoomY)
+  const setZoom          = usePianoRollStore(s => s.setZoom)
+  const totalBeats       = usePianoRollStore(s => s.totalBeats)
+  const timeSigTop       = usePianoRollStore(s => s.timeSigTop)
+  const notes            = usePianoRollStore(s => s.notes)
+  const duplicateSelected = usePianoRollStore(s => s.duplicateSelected)
+  const deleteSelected   = usePianoRollStore(s => s.deleteSelected)
+  const selectAll        = usePianoRollStore(s => s.selectAll)
+  const deselectAll      = usePianoRollStore(s => s.deselectAll)
+  const scaleEnabled     = usePianoRollStore(s => s.scaleEnabled)
+  const aiPanelOpen      = usePianoRollStore(s => s.aiPanelOpen)
+  const scalePanelOpen   = usePianoRollStore(s => s.scalePanelOpen)
+  const toggleAIPanel    = usePianoRollStore(s => s.toggleAIPanel)
+  const toggleScalePanel = usePianoRollStore(s => s.toggleScalePanel)
 
   const zoomXIdx  = ZOOM_STEPS.findIndex(z => Math.abs(z - zoomX / 64) < 0.01)
   const zoomXNorm = zoomXIdx >= 0 ? zoomXIdx : 2
