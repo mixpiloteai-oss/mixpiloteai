@@ -6,6 +6,7 @@ import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
 import { checkQuota } from '../middleware/quota';
 import { aiRateLimiter } from '../middleware/rateLimiter';
 import { callClaude, getDemoResponse, isConfigured, type AIRequest } from '../services/aiGateway';
+import { logger } from '../utils/logger';
 import { incrementUsage, getTodayUsage, getDailyLimit, type Plan } from '../data/mockDB';
 
 const router = Router();
@@ -34,7 +35,7 @@ async function executeAI(req: AuthenticatedRequest, res: Response, aiReq: AIRequ
     });
   } catch (err) {
     const error = err as Error;
-    console.error('[AI Gateway]', error.message);
+    logger.error('[AI Gateway]', { message: error.message });
     res.status(500).json({ success: false, error: 'AI service error', message: error.message });
   }
 }

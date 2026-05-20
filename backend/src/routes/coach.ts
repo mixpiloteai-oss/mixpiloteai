@@ -6,6 +6,7 @@ import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
 import { checkQuota } from '../middleware/quota';
 import { antiAbuse } from '../middleware/antiAbuse';
 import { buildCoachPrompt, type Genre, type CoachSession } from '../prompts/coachPrompts';
+import { logger } from '../utils/logger';
 import { selectModel } from '../services/costOptimizer';
 import { incrementUsage } from '../data/mockDB';
 import { PLANS } from '../data/plans';
@@ -84,7 +85,7 @@ router.post(
         },
       });
     } catch (err: unknown) {
-      console.error('[Coach] Claude API error:', err);
+      logger.error('[Coach] Claude API error', { error: err instanceof Error ? err.message : String(err) });
       res.status(503).json({ success: false, error: 'AI service temporarily unavailable' });
     }
   },

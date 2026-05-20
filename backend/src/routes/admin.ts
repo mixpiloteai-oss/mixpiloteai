@@ -58,6 +58,7 @@ import {
   getStorageInfo,
 } from '../services/monitoringService';
 import { getCoupon } from '../services/couponService';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -163,7 +164,7 @@ router.post('/auth/login', async (req: Request, res: Response): Promise<void> =>
       },
     });
   } catch (err) {
-    console.error('[admin/auth/login]', err);
+    logger.error('[admin/auth/login]', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({ success: false, error: 'Internal error' });
   }
 });

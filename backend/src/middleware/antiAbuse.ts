@@ -77,7 +77,7 @@ export function antiAbuse(req: Request, res: Response, next: NextFunction): void
     if (current.count > ABUSE_THRESHOLD) {
       current.blocked = true;
       current.firstSeen = now;
-      console.warn(`[AntiAbuse] Blocking ${key} — ${current.count} requests/min`);
+      logger.warn('[AntiAbuse] Blocking IP — abuse threshold exceeded', { ip: key, count: current.count });
       res.status(429).json({
         success: false,
         error: 'Rate limit exceeded. Your IP has been temporarily blocked.',
