@@ -113,12 +113,15 @@ export default function AdminShell() {
   // Re-check auth on mount and when localStorage changes (other tabs logging out)
   useEffect(() => {
     const recheck = () => {
-      if (!isAdminAuthed()) setAuthed(false)
+      if (!isAdminAuthed()) {
+        setAuthed(false)
+        navigate('/login')
+      }
     }
     recheck()
     window.addEventListener('storage', recheck)
     return () => window.removeEventListener('storage', recheck)
-  }, [])
+  }, [navigate])
 
   // Clickjacking defense: refuse to render inside an iframe
   const isFramed = typeof window !== 'undefined' && window.self !== window.top
