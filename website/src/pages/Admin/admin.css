@@ -1,23 +1,59 @@
 /* ============================================================
+   NEUROTEK AI — Admin Design Tokens
+   Brand-aligned with design-tokens.css canonical values
+   ============================================================ */
+:root {
+  /* brand colors — canonical values from design-tokens.css */
+  --nt-purple-600: #7c3aed;
+  --nt-purple-500: #8b5cf6;
+  --nt-violet:     #a855f7;
+  --nt-purple-400: #b87efa;
+  --nt-purple-300: #c4b5fd;
+  --nt-cyan-500:   #06b6d4;
+  --nt-cyan-400:   #22d3ee;
+  --nt-cyan-300:   #67e8f9;
+  --nt-bg-void:    #000000;
+  --nt-bg-base:    #04040a;
+  --nt-bg-app:     #08080f;
+  --nt-bg-surface: #0d0d1a;
+  --nt-bg-raised:  #101020;
+  --nt-bg-overlay: #16162a;
+  --nt-border:     #1e1e3a;
+  --nt-border-hi:  #2d2d50;
+  --nt-text:       #e2e8f0;
+  --nt-text-muted: #94a3b8;
+  --nt-text-dim:   #64748b;
+  --nt-glow-purple: 0 0 20px rgba(124, 58, 237, 0.4), 0 0 40px rgba(124, 58, 237, 0.2);
+  --nt-glow-cyan:   0 0 20px rgba(6, 182, 212, 0.4), 0 0 40px rgba(6, 182, 212, 0.2);
+  --nt-glow-purple-sm: 0 0 8px rgba(124, 58, 237, 0.5);
+  --nt-gradient:   linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #06b6d4 100%);
+  --nt-gradient-h: linear-gradient(90deg,  #7c3aed 0%, #a855f7 50%, #06b6d4 100%);
+  --nt-green:      #10b981;
+  --nt-amber:      #f59e0b;
+  --nt-red:        #ef4444;
+  --nt-blue:       #3b82f6;
+}
+
+/* ============================================================
    NeuroTek AI — Admin Panel CSS
    Ultra-dark, neon, futuristic design system
    ============================================================ */
 
 /* Admin CSS Variables */
 :root {
-  --admin-bg: #030308;
-  --admin-surface: #08080f;
-  --admin-card: #0c0c18;
-  --admin-border: #1a1a2e;
-  --admin-border-glow: rgba(139, 92, 246, 0.25);
-  --admin-purple: #8b5cf6;
-  --admin-cyan: #22d3ee;
-  --admin-green: #10b981;
-  --admin-red: #ef4444;
-  --admin-orange: #f59e0b;
-  --admin-text: #f1f5f9;
-  --admin-muted: #475569;
-  --admin-dim: #1e293b;
+  --admin-bg:           var(--nt-bg-app);
+  --admin-surface:      var(--nt-bg-surface);
+  --admin-card:         var(--nt-bg-surface);
+  --admin-border:       var(--nt-border);
+  --admin-border-glow:  rgba(124, 58, 237, 0.25);
+  --admin-purple:       var(--nt-purple-500);
+  --admin-cyan:         var(--nt-cyan-500);
+  --admin-green:        var(--nt-green);
+  --admin-red:          var(--nt-red);
+  --admin-orange:       var(--nt-amber);
+  --admin-text:         var(--nt-text);
+  --admin-muted:        var(--nt-text-dim);
+  --admin-dim:          #1e293b;
 }
 
 /* ============================================================
@@ -191,7 +227,7 @@
 }
 
 .admin-card-glow {
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.08);
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.08);
 }
 
 .admin-card-body {
@@ -223,6 +259,11 @@
   padding: 20px;
   position: relative;
   overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+
+.admin-stat-card:hover {
+  box-shadow: var(--nt-glow-purple-sm);
 }
 
 .admin-stat-value {
@@ -482,17 +523,17 @@
 }
 
 .dot-green {
-  background: #10b981;
+  background: var(--nt-green);
   box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
 }
 
 .dot-red {
-  background: #ef4444;
+  background: var(--nt-red);
   box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
 }
 
 .dot-orange {
-  background: #f59e0b;
+  background: var(--nt-amber);
   box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
 }
 
@@ -506,7 +547,7 @@
 
 .admin-progress-track {
   height: 6px;
-  background: #1a1a2e;
+  background: var(--nt-border);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -750,6 +791,11 @@
 
 .admin-service-card {
   padding: 16px;
+  transition: box-shadow 0.2s;
+}
+
+.admin-service-card:hover {
+  box-shadow: var(--nt-glow-purple-sm);
 }
 
 .admin-service-name {
@@ -931,7 +977,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #10b981;
+  background: var(--nt-green);
   animation: dotPulse 2s infinite;
   display: inline-block;
   margin-right: 6px;
@@ -949,6 +995,43 @@
   transition: all 0.15s;
 }
 .admin-refresh-btn:hover {
-  border-color: #8b5cf6;
-  color: #8b5cf6;
+  border-color: var(--nt-purple-500);
+  color: var(--nt-purple-500);
+}
+
+/* ---- Neurotek AI admin utilities ---- */
+.admin-gradient-text {
+  background: var(--nt-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.admin-status-ok    { color: var(--nt-green); }
+.admin-status-warn  { color: var(--nt-amber); }
+.admin-status-error { color: var(--nt-red);   }
+.admin-status-info  { color: var(--nt-cyan-400); }
+
+.admin-badge-purple {
+  background: rgba(124, 58, 237, 0.15);
+  color: var(--nt-purple-300);
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.admin-badge-cyan {
+  background: rgba(6, 182, 212, 0.15);
+  color: var(--nt-cyan-300);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
