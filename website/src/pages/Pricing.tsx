@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import './Pricing.css'
 
@@ -14,6 +14,18 @@ interface PlanDef {
   features: string[]
   notIncluded: string[]
   cta: string
+}
+
+interface ApiPlan {
+  id: string
+  name: string
+  priceMonthly: number
+  priceYearly: number
+  dailyAIRequests: number
+  maxProjects: number
+  features: string[]
+  trialDays: number
+  active: boolean
 }
 
 const PLANS: PlanDef[] = [
@@ -106,6 +118,47 @@ const COUPON_CODES: Record<string, string> = {
   WELCOME: '$5 off your first payment',
 }
 
+// Map API plan to PlanDef for rendering (preserves existing card UI)
+function apiPlanToPlanDef(ap: ApiPlan): PlanDef {
+  const PLAN_COLORS: Record<string, string> = {
+    free: '#475569', pro: '#7c3aed', studio: '#06b6d4', label: '#f59e0b',
+  }
+  const PLAN_BADGES: Record<string, string | null> = {
+    free: null, pro: 'Most Popular', studio: 'Best Value', label: 'For Labels & Studios',
+  }
+  const PLAN_POPULAR: Record<string, boolean> = {
+    free: false, pro: true, studio: false, label: false,
+  }
+  const PLAN_DESC: Record<string, string> = {
+    free: 'Explore AI music production at zero cost.',
+    pro: 'Everything you need for serious production.',
+    studio: 'The full professional suite for power users.',
+    label: 'Built for professional studios and record labels.',
+  }
+  const PLAN_NOTINCLUDED: Record<string, string[]> = {
+    free: ['Marketplace access', 'Plugin hosting', 'Cloud sync', 'Commercial license'],
+    pro: ['VST plugin hosting', 'Team collaboration', 'API access'],
+    studio: ['Unlimited AI (no cap)', 'White-label exports', 'Full team (10+)'],
+    label: [],
+  }
+  const PLAN_CTA: Record<string, string> = {
+    free: 'Download Free', pro: 'Start Pro', studio: 'Start Studio', label: 'Contact Sales',
+  }
+  return {
+    id: ap.id,
+    name: ap.name,
+    monthlyPrice: ap.priceMonthly,
+    annualPrice: ap.priceYearly,
+    badge: PLAN_BADGES[ap.id] ?? null,
+    popular: PLAN_POPULAR[ap.id] ?? false,
+    color: PLAN_COLORS[ap.id] ?? '#475569',
+    description: PLAN_DESC[ap.id] ?? '',
+    features: ap.features,
+    notIncluded: PLAN_NOTINCLUDED[ap.id] ?? [],
+    cta: PLAN_CTA[ap.id] ?? 'Get Started',
+  }
+}
+
 function Pricing() {
   const navigate = useNavigate()
   const [annual, setAnnual] = useState(false)
@@ -113,6 +166,23 @@ function Pricing() {
   const [couponCode, setCouponCode] = useState('')
   const [couponStatus, setCouponStatus] = useState<CouponStatus>('idle')
   const [couponMessage, setCouponMessage] = useState('')
+  const [apiPlans, setApiPlans] = useState<ApiPlan[]>([])
+  const [, setPlansLoading] = useState(true)
+
+  useEffect(() => {
+    import('../lib/api').then(({ apiGet }) =>
+      (apiGet as (path: string) => Promise<{ success: boolean; data: ApiPlan[] }>)(
+        '/api/subscriptions/plans'
+      )
+        .then(res => { if (res.data) setApiPlans(res.data) })
+        .catch(() => {})
+        .finally(() => setPlansLoading(false))
+    )
+  }, [])
+
+  const displayPlans: PlanDef[] = apiPlans.length > 0
+    ? apiPlans.filter(ap => ap.active).map(apiPlanToPlanDef)
+    : PLANS
 
   const getPrice = (plan: PlanDef): number =>
     annual ? plan.annualPrice : plan.monthlyPrice
@@ -179,7 +249,7 @@ function Pricing() {
       <section className="section-sm">
         <div className="container">
           <div className="pricing-grid">
-            {PLANS.map((plan) => {
+            {displayPlans.map((plan) => {
               const price = getPrice(plan)
               const monthlyFull = plan.monthlyPrice
               const isPopular = plan.popular
@@ -291,7 +361,7 @@ function Pricing() {
               <thead>
                 <tr>
                   <th className="comparison-feature-col">Feature</th>
-                  {PLANS.map(p => (
+                  {displayPlans.map(p => (
                     <th key={p.id} className={p.popular ? 'comparison-plan-col comparison-plan-popular' : 'comparison-plan-col'}>
                       {p.name}
                     </th>
