@@ -187,7 +187,7 @@ router.post('/stripe/intent', async (req: Request, res: Response): Promise<void>
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
-    logger.error('[payments] stripe/intent', err);
+    logger.error('[payments] stripe/intent', { error: err instanceof Error ? err.message : String(err) });
     recordPaymentFailure(userId);
     log({ userId, event: 'payment_failed', amountCents, currency, paymentMethod: 'stripe', planId, ipAddress: ip, success: false, errorMessage: msg });
     res.status(500).json({ success: false, error: 'Payment processing failed' });
@@ -233,7 +233,7 @@ router.post('/stripe/confirm', async (req: Request, res: Response): Promise<void
     res.json({ success: true, invoiceId: invoice.id, status: intent.status });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
-    logger.error('[payments] stripe/confirm', err);
+    logger.error('[payments] stripe/confirm', { error: err instanceof Error ? err.message : String(err) });
     recordPaymentFailure(userId);
     log({ userId, event: 'payment_failed', paymentMethod: 'stripe', stripeIntentId: paymentIntentId, success: false, errorMessage: msg });
     res.status(500).json({ success: false, error: 'Payment processing failed' });

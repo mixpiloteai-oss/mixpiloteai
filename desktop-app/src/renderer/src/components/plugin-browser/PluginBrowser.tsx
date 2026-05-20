@@ -181,6 +181,7 @@ export default function PluginBrowser() {
       setPlugins(plugins.map(p => p.path === info.pluginPath ? { ...p, isBlacklisted: info.blacklisted, crashCount: info.crashCount } : p))
     })
     window.electronAPI?.pluginGetBlacklist().then(b => setBlacklist(b)).catch(() => {})
+    return () => { window.electronAPI?.removeAllListeners?.('plugin-crashed') }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -198,7 +199,7 @@ export default function PluginBrowser() {
     try {
       const inst = await window.electronAPI?.pluginLoad(plugin.path, plugin.format)
       if (inst) addInstance({ ...inst, pluginId: plugin.id, loadedAt: Date.now() })
-    } catch (e) { console.error('[PluginBrowser] load failed', e) }
+    } catch { /* silenced in production */ }
     finally { setLoading(false) }
   }
 
