@@ -2,6 +2,7 @@
 // NEUROTEK AI — Anti-Abuse Detection Middleware
 // ============================================================
 import { Request, Response, NextFunction } from 'express';
+import { logger } from '../utils/logger';
 
 interface AbuseRecord {
   count: number;
@@ -63,7 +64,7 @@ export function antiAbuse(req: Request, res: Response, next: NextFunction): void
   }
 
   if (isKnownAbusivePattern(req.body)) {
-    console.warn(`[AntiAbuse] Prompt injection attempt from ${key}`);
+    logger.warn('[AntiAbuse] Prompt injection attempt', { ip: key });
     res.status(400).json({ success: false, error: 'Invalid request content', code: 'INVALID_CONTENT' });
     return;
   }
