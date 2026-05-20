@@ -36,6 +36,7 @@ import {
   captureOrder as ppCaptureOrder,
   createSubscription as ppCreateSub,
   cancelSubscription as ppCancelSub,
+  refundCapture as ppRefundCapture,
   verifyWebhookEvent,
 } from '../services/paypalService';
 
@@ -497,6 +498,17 @@ router.post('/stripe/webhook', asyncHandler(async (req: Request, res: Response) 
 // PAYPAL ROUTES
 // ══════════════════════════════════════════════════════════════
 
+// Map PayPal plan IDs to internal plan names
+function resolvePlanIdFromPayPal(paypalPlanId: string): string {
+  const env = process.env
+  const map: Record<string, string> = {
+    [env['PAYPAL_PLAN_PRO_MONTHLY']     ?? 'P-pro-monthly']:    'pro',
+    [env['PAYPAL_PLAN_STUDIO_MONTHLY']  ?? 'P-studio-monthly']: 'studio',
+    [env['PAYPAL_PLAN_LABEL_MONTHLY']   ?? 'P-label-monthly']:  'label',
+  }
+  return map[paypalPlanId] ?? 'pro'
+}
+
 // POST /paypal/create-order
 router.post('/paypal/create-order', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const userId = req.user!.id;
@@ -585,16 +597,186 @@ router.post('/paypal/capture', requireAuth, async (req: AuthenticatedRequest, re
 });
 
 // POST /paypal/webhook
-router.post('/paypal/webhook', async (req: Request, res: Response): Promise<void> => {
-  const headers: Record<string, string> = {};
-  for (const [k, v] of Object.entries(req.headers)) {
-    if (typeof v === 'string') headers[k] = v;
+router.post('/paypal/webhook', asyncHandler(async (req: Request, res: Response) => {
+  // Verify signature
+  const headerMap = {
+    'paypal-auth-algo':         req.headers['paypal-auth-algo'] as string ?? '',
+    'paypal-cert-url':          req.headers['paypal-cert-url'] as string ?? '',
+    'paypal-transmission-id':   req.headers['paypal-transmission-id'] as string ?? '',
+    'paypal-transmission-sig':  req.headers['paypal-transmission-sig'] as string ?? '',
+    'paypal-transmission-time': req.headers['paypal-transmission-time'] as string ?? '',
+  }
+  const rawBody = req.body instanceof Buffer ? req.body.toString('utf8') : JSON.stringify(req.body)
+
+  const valid = await verifyWebhookEvent(headerMap, rawBody)
+  if (!valid) {
+    logger.warn('[paypal-webhook] invalid signature')
+    // Still return 200 to avoid PayPal retries on signature issues
+    res.json({ received: true })
+    return
   }
 
-  const rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : JSON.stringify(req.body);
-  await verifyWebhookEvent(headers, rawBody);
-  res.json({ received: true });
-});
+  // Parse event
+  let event: { event_type: string; resource: Record<string, unknown>; id: string }
+  try {
+    event = JSON.parse(rawBody) as typeof event
+  } catch {
+    res.status(400).json({ error: 'Invalid JSON' })
+    return
+  }
+
+  const { event_type, resource } = event
+  const eventId = event.id ?? 'unknown'
+
+  logger.info(`[paypal-webhook] event: ${event_type} id: ${eventId}`)
+
+  try {
+    if (event_type === 'PAYMENT.CAPTURE.COMPLETED') {
+      // One-time purchase completed
+      const captureId = resource['id'] as string
+      const orderId   = (resource['supplementary_data'] as Record<string, unknown>)?.['related_ids']
+        ? ((resource['supplementary_data'] as Record<string,unknown>)['related_ids'] as Record<string,string>)?.['order_id']
+        : undefined
+      const amount    = (resource['amount'] as { value?: string })?.value
+      const userId    = (resource['custom_id'] as string | undefined)
+                      ?? (resource['note_to_payer'] as string | undefined)
+
+      if (userId) {
+        await logPaymentEvent({
+          user_id: userId,
+          event_type: 'paypal_capture_completed',
+          amount_cents: amount ? Math.round(parseFloat(amount) * 100) : undefined,
+          currency: (resource['amount'] as { currency_code?: string })?.currency_code?.toLowerCase() ?? 'usd',
+          payment_method: 'paypal',
+          stripe_session_id: orderId,  // reusing field for PayPal order ID
+          success: true,
+          metadata: { captureId, eventId },
+        })
+      }
+
+    } else if (event_type === 'PAYMENT.CAPTURE.DENIED' || event_type === 'PAYMENT.CAPTURE.DECLINED') {
+      const userId = (resource['custom_id'] as string | undefined)
+      if (userId) {
+        await logPaymentEvent({
+          user_id: userId,
+          event_type: 'paypal_capture_failed',
+          payment_method: 'paypal',
+          success: false,
+          error_message: event_type,
+          metadata: { eventId },
+        })
+      }
+
+    } else if (event_type === 'BILLING.SUBSCRIPTION.ACTIVATED') {
+      // Recurring subscription activated after user approval
+      const subId  = resource['id'] as string
+      const planId = (resource['plan_id'] as string | undefined) ?? ''
+      const userId = (resource['custom_id'] as string | undefined)
+                   ?? ((resource['subscriber'] as Record<string,unknown>)?.['email_address'] as string | undefined)
+      const nextBilling = resource['billing_info']
+        ? ((resource['billing_info'] as Record<string,unknown>)?.['next_billing_time'] as string | undefined)
+        : undefined
+      const periodEnd = nextBilling ? Math.floor(new Date(nextBilling).getTime() / 1000) : Math.floor(Date.now() / 1000) + 30 * 86400
+
+      if (userId) {
+        await syncSubscriptionToDb({
+          user_id: userId,
+          paypal_subscription_id: subId,
+          plan_id: resolvePlanIdFromPayPal(planId),
+          status: 'active',
+          current_period_start: Math.floor(Date.now() / 1000),
+          current_period_end:   periodEnd,
+          payment_method: 'paypal',
+        })
+        await logPaymentEvent({
+          user_id: userId,
+          event_type: 'paypal_subscription_activated',
+          payment_method: 'paypal',
+          plan_id: planId,
+          success: true,
+          metadata: { subId, eventId },
+        })
+      }
+
+    } else if (event_type === 'BILLING.SUBSCRIPTION.CANCELLED' || event_type === 'BILLING.SUBSCRIPTION.EXPIRED') {
+      const subId  = resource['id'] as string
+      const userId = (resource['custom_id'] as string | undefined)
+
+      if (userId) {
+        await syncSubscriptionToDb({
+          user_id: userId,
+          paypal_subscription_id: subId,
+          plan_id: 'free',
+          status: 'canceled',
+          payment_method: 'paypal',
+        })
+        await logPaymentEvent({
+          user_id: userId,
+          event_type: 'paypal_subscription_canceled',
+          payment_method: 'paypal',
+          success: true,
+          metadata: { subId, eventId },
+        })
+      }
+
+    } else if (event_type === 'BILLING.SUBSCRIPTION.PAYMENT.FAILED') {
+      const subId  = resource['id'] as string
+      const userId = (resource['custom_id'] as string | undefined)
+
+      if (userId) {
+        await syncSubscriptionToDb({
+          user_id: userId,
+          paypal_subscription_id: subId,
+          plan_id: 'unknown',
+          status: 'past_due',
+          payment_method: 'paypal',
+        })
+        await logPaymentEvent({
+          user_id: userId,
+          event_type: 'paypal_payment_failed',
+          payment_method: 'paypal',
+          success: false,
+          metadata: { subId, eventId },
+        })
+      }
+
+    } else if (event_type === 'BILLING.SUBSCRIPTION.RENEWED') {
+      const subId  = resource['id'] as string
+      const userId = (resource['custom_id'] as string | undefined)
+      const nextBilling = resource['billing_info']
+        ? ((resource['billing_info'] as Record<string,unknown>)?.['next_billing_time'] as string | undefined)
+        : undefined
+      const periodEnd = nextBilling
+        ? Math.floor(new Date(nextBilling).getTime() / 1000)
+        : Math.floor(Date.now() / 1000) + 30 * 86400
+
+      if (userId) {
+        await syncSubscriptionToDb({
+          user_id: userId,
+          paypal_subscription_id: subId,
+          plan_id: 'active',
+          status: 'active',
+          current_period_end: periodEnd,
+          payment_method: 'paypal',
+        })
+        await logPaymentEvent({
+          user_id: userId,
+          event_type: 'paypal_subscription_renewed',
+          payment_method: 'paypal',
+          success: true,
+          metadata: { subId, eventId },
+        })
+      }
+    }
+    // Other events (e.g. BILLING.SUBSCRIPTION.CREATED) are informational — no action needed
+
+  } catch (err) {
+    logger.error('[paypal-webhook] processing error', err instanceof Error ? err.message : String(err))
+    // Do NOT return 500 — PayPal would retry. Return 200 and log the error.
+  }
+
+  res.json({ received: true })
+}))
 
 // ══════════════════════════════════════════════════════════════
 // SUBSCRIPTION ROUTES

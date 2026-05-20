@@ -8,6 +8,8 @@ export interface SubscriptionRecord {
   user_id: string
   stripe_customer_id?: string
   stripe_subscription_id?: string
+  paypal_subscription_id?: string    // ADD THIS
+  paypal_order_id?: string           // ADD THIS (for one-time captures)
   plan_id: string
   status: 'active' | 'canceled' | 'past_due' | 'trialing' | 'incomplete'
   current_period_start?: number
