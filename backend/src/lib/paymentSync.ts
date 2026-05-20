@@ -52,5 +52,5 @@ export async function logPaymentEvent(event: {
   await (supabase.from('payment_events').insert({
     ...event,
     created_at: new Date().toISOString(),
-  }) as any).catch((e: Error) => logger.error('[paymentSync] log failed:', e.message))
+  }) as any).catch((e: Error) => logger.error('[paymentSync] log failed:', { message: e.message }))
 }

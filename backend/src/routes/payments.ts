@@ -114,6 +114,131 @@ const userSubscriptions = new Map<string, SubRecord>();
 // STRIPE ROUTES
 // ══════════════════════════════════════════════════════════════
 
+// POST /stripe/session — create Stripe Hosted Checkout session
+router.post('/stripe/session', requireAuth, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user!.id;
+  const userEmail = req.user!.email;
+
+  const {
+    type = 'plan',
+    planId,
+    pkg,
+    productId,
+    productName,
+    amountCents,
+    annual = false,
+    currency = 'usd',
+    couponCode,
+    successUrl,
+    cancelUrl,
+  } = req.body as {
+    type?: string;
+    planId?: string;
+    pkg?: string;
+    productId?: string;
+    productName?: string;
+    amountCents?: number;
+    annual?: boolean;
+    currency?: string;
+    couponCode?: string;
+    successUrl?: string;
+    cancelUrl?: string;
+  };
+
+  let mode: 'payment' | 'subscription' = 'payment';
+  let priceId: string | undefined;
+  let customAmount: number | undefined;
+  let description = 'Neurotek AI';
+  let metaPlanId = '';
+
+  if (type === 'plan' && planId) {
+    mode = 'subscription';
+    const priceKey = `${planId}_${annual ? 'annual' : 'monthly'}` as keyof typeof STRIPE_PRICES;
+    priceId = STRIPE_PRICES[priceKey] ?? STRIPE_PRICES.pro_monthly;
+    metaPlanId = planId;
+    description = `Neurotek AI ${planId.charAt(0).toUpperCase() + planId.slice(1)} ${annual ? 'Annual' : 'Monthly'}`;
+  } else if (type === 'credits' && pkg) {
+    const packs: Record<string, { credits: number; amountCents: number }> = {
+      '100':  { credits: 100,  amountCents: 499  },
+      '500':  { credits: 500,  amountCents: 1999 },
+      '2000': { credits: 2000, amountCents: 6999 },
+    };
+    const pack = packs[pkg];
+    if (!pack) {
+      res.status(400).json({ error: 'Invalid credit package' });
+      return;
+    }
+    customAmount = pack.amountCents;
+    description = `${pack.credits} AI Credits`;
+    metaPlanId = `credits_${pkg}`;
+  } else if (type === 'marketplace' && amountCents) {
+    customAmount = amountCents;
+    description = productName ?? 'Marketplace Item';
+    metaPlanId = `marketplace_${productId ?? 'item'}`;
+  } else {
+    res.status(400).json({ error: 'Invalid payment parameters' });
+    return;
+  }
+
+  const baseUrl = process.env.FRONTEND_URL ?? 'https://app.neurotek.ai';
+  const session = await createCheckoutSession({
+    userId,
+    customerEmail: userEmail,
+    mode,
+    lineItems: [{
+      priceId,
+      amount: customAmount,
+      currency,
+      name: description,
+      quantity: 1,
+    }],
+    successUrl: successUrl ?? `${baseUrl}/checkout?success=1&session_id={CHECKOUT_SESSION_ID}&type=${type}`,
+    cancelUrl:  cancelUrl  ?? `${baseUrl}/checkout?canceled=1&type=${type}`,
+    metadata: {
+      userId,
+      type,
+      planId: metaPlanId,
+    },
+    couponId: couponCode,
+  });
+
+  await logPaymentEvent({
+    user_id: userId,
+    event_type: 'checkout_session_created',
+    payment_method: 'stripe',
+    plan_id: metaPlanId,
+    stripe_session_id: session.id,
+    success: true,
+  });
+
+  res.json({ success: true, url: session.url, sessionId: session.id });
+}));
+
+// GET /stripe/session/:id — retrieve session status (for success page)
+router.get('/stripe/session/:id', requireAuth, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user!.id;
+  const sessionId = req.params['id'];
+  if (!sessionId) {
+    res.status(400).json({ error: 'Session ID required' });
+    return;
+  }
+
+  const session = await retrieveCheckoutSession(sessionId);
+
+  if (session.metadata?.userId && session.metadata.userId !== userId) {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+
+  res.json({
+    success: true,
+    status: session.status,
+    paymentStatus: session.payment_status,
+    planId: session.metadata?.planId,
+    type: session.metadata?.type,
+  });
+}));
+
 // POST /stripe/intent
 router.post('/stripe/intent', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const userId = req.user!.id;
@@ -241,7 +366,7 @@ router.post('/stripe/confirm', requireAuth, async (req: AuthenticatedRequest, re
 });
 
 // POST /stripe/webhook (raw body — registered in index.ts before JSON parser)
-router.post('/stripe/webhook', (req: Request, res: Response): void => {
+router.post('/stripe/webhook', asyncHandler(async (req: Request, res: Response) => {
   const signature = req.headers['stripe-signature'];
   const secret = process.env.STRIPE_WEBHOOK_SECRET ?? '';
 
@@ -268,34 +393,105 @@ router.post('/stripe/webhook', (req: Request, res: Response): void => {
     return;
   }
 
-  const obj = event.data.object;
+  const eventType = event.type as string;
+  const eventData = event.data?.object as Record<string, unknown>;
 
-  switch (event.type) {
-    case 'payment_intent.succeeded': {
-      const userId = (obj['metadata'] as Record<string, string>)?.['userId'] ?? 'unknown';
-      const intentId = obj['id'] as string;
-      const amount = obj['amount'] as number;
-      log({ userId, event: 'payment_succeeded', amountCents: amount, currency: obj['currency'] as string, paymentMethod: 'stripe', stripeIntentId: intentId, success: true });
-      // Find invoice by payment intent and mark paid
-      break;
+  if (eventType === 'checkout.session.completed') {
+    const sessionObj = eventData;
+    const userId = (sessionObj['metadata'] as Record<string, string>)?.['userId'];
+    const planId  = (sessionObj['metadata'] as Record<string, string>)?.['planId'] ?? '';
+    const sessionStatus = sessionObj['payment_status'] as string;
+    const subId   = sessionObj['subscription'] as string | undefined;
+    const amountTotal = sessionObj['amount_total'] as number | undefined;
+
+    if (userId && sessionStatus === 'paid') {
+      await syncSubscriptionToDb({
+        user_id: userId,
+        stripe_subscription_id: subId,
+        plan_id: planId.split('_')[0] ?? 'pro',
+        status: 'active',
+        current_period_start: Math.floor(Date.now() / 1000),
+        current_period_end:   Math.floor(Date.now() / 1000) + 30 * 86400,
+        payment_method: 'stripe',
+      });
+
+      await logPaymentEvent({
+        user_id: userId,
+        event_type: 'checkout_completed',
+        amount_cents: amountTotal,
+        currency: (sessionObj['currency'] as string) ?? 'usd',
+        payment_method: 'stripe',
+        plan_id: planId,
+        stripe_session_id: sessionObj['id'] as string,
+        success: true,
+      });
     }
-    case 'customer.subscription.deleted': {
-      const customerId = obj['customer'] as string;
+  } else if (eventType === 'payment_intent.succeeded') {
+    const obj = eventData;
+    const userId = (obj['metadata'] as Record<string, string>)?.['userId'] ?? 'unknown';
+    const intentId = obj['id'] as string;
+    const amount = obj['amount'] as number;
+    log({ userId, event: 'payment_succeeded', amountCents: amount, currency: obj['currency'] as string, paymentMethod: 'stripe', stripeIntentId: intentId, success: true });
+  } else if (eventType === 'customer.subscription.deleted') {
+    const subObj = eventData;
+    const userId = (subObj['metadata'] as Record<string, string>)?.['userId'];
+    if (userId) {
+      await syncSubscriptionToDb({
+        user_id: userId,
+        stripe_subscription_id: subObj['id'] as string,
+        plan_id: 'free',
+        status: 'canceled',
+        payment_method: 'stripe',
+      });
+      await logPaymentEvent({ user_id: userId, event_type: 'subscription_canceled', payment_method: 'stripe', success: true });
+    } else {
+      const customerId = subObj['customer'] as string;
       log({ userId: customerId, event: 'subscription_cancelled', paymentMethod: 'stripe', success: true });
-      break;
     }
-    case 'invoice.payment_succeeded': {
-      const customerId = obj['customer'] as string;
-      const amount = obj['amount_paid'] as number;
+  } else if (eventType === 'invoice.payment_succeeded') {
+    const invObj = eventData;
+    const userId = (invObj['subscription_details'] as Record<string, unknown>)?.['metadata']
+      ? ((invObj['subscription_details'] as Record<string, unknown>)['metadata'] as Record<string, string>)?.['userId']
+      : undefined;
+    if (userId) {
+      const periodEnd = invObj['lines']
+        ? ((invObj['lines'] as { data: Array<{ period: { end: number } }> }).data[0]?.period?.end)
+        : undefined;
+      await syncSubscriptionToDb({
+        user_id: userId,
+        plan_id: 'pro',
+        status: 'active',
+        current_period_end: periodEnd,
+        payment_method: 'stripe',
+      });
+      await logPaymentEvent({
+        user_id: userId,
+        event_type: 'subscription_renewed',
+        amount_cents: invObj['amount_paid'] as number,
+        payment_method: 'stripe',
+        success: true,
+      });
+    } else {
+      const customerId = invObj['customer'] as string;
+      const amount = invObj['amount_paid'] as number;
       log({ userId: customerId, event: 'subscription_renewed', amountCents: amount, paymentMethod: 'stripe', success: true });
-      break;
     }
-    default:
-      break;
+  } else if (eventType === 'invoice.payment_failed') {
+    const invObj = eventData;
+    const userId = (invObj['metadata'] as Record<string, string>)?.['userId'];
+    if (userId) {
+      await syncSubscriptionToDb({
+        user_id: userId,
+        plan_id: 'unknown',
+        status: 'past_due',
+        payment_method: 'stripe',
+      });
+      await logPaymentEvent({ user_id: userId, event_type: 'payment_failed', payment_method: 'stripe', success: false });
+    }
   }
 
   res.json({ received: true });
-});
+}));
 
 // ══════════════════════════════════════════════════════════════
 // PAYPAL ROUTES
@@ -508,17 +704,34 @@ router.post('/subscribe', requireAuth, async (req: AuthenticatedRequest, res: Re
 });
 
 // GET /subscription
-router.get('/subscription', requireAuth, (req: AuthenticatedRequest, res: Response): void => {
+router.get('/subscription', requireAuth, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user!.id;
-  const sub = userSubscriptions.get(userId);
 
-  if (!sub) {
-    res.json({ success: true, data: { plan: 'free', status: 'active', renewsAt: null, cancelAt: null } });
+  // Try Supabase first, fall back to in-memory
+  const dbSub = await getSubscriptionFromDb(userId);
+  if (dbSub) {
+    res.json({
+      success: true,
+      data: {
+        planId: dbSub.plan_id,
+        status: dbSub.status,
+        renewsAt: dbSub.current_period_end,
+        cancelAtPeriodEnd: dbSub.cancel_at_period_end ?? false,
+        paymentMethod: dbSub.payment_method,
+        stripeSubscriptionId: dbSub.stripe_subscription_id,
+      }
+    });
     return;
   }
 
+  // Fallback to in-memory
+  const sub = userSubscriptions.get(userId);
+  if (!sub) {
+    res.json({ success: true, data: null });
+    return;
+  }
   res.json({ success: true, data: sub });
-});
+}));
 
 // POST /cancel
 router.post('/cancel', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
