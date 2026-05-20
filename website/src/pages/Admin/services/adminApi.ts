@@ -4,6 +4,29 @@ const REFRESH_KEY = 'admin-refresh'
 const LAST_ACTIVITY_KEY = 'admin-last-activity'
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes
 
+/** Decode JWT exp claim without external libraries. Returns null on failure. */
+function decodeJwtExp(token: string): number | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length < 2) return null
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const padded = b64 + '==='.slice((b64.length + 3) % 4)
+    const payload = JSON.parse(atob(padded)) as { exp?: number }
+    return typeof payload.exp === 'number' && Number.isFinite(payload.exp) ? payload.exp : null
+  } catch {
+    return null
+  }
+}
+
+/** Returns true when the JWT access token is present and not expired. */
+function isAdminJwtValid(): boolean {
+  const token = localStorage.getItem(TOKEN_KEY)
+  if (!token) return false
+  const exp = decodeJwtExp(token)
+  if (exp === null) return true // opaque/non-expiring token — trust it
+  return Math.floor(Date.now() / 1000) < exp
+}
+
 function redirectToAdminGate() {
   if (typeof window !== 'undefined') {
     window.location.hash = '#/admin'
@@ -127,7 +150,10 @@ export async function adminLogout() {
 }
 
 export function isAdminAuthed(): boolean {
-  return !!adminToken.get() || !!localStorage.getItem('admin-key')
+  // JWT path: token must exist and not be expired
+  if (isAdminJwtValid()) return true
+  // Dev key fallback (no expiry concept for simple string keys)
+  return !!localStorage.getItem('admin-key')
 }
 
 // ── Stats ──────────────────────────────────────────────────────

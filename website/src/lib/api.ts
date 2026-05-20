@@ -40,6 +40,31 @@ function storeTokenWithExp(t: string) {
   }
 }
 
+/** Returns true if the stored access token is expired (or missing/malformed). */
+export function isTokenExpired(): boolean {
+  const raw = localStorage.getItem(EXP_KEY)
+  if (!raw) {
+    // No stored exp — treat token as expired if one exists but has no exp metadata
+    return !!localStorage.getItem(TOKEN_KEY)
+  }
+  const exp = parseInt(raw, 10)
+  if (!Number.isFinite(exp)) return true
+  return Math.floor(Date.now() / 1000) >= exp
+}
+
+/**
+ * Preemptive expiry purge: call on app mount to clear a stale token before
+ * any API request is made. Prevents a brief window where an expired token
+ * is sent to the server before the 401 refresh cycle kicks in.
+ */
+export function purgeExpiredToken(): void {
+  if (isTokenExpired()) {
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(REFRESH_KEY)
+    localStorage.removeItem(EXP_KEY)
+  }
+}
+
 export const authTokens = {
   get:        () => localStorage.getItem(TOKEN_KEY),
   getRefresh: () => localStorage.getItem(REFRESH_KEY),

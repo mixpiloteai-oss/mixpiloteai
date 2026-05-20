@@ -53,6 +53,12 @@ export default function UpdateBanner() {
       setState('error')
       setVisible(true)
     })
+    return () => {
+      window.electronAPI?.removeAllListeners?.('update-available')
+      window.electronAPI?.removeAllListeners?.('update-progress')
+      window.electronAPI?.removeAllListeners?.('update-downloaded')
+      window.electronAPI?.removeAllListeners?.('update-error')
+    }
   }, [])
 
   if (!visible || state === 'idle') return null
