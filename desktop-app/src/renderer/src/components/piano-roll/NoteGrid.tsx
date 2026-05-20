@@ -166,6 +166,9 @@ export default function NoteGrid({ ghostNotes = [] }: NoteGridProps) {
   const storeRef      = useRef(usePianoRollStore.getState())
   const ghostRef      = useRef(ghostNotes)
   ghostRef.current    = ghostNotes
+  // Memoized sorted notes for glide line calculations — only rebuilt when notes array reference changes
+  const sortedNotesRef     = useRef<typeof storeRef.current.notes>([])
+  const sortedNotesInputRef = useRef<typeof storeRef.current.notes | null>(null)
 
   // Subscribe store → storeRef (no re-render, just ref update)
   useEffect(() => {
@@ -248,8 +251,12 @@ export default function NoteGrid({ ghostNotes = [] }: NoteGridProps) {
       }
 
       // ── Glide lines (portamento connectors) ──────────────────────────
-      // Sort notes by startBeat to find consecutive glide connections
-      const sortedNotes = [...notes].sort((a, b) => a.startBeat - b.startBeat)
+      // Cache sorted notes — only re-sort when the notes array reference changes
+      if (sortedNotesInputRef.current !== notes) {
+        sortedNotesInputRef.current = notes
+        sortedNotesRef.current = [...notes].sort((a, b) => a.startBeat - b.startBeat)
+      }
+      const sortedNotes = sortedNotesRef.current
       for (let i = 0; i < sortedNotes.length - 1; i++) {
         const n = sortedNotes[i]!
         if (!n.glide) continue
@@ -273,6 +280,13 @@ export default function NoteGrid({ ghostNotes = [] }: NoteGridProps) {
 
       // ── Notes with optional move overlay ────────────────────────────
       for (const note of notes) {
+        // Note out of viewport — skip
+        const noteX = note.startBeat * zoomX - scrollX
+        const noteW = note.lengthBeats * zoomX
+        const noteY = (127 - note.pitch) * zoomY - scrollY
+        const noteH = zoomY
+        if (noteX + noteW < -1 || noteX > W + 1 || noteY + noteH < -1 || noteY > H + 1) continue
+
         let display = note
         if (d.type === 'move' && d.noteIds.includes(note.id)) {
           const op = d.origPos.get(note.id)!

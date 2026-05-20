@@ -78,6 +78,26 @@ function clipSeed(clipId: string): number {
   return s || 1
 }
 
+// ─── Viewport culling helpers ──────────────────────────────────────────────────
+
+function isClipVisible(
+  clipStartPx: number,
+  clipEndPx: number,
+  scrollLeft: number,
+  viewportWidth: number
+): boolean {
+  return clipEndPx > scrollLeft && clipStartPx < scrollLeft + viewportWidth
+}
+
+function isTrackVisible(
+  trackTopPx: number,
+  trackHeightPx: number,
+  scrollTop: number,
+  viewportHeight: number
+): boolean {
+  return trackTopPx + trackHeightPx > scrollTop && trackTopPx < scrollTop + viewportHeight
+}
+
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 export default function ArrangementCanvas({ headerWidth, rulerHeight }: Props) {
@@ -86,6 +106,10 @@ export default function ArrangementCanvas({ headerWidth, rulerHeight }: Props) {
   const rafRef = useRef(0)
   const dragRef = useRef<DragState>({ type: 'idle' })
   const canvasRectRef = useRef<DOMRect | null>(null)
+  // Dirty-rect optimisation: skip full redraw when scroll/zoom unchanged and no drag
+  const _lastScrollX = useRef(-1)
+  const _lastScrollY = useRef(-1)
+  const _lastZoom = useRef(-1)
 
   // Stable store refs — never used inside hooks, always read in RAF / event handlers
   const projectStoreRef = useRef(useProjectStore.getState())
@@ -110,13 +134,27 @@ export default function ArrangementCanvas({ headerWidth, rulerHeight }: Props) {
 
       const dpr = window.devicePixelRatio || 1
       const { w: W, h: H } = sizeRef.current
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      ctx.clearRect(0, 0, W, H)
 
       const { project } = projectStoreRef.current
       const { zoomX, scrollX, scrollY, selectedClipIds, markers, snap } = viewStoreRef.current
       const { positionBar } = transportStoreRef.current
       const drag = dragRef.current
+
+      // Dirty-rect optimisation: if scroll/zoom unchanged and no active drag, skip full redraw
+      if (
+        drag.type === 'idle' &&
+        _lastScrollX.current === scrollX &&
+        _lastScrollY.current === scrollY &&
+        _lastZoom.current === zoomX
+      ) {
+        return
+      }
+      _lastScrollX.current = scrollX
+      _lastScrollY.current = scrollY
+      _lastZoom.current    = zoomX
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      ctx.clearRect(0, 0, W, H)
 
       const tsTop = project.timeSignatureNumerator
       const barToBeat = (bar: number) => (bar - 1) * tsTop
@@ -214,7 +252,8 @@ export default function ArrangementCanvas({ headerWidth, rulerHeight }: Props) {
       for (let ti = 0; ti < project.tracks.length; ti++) {
         const track = project.tracks[ti]
         const layout = trackLayout[ti]
-        if (!layout || layout.y + layout.h < 0 || layout.y > H) continue
+        // Track-level viewport cull — skip tracks entirely outside the canvas height
+        if (!layout || !isTrackVisible(layout.y, layout.h, 0, H)) continue
 
         for (const clip of track.clips) {
           let displayStartBar = clip.startBar
@@ -244,7 +283,8 @@ export default function ArrangementCanvas({ headerWidth, rulerHeight }: Props) {
           const clipY = displayLayout.y + 2
           const clipH = displayLayout.h - 4
 
-          if (clipW < 0.5 || clipX + clipW < 0 || clipX > W) continue
+          // Viewport cull — skip clips entirely outside canvas width
+          if (clipW < 0.5 || !isClipVisible(clipX, clipX + clipW, 0, W)) continue
 
           const isSelected = selectedClipIds.has(clip.id)
           const isMuted = clip.muted || track.muted

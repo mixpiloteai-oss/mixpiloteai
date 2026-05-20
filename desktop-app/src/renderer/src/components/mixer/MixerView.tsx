@@ -75,7 +75,9 @@ export default function MixerView() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const busLevelFns   = useMemo(() => Object.fromEntries(buses.map(b => [b.id, makeBusLevelFn(b)])),           [busIdKey])
 
-  // Spectrum data
+  // Spectrum data — use stable string deps instead of object references to avoid spurious recomputes
+  const trackIdColorKey = project.tracks.map(t => `${t.id}:${t.color}`).join(',')
+  const busIdColorKey   = buses.map(b => `${b.id}:${b.color}:${b.type}`).join(',')
   const spectrumTracks = useMemo<TrackSpectrum[]>(() => [
     ...project.tracks.map(t => ({
       trackId:  t.id,
@@ -89,7 +91,8 @@ export default function MixerView() {
       color:    b.color,
       getLevel: busLevelFns[b.id] ?? (() => ({ rmsL: 0, rmsR: 0, peakL: 0, peakR: 0 })),
     })),
-  ], [project.tracks, buses, trackLevelFns, busLevelFns])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [trackIdColorKey, busIdColorKey, trackLevelFns, busLevelFns])
 
   const groupBuses = buses.filter(b => b.type === 'group')
   const fxBuses    = buses.filter(b => b.type === 'fx-return')

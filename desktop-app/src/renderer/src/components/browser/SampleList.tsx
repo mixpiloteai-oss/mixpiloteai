@@ -3,6 +3,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  memo,
   type KeyboardEvent,
   type DragEvent,
   type CSSProperties,
@@ -47,7 +48,7 @@ interface RowProps {
   onDragStart:   (e: DragEvent<HTMLDivElement>, id: string) => void
 }
 
-function SampleRow({
+const SampleRow = memo(function SampleRow({
   entry,
   isSelected,
   isPreviewing,
@@ -206,7 +207,7 @@ function SampleRow({
       )}
     </div>
   )
-}
+})
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
