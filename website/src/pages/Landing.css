@@ -664,7 +664,7 @@
 .lp-cta-orb-1 {
   position: absolute;
   width: 600px; height: 600px;
-  background: radial-gradient(circle, rgba(124,58,237,0.28) 0%, transparent 65%);
+  background: radial-gradient(circle, rgba(124,58,237,0.28) 0%, transparent 65%); /* --nt-purple-600 */
   border-radius: 50%;
   top: -200px; left: -100px;
   animation: orb 22s ease-in-out infinite;
@@ -672,7 +672,7 @@
 .lp-cta-orb-2 {
   position: absolute;
   width: 500px; height: 500px;
-  background: radial-gradient(circle, rgba(6,182,212,0.18) 0%, transparent 65%);
+  background: radial-gradient(circle, rgba(6,182,212,0.18) 0%, transparent 65%); /* --nt-cyan-500 */
   border-radius: 50%;
   bottom: -150px; right: -80px;
   animation: orb 28s ease-in-out infinite reverse;
@@ -688,7 +688,7 @@
   margin-bottom: 20px; color: var(--lp-text);
 }
 .lp-cta-title .grad {
-  background: linear-gradient(135deg, #a855f7, #7c3aed 40%, #06b6d4);
+  background: linear-gradient(135deg, var(--nt-violet), var(--nt-purple-600) 40%, var(--nt-cyan-500));
   background-size: 200% 200%;
   animation: gradientShift 5s ease infinite;
   -webkit-background-clip: text;
@@ -696,7 +696,7 @@
   background-clip: text;
 }
 .lp-cta-sub {
-  font-size: 18px; color: #64748b; line-height: 1.75;
+  font-size: 18px; color: var(--nt-muted); line-height: 1.75;
   margin-bottom: 44px;
 }
 .lp-cta-actions { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
