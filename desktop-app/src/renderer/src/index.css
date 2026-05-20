@@ -1,3 +1,5 @@
+@import './styles/design-tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,14 +7,15 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:        #08080f;
-  --surface:   #0c0c14;
-  --card:      #0f0f1a;
-  --border:    #1c1c2e;
+  /* Map legacy vars to design tokens */
+  --bg:        var(--nt-bg-app);
+  --surface:   var(--nt-bg-surface);
+  --card:      var(--nt-bg-raised);
+  --border:    var(--nt-ink);
   --border-hi: #2a2a3e;
-  --purple:    #7c3aed;
-  --violet:    #a855f7;
-  --cyan:      #06b6d4;
+  --purple:    var(--nt-purple-600);
+  --violet:    var(--nt-violet);
+  --cyan:      var(--nt-cyan-500);
   --amber:     #f59e0b;
   --text:      #e2e8f0;
   --subtle:    #94a3b8;

@@ -11,8 +11,8 @@
   --duration-fast: 120ms;
   --duration-normal: 200ms;
   --duration-slow: 350ms;
-  --glow-purple: 0 0 20px rgba(124, 58, 237, 0.4);
-  --glow-cyan: 0 0 20px rgba(34, 211, 238, 0.3);
+  --glow-purple: var(--nt-glow-purple);   /* was: 0 0 20px rgba(124, 58, 237, 0.4) */
+  --glow-cyan:   var(--nt-glow-cyan);     /* was: 0 0 20px rgba(34, 211, 238, 0.3) */
   --glow-green: 0 0 12px rgba(16, 185, 129, 0.4);
   --glow-amber: 0 0 12px rgba(245, 158, 11, 0.3);
   --glow-red: 0 0 12px rgba(239, 68, 68, 0.4);
@@ -276,7 +276,8 @@
 
 .sidebar-nav-btn.active {
   animation: borderGlowPulse 2.2s var(--ease-smooth) infinite;
-  border-left: 3px solid currentColor !important;
+  border-left: 3px solid var(--nt-purple-600) !important;
+  border-left-color: var(--nt-purple-600);
   padding-left: calc(0.5rem - 3px);
 }
 
