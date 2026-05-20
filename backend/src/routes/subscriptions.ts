@@ -6,6 +6,7 @@ import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { subscriptions, getTodayUsage, getDailyLimit, type Plan } from '../data/mockDB';
 import { getUserPlanStatus } from '../lib/subscriptionValidator';
+import { getPlans as getManagedPlans } from '../lib/planManager';
 
 const router = Router();
 
@@ -15,7 +16,10 @@ const PLANS = [
   { id: 'studio', name: 'Studio', price: 3900, currency: 'EUR', billing: 'monthly', color: '#06b6d4', features: ['Unlimited AI requests', 'Full AI conversation history', 'Real-time live AI assistance', 'Cloud project sync', 'Priority AI processing', 'Multi-project workspace', 'Team collaboration (coming soon)', 'API access'], limits: { dailyAiRequests: 9999, projects: 'unlimited', templates: 'unlimited' }, cta: 'Go Studio — €39/mo' },
 ];
 
-router.get('/plans', (_req, res) => res.json({ success: true, data: PLANS }));
+router.get('/plans', (_req, res) => {
+  const plans = getManagedPlans(false)  // active only, public endpoint
+  res.json({ success: true, data: plans, count: plans.length })
+});
 
 // GET /my — subscription details with quota, DB-first plan resolution
 router.get('/my', requireAuth, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {

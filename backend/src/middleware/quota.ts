@@ -5,6 +5,7 @@ import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from './auth';
 import { getTodayUsage, getDailyLimit, type Plan } from '../data/mockDB';
 import { getUserPlanStatus } from '../lib/subscriptionValidator';
+import { getPlanForQuota } from '../lib/planManager';
 
 export function checkQuota(
   req: AuthenticatedRequest,
@@ -21,7 +22,8 @@ export function checkQuota(
   getUserPlanStatus(userId, req.user?.plan).then((planStatus) => {
     const effectivePlan = (planStatus.isActive ? planStatus.plan : 'free') as Plan;
     const used = getTodayUsage(userId);
-    const limit = getDailyLimit(effectivePlan);
+    const { dailyAIRequests } = getPlanForQuota(effectivePlan);
+    const limit = dailyAIRequests;
 
     if (used >= limit) {
       res.status(429).json({
@@ -38,7 +40,8 @@ export function checkQuota(
     // If plan status lookup fails entirely, fall back to JWT plan
     const plan = (req.user?.plan ?? 'free') as Plan;
     const used = getTodayUsage(userId);
-    const limit = getDailyLimit(plan);
+    const { dailyAIRequests: fallbackLimit } = getPlanForQuota(plan);
+    const limit = fallbackLimit;
 
     if (used >= limit) {
       res.status(429).json({

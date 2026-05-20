@@ -59,6 +59,8 @@ import {
 } from '../services/monitoringService';
 import { getCoupon } from '../services/couponService';
 import { logger } from '../utils/logger';
+import { getPlans, getPlan, updatePlan, createPlan, togglePlan } from '../lib/planManager';
+import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
 
@@ -1100,5 +1102,105 @@ router.delete('/roles/:id', (req: Request, res: Response): void => {
     res.json({ success: true });
   });
 });
+
+// ── Plan Management ──────────────────────────────────────────────────────────
+
+// GET /api/admin/plans — list all plans (including inactive)
+router.get('/plans', asyncHandler(async (_req, res) => {
+  const plans = getPlans(true)  // include inactive
+  res.json({ success: true, data: plans, count: plans.length })
+}))
+
+// GET /api/admin/plans/:id — get single plan
+router.get('/plans/:id', asyncHandler(async (req, res) => {
+  const plan = getPlan(req.params['id'] ?? '')
+  if (!plan) return res.status(404).json({ error: 'Plan not found' })
+  res.json({ success: true, data: plan })
+}))
+
+// PATCH /api/admin/plans/:id — update plan
+router.patch('/plans/:id', asyncHandler(async (req, res) => {
+  const id = req.params['id'] ?? ''
+  const allowed = [
+    'name', 'priceMonthly', 'priceYearly', 'dailyAIRequests',
+    'maxProjects', 'maxPackUploads', 'cloudSyncGB', 'features',
+    'model', 'coachAccess', 'analyticsAccess', 'marketplaceAccess',
+    'collaborationAccess', 'desktopAccess', 'learningMode',
+    'active', 'trialDays', 'sortOrder',
+  ]
+  const body = req.body as Record<string, unknown>
+
+  // Only allow permitted fields
+  const updates: Record<string, unknown> = {}
+  for (const key of allowed) {
+    if (key in body) updates[key] = body[key]
+  }
+
+  // Validate numeric fields
+  const numFields = ['priceMonthly', 'priceYearly', 'dailyAIRequests', 'maxProjects', 'maxPackUploads', 'cloudSyncGB', 'trialDays', 'sortOrder']
+  for (const f of numFields) {
+    if (f in updates && typeof updates[f] !== 'number') {
+      return res.status(400).json({ error: `${f} must be a number` })
+    }
+  }
+
+  // Validate features is array of strings
+  if ('features' in updates) {
+    if (!Array.isArray(updates['features']) || !(updates['features'] as unknown[]).every(x => typeof x === 'string')) {
+      return res.status(400).json({ error: 'features must be an array of strings' })
+    }
+  }
+
+  const updated = await updatePlan(id, updates as Parameters<typeof updatePlan>[1])
+  if (!updated) return res.status(404).json({ error: 'Plan not found' })
+
+  logger.info(`[admin] plan ${id} updated by ${asAdmin(req).adminEmail}`)
+  res.json({ success: true, data: updated })
+}))
+
+// POST /api/admin/plans — create new plan
+router.post('/plans', asyncHandler(async (req, res) => {
+  const body = req.body as Record<string, unknown>
+  if (!body['id'] || typeof body['id'] !== 'string') {
+    return res.status(400).json({ error: 'id is required' })
+  }
+  if (getPlan(body['id'] as string)) {
+    return res.status(409).json({ error: 'Plan already exists' })
+  }
+
+  // Build plan with defaults
+  const newPlan = {
+    id:                   body['id'] as import('../data/plans').Plan,
+    name:                 (body['name'] as string) ?? body['id'] as string,
+    priceMonthly:         (body['priceMonthly'] as number) ?? 0,
+    priceYearly:          (body['priceYearly'] as number) ?? 0,
+    dailyAIRequests:      (body['dailyAIRequests'] as number) ?? 20,
+    maxProjects:          (body['maxProjects'] as number) ?? 5,
+    maxPackUploads:       (body['maxPackUploads'] as number) ?? 0,
+    cloudSyncGB:          (body['cloudSyncGB'] as number) ?? 1,
+    features:             (body['features'] as string[]) ?? [],
+    model:                (body['model'] as 'haiku' | 'sonnet' | 'opus') ?? 'haiku',
+    coachAccess:          Boolean(body['coachAccess']),
+    analyticsAccess:      Boolean(body['analyticsAccess']),
+    marketplaceAccess:    Boolean(body['marketplaceAccess']),
+    collaborationAccess:  Boolean(body['collaborationAccess']),
+    desktopAccess:        Boolean(body['desktopAccess'] ?? true),
+    learningMode:         Boolean(body['learningMode']),
+    active:               Boolean(body['active'] ?? true),
+    trialDays:            (body['trialDays'] as number) ?? 0,
+  }
+
+  const created = await createPlan(newPlan)
+  res.status(201).json({ success: true, data: created })
+}))
+
+// PATCH /api/admin/plans/:id/toggle — activate or deactivate
+router.patch('/plans/:id/toggle', asyncHandler(async (req, res) => {
+  const { active } = req.body as { active: boolean }
+  if (typeof active !== 'boolean') return res.status(400).json({ error: 'active (boolean) required' })
+  const updated = await togglePlan(req.params['id'] ?? '', active)
+  if (!updated) return res.status(404).json({ error: 'Plan not found' })
+  res.json({ success: true, data: updated })
+}))
 
 export default router;
