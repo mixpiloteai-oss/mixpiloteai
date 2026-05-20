@@ -12,6 +12,9 @@ const api = {
   // System
   getSystemInfo:     () => ipcRenderer.invoke('get-system-info'),
   checkUpdate:       () => ipcRenderer.invoke('check-update'),
+  downloadUpdate:    () => ipcRenderer.invoke('download-update'),
+  installUpdate:     () => ipcRenderer.invoke('install-update'),
+  getVersion:        () => ipcRenderer.invoke('get-version'),
   // MIDI
   getMidiDevices:    () => ipcRenderer.invoke('get-midi-devices'),
   // VST
@@ -120,7 +123,12 @@ const api = {
   onNav:                    (cb: (view: string) => void) => ipcRenderer.on('nav', (_e, v) => cb(v)),
   onOpenSettings:           (cb: () => void) => ipcRenderer.on('open-settings', cb),
   onPowerEvent:             (cb: (e: string) => void) => ipcRenderer.on('power-event', (_e, ev) => cb(ev)),
+  onUpdateChecking:         (cb: (info: unknown) => void) => ipcRenderer.on('update-checking', (_e, i) => cb(i)),
   onUpdateAvailable:        (cb: (info: unknown) => void) => ipcRenderer.on('update-available', (_e, i) => cb(i)),
+  onUpdateNotAvailable:     (cb: (info: unknown) => void) => ipcRenderer.on('update-not-available', (_e, i) => cb(i)),
+  onUpdateProgress:         (cb: (info: unknown) => void) => ipcRenderer.on('update-progress', (_e, i) => cb(i)),
+  onUpdateDownloaded:       (cb: (info: unknown) => void) => ipcRenderer.on('update-downloaded', (_e, i) => cb(i)),
+  onUpdateError:            (cb: (info: unknown) => void) => ipcRenderer.on('update-error', (_e, i) => cb(i)),
   onTriggerSave:            (cb: () => void) => ipcRenderer.on('trigger-save', cb),
   onTriggerLoad:            (cb: () => void) => ipcRenderer.on('trigger-load', cb),
   onAutosaveComplete:       (cb: (info: unknown) => void) => ipcRenderer.on('autosave-complete', (_e, i) => cb(i)),

@@ -24,6 +24,7 @@ import { useSaveSystem }     from './hooks/useSaveSystem'
 import { useNetworkStatus }  from './hooks/useNetworkStatus'
 import { usePerformanceMode, applyBootMode } from './hooks/usePerformanceMode'
 import { useTransportSync }  from './hooks/useTransportSync'
+import UpdateBanner          from './components/updater/UpdateBanner'
 
 // ─── Login Screen ─────────────────────────────────────────────────────────────
 
@@ -304,6 +305,7 @@ export default function App() {
   if (!token) return <LoginScreen onAuth={setToken} />
   return (
     <>
+      <UpdateBanner />
       <DAWShell />
       {/* Crash recovery dialog — rendered as overlay above DAWShell */}
       <RecoveryDialog />

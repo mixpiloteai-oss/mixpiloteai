@@ -8,7 +8,10 @@ interface ElectronAPI {
   setAlwaysOnTop: (flag: boolean) => Promise<void>
   openExternal: (url: string) => Promise<void>
   getSystemInfo: () => Promise<Record<string, unknown>>
-  checkUpdate: () => Promise<unknown>
+  checkUpdate:       () => Promise<unknown>
+  downloadUpdate:    () => Promise<void>
+  installUpdate:     () => Promise<void>
+  getVersion:        () => Promise<string>
   getMidiDevices: () => Promise<{ inputs: string[]; outputs: string[] }>
   scanVSTPlugins: () => Promise<unknown[]>
   getVSTPlugins: () => Promise<unknown[]>
@@ -47,7 +50,12 @@ interface ElectronAPI {
   onTriggerLoad: (cb: () => void) => void
   onMenuAction: (cb: (action: string) => void) => void
   onPowerEvent: (cb: (event: string) => void) => void
-  onUpdateAvailable: (cb: (info: unknown) => void) => void
+  onUpdateChecking:     (cb: (info: unknown) => void) => void
+  onUpdateAvailable:    (cb: (info: unknown) => void) => void
+  onUpdateNotAvailable: (cb: (info: unknown) => void) => void
+  onUpdateProgress:     (cb: (info: unknown) => void) => void
+  onUpdateDownloaded:   (cb: (info: unknown) => void) => void
+  onUpdateError:        (cb: (info: unknown) => void) => void
   onCrashRecoveryAvailable: (cb: (info: unknown) => void) => void
   pluginScan:                () => Promise<unknown[]>
   pluginLoad:                (path: string, format: string) => Promise<{ instanceId: string; name: string; vendor: string; paramCount: number; pid: number }>

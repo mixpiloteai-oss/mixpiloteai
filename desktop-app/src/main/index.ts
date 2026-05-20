@@ -11,6 +11,7 @@ import { registerAudioIPCHandlers } from './audio/AudioIPCHandler'
 import { getAudioEngineProcess }     from './audio/AudioEngineProcess'
 import { registerPluginIPC }         from './modules/pluginIPC'
 import { logCrash, registerCrashIPC } from './modules/errorReporter'
+import { initStartupGuard } from './modules/startupGuard'
 
 // ── Global crash safety net ───────────────────────────────────────────────────
 // Plugins run in forked child processes (see modules/pluginHost.ts), so most
@@ -163,6 +164,8 @@ ipcMain.handle('save-file-dialog', async (_e, opts) => {
 
 // ── App lifecycle ─────────────────────────────────────────────
 app.whenReady().then(() => {
+  initStartupGuard()
+
   electronApp.setAppUserModelId('ai.neurotek.studio')
 
   app.on('browser-window-created', (_, window) => {

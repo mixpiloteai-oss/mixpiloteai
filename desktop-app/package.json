@@ -105,7 +105,10 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Neurotek Studio",
-      "artifactName": "Neurotek-Studio-Setup-${version}.${ext}"
+      "artifactName": "Neurotek-Studio-Setup-${version}.${ext}",
+      "include": "build/installer.nsh",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
     },
     "portable": {
       "artifactName": "Neurotek-Studio-Portable-${version}.${ext}"
@@ -120,7 +123,11 @@
       "icon": "assets/icon.png",
       "category": "public.app-category.music",
       "darkModeSupport": true,
-      "artifactName": "Neurotek-Studio-${version}.${ext}"
+      "artifactName": "Neurotek-Studio-${version}.${ext}",
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
     },
     "linux": {
       "target": [
@@ -133,6 +140,14 @@
       "category": "Audio",
       "artifactName": "Neurotek-Studio-${version}.${ext}"
     },
-    "publish": null
+    "compression": "maximum",
+    "generateUpdatesFilesForAllChannels": true,
+    "afterSign": "scripts/notarize.js",
+    "publish": {
+      "provider": "github",
+      "owner": "mixpiloteai-oss",
+      "repo": "mixpiloteai",
+      "releaseType": "release"
+    }
   }
 }
