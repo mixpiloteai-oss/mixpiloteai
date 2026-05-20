@@ -212,6 +212,11 @@ function Landing() {
     return Array.isArray(val) ? (val as T[]) : fallback
   }
 
+  const mktg = cms?.['marketing'] as { socialProof?: { rating: string; count: string; label: string } } | undefined
+  const socialProofStr = mktg?.socialProof
+    ? `${mktg.socialProof.rating} · ${mktg.socialProof.count} ${mktg.socialProof.label}`
+    : cmsGet('hero', 'socialProof', '4.9 · 12,400 producers')
+
   return (
     <div className="lp" ref={pageRef}>
 
@@ -265,7 +270,7 @@ function Landing() {
 
             <div className="lp-social-proof anim-float-up anim-float-up-4">
               <span className="lp-stars" aria-label="5 stars">★★★★★</span>
-              <span>{cmsGet('hero', 'socialProof', '4.9 · 12,400 producers')}</span>
+              <span>{socialProofStr}</span>
             </div>
           </div>
 

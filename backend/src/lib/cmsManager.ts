@@ -85,6 +85,67 @@ const DEFAULTS: Record<string, unknown> = {
     cta2Text: 'See all plans',
     cta2Url: '/pricing',
   },
+  navbar: {
+    logoText: 'NeuroTek', logoHighlight: 'AI',
+    announcementBar: { show: false, text: '🎉 Studio 2.0 is now live — try it free!', url: '/changelog', type: 'info' },
+    links: [
+      { label: 'Home', to: '/', visible: true },
+      { label: 'Download', to: '/download', visible: true },
+      { label: 'Pricing', to: '/pricing', visible: true },
+      { label: 'Packs', to: '/marketplace', visible: true },
+      { label: 'Changelog', to: '/changelog', visible: true },
+      { label: 'Support', to: '/support', visible: true },
+      { label: 'Collab', to: '/collaboration', visible: true },
+      { label: 'Guide', to: '/get-started', visible: true },
+    ],
+    primaryCta: { text: 'Download', to: '/download' },
+    secondaryCta: { text: 'Sign In', to: '/login' },
+  },
+  footer: {
+    tagline: 'The AI-Powered Music Production Studio. Create professional music faster than ever before.',
+    copyright: '© 2025 NeuroTek AI. All rights reserved.',
+    social: { github: 'https://github.com/mixpiloteai-oss/mixpiloteai', twitter: '#', discord: 'https://discord.gg/neurotek' },
+    columns: [
+      { title: 'Product', links: [
+        { label: 'Features', href: '/', external: false },
+        { label: 'Download', href: '/download', external: false },
+        { label: 'Pricing', href: '/pricing', external: false },
+        { label: 'Changelog', href: '/changelog', external: false },
+      ]},
+      { title: 'Community', links: [
+        { label: 'Discord Server', href: 'https://discord.gg/neurotek', external: true },
+        { label: 'Packs Marketplace', href: '/marketplace', external: false },
+        { label: 'Merch Store', href: '/merch', external: false },
+        { label: 'GitHub', href: 'https://github.com/mixpiloteai-oss/mixpiloteai', external: true },
+      ]},
+      { title: 'Resources', links: [
+        { label: 'Support', href: '/support', external: false },
+        { label: 'Documentation', href: 'https://github.com/mixpiloteai-oss/mixpiloteai/wiki', external: true },
+        { label: 'Release Notes', href: '/changelog', external: false },
+        { label: 'Issue Tracker', href: 'https://github.com/mixpiloteai-oss/mixpiloteai/issues', external: true },
+      ]},
+      { title: 'Legal', links: [
+        { label: 'Privacy Policy', href: '/privacy', external: false },
+        { label: 'Terms of Use', href: '/terms', external: false },
+        { label: 'Cookie Policy', href: '/privacy', external: false },
+        { label: 'Licenses', href: 'https://github.com/mixpiloteai-oss/mixpiloteai/blob/main/LICENSE', external: true },
+      ]},
+    ],
+  },
+  branding: {
+    appName: 'NeuroTek AI', logoText: 'NeuroTek', logoHighlight: 'AI',
+    tagline: 'The AI-Powered Music Production Studio',
+    logoGradientStart: '#7c3aed', logoGradientEnd: '#06b6d4',
+  },
+  colors: {
+    accentPrimary: '#7c3aed', accentSecondary: '#06b6d4',
+    gradientStart: '#7c3aed', gradientMid: '#a855f7', gradientEnd: '#06b6d4',
+  },
+  marketing: {
+    promotionalBanner: { show: false, text: '🚀 Limited offer: 50% off Pro plan this week!', url: '/pricing', type: 'promo' },
+    socialProof: { rating: '4.9', count: '12,400', label: 'producers' },
+    featuredSection: { show: true, title: 'Featured this week', subtitle: 'Hand-picked by our team' },
+  },
 }
 
 let contentStore: Map<string, unknown> = new Map(Object.entries(DEFAULTS))

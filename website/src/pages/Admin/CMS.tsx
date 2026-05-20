@@ -84,7 +84,36 @@ interface CtaSection {
   cta2Url: string
 }
 
-type CmsTab = 'hero' | 'logos' | 'stats' | 'features' | 'how' | 'compare' | 'pricing' | 'cta'
+interface NavLinkItem { label: string; to: string; visible: boolean }
+interface FooterLinkItem { label: string; href: string; external: boolean }
+interface FooterColumnItem { title: string; links: FooterLinkItem[] }
+interface NavbarCms {
+  logoText: string; logoHighlight: string
+  announcementBar: { show: boolean; text: string; url: string; type: string }
+  links: NavLinkItem[]
+  primaryCta: { text: string; to: string }
+  secondaryCta: { text: string; to: string }
+}
+interface FooterCms {
+  tagline: string; copyright: string
+  social: { github: string; twitter: string; discord: string }
+  columns: FooterColumnItem[]
+}
+interface BrandingCms {
+  appName: string; logoText: string; logoHighlight: string; tagline: string
+  logoGradientStart: string; logoGradientEnd: string
+}
+interface ColorsCms {
+  accentPrimary: string; accentSecondary: string
+  gradientStart: string; gradientMid: string; gradientEnd: string
+}
+interface MarketingCms {
+  promotionalBanner: { show: boolean; text: string; url: string; type: string }
+  socialProof: { rating: string; count: string; label: string }
+  featuredSection: { show: boolean; title: string; subtitle: string }
+}
+
+type CmsTab = 'hero' | 'logos' | 'stats' | 'features' | 'how' | 'compare' | 'pricing' | 'cta' | 'navbar' | 'footer' | 'branding' | 'colors' | 'marketing'
 
 const TABS: { id: CmsTab; label: string }[] = [
   { id: 'hero',     label: 'Hero' },
@@ -117,10 +146,24 @@ export default function CMS() {
   const [content, setContent] = useState<Record<string, unknown>>({})
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
+  const [navbarDraft, setNavbarDraft] = useState<NavbarCms | null>(null)
+  const [footerDraft, setFooterDraft] = useState<FooterCms | null>(null)
+  const [brandingDraft, setBrandingDraft] = useState<BrandingCms | null>(null)
+  const [colorsDraft, setColorsDraft] = useState<ColorsCms | null>(null)
+  const [marketingDraft, setMarketingDraft] = useState<MarketingCms | null>(null)
 
   useEffect(() => {
     apiGet<{ success: boolean; data: Record<string, unknown> }>('/api/admin/cms')
-      .then(res => { if (res.data) setContent(res.data) })
+      .then(res => {
+        if (res.data) {
+          setContent(res.data)
+          if (res.data['navbar'])    setNavbarDraft(res.data['navbar'] as NavbarCms)
+          if (res.data['footer'])    setFooterDraft(res.data['footer'] as FooterCms)
+          if (res.data['branding'])  setBrandingDraft(res.data['branding'] as BrandingCms)
+          if (res.data['colors'])    setColorsDraft(res.data['colors'] as ColorsCms)
+          if (res.data['marketing']) setMarketingDraft(res.data['marketing'] as MarketingCms)
+        }
+      })
       .catch(() => {})
   }, [])
 
@@ -168,6 +211,11 @@ export default function CMS() {
             {t.label}
           </button>
         ))}
+        <button className={`admin-tab-btn${activeTab === 'navbar' ? ' active' : ''}`} onClick={() => setActiveTab('navbar')}>Navbar</button>
+        <button className={`admin-tab-btn${activeTab === 'footer' ? ' active' : ''}`} onClick={() => setActiveTab('footer')}>Footer</button>
+        <button className={`admin-tab-btn${activeTab === 'branding' ? ' active' : ''}`} onClick={() => setActiveTab('branding')}>Branding</button>
+        <button className={`admin-tab-btn${activeTab === 'colors' ? ' active' : ''}`} onClick={() => setActiveTab('colors')}>Colors</button>
+        <button className={`admin-tab-btn${activeTab === 'marketing' ? ' active' : ''}`} onClick={() => setActiveTab('marketing')}>Marketing</button>
       </div>
 
       {/* ── Hero ── */}
@@ -248,6 +296,174 @@ export default function CMS() {
           saveMsg={saveMsg}
           onSave={d => save('cta', d)}
         />
+      )}
+
+      {/* ── Navbar ── */}
+      {activeTab === 'navbar' && navbarDraft && (
+        <div>
+          <p className="cms-section-note">Controls the top navigation bar on all pages.</p>
+          <div className="admin-plan-editor-grid">
+            <label>Logo Text<input className="admin-input" value={navbarDraft.logoText} onChange={e => setNavbarDraft({...navbarDraft, logoText: e.target.value})} /></label>
+            <label>Logo Highlight<input className="admin-input" value={navbarDraft.logoHighlight} onChange={e => setNavbarDraft({...navbarDraft, logoHighlight: e.target.value})} /></label>
+            <label>Primary CTA Text<input className="admin-input" value={navbarDraft.primaryCta.text} onChange={e => setNavbarDraft({...navbarDraft, primaryCta: {...navbarDraft.primaryCta, text: e.target.value}})} /></label>
+            <label>Primary CTA URL<input className="admin-input" value={navbarDraft.primaryCta.to} onChange={e => setNavbarDraft({...navbarDraft, primaryCta: {...navbarDraft.primaryCta, to: e.target.value}})} /></label>
+            <label>Secondary CTA Text<input className="admin-input" value={navbarDraft.secondaryCta.text} onChange={e => setNavbarDraft({...navbarDraft, secondaryCta: {...navbarDraft.secondaryCta, text: e.target.value}})} /></label>
+            <label>Secondary CTA URL<input className="admin-input" value={navbarDraft.secondaryCta.to} onChange={e => setNavbarDraft({...navbarDraft, secondaryCta: {...navbarDraft.secondaryCta, to: e.target.value}})} /></label>
+          </div>
+          <h4 style={{margin:'16px 0 10px',fontSize:14}}>Announcement Bar</h4>
+          <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+            <input type="checkbox" checked={navbarDraft.announcementBar.show} onChange={e => setNavbarDraft({...navbarDraft, announcementBar:{...navbarDraft.announcementBar, show: e.target.checked}})} />
+            Show announcement bar
+          </label>
+          <div className="admin-plan-editor-grid">
+            <label style={{gridColumn:'span 2'}}>Text<input className="admin-input" value={navbarDraft.announcementBar.text} onChange={e => setNavbarDraft({...navbarDraft, announcementBar:{...navbarDraft.announcementBar, text: e.target.value}})} /></label>
+            <label>URL<input className="admin-input" value={navbarDraft.announcementBar.url} onChange={e => setNavbarDraft({...navbarDraft, announcementBar:{...navbarDraft.announcementBar, url: e.target.value}})} /></label>
+            <label>Type<select className="admin-input" value={navbarDraft.announcementBar.type} onChange={e => setNavbarDraft({...navbarDraft, announcementBar:{...navbarDraft.announcementBar, type: e.target.value}})}>
+              <option value="info">Info (blue)</option>
+              <option value="promo">Promo (purple)</option>
+              <option value="warning">Warning (yellow)</option>
+            </select></label>
+          </div>
+          <h4 style={{margin:'16px 0 10px',fontSize:14}}>Navigation Links</h4>
+          {navbarDraft.links.map((link, i) => (
+            <div key={i} className="cms-list-item">
+              <input className="admin-input" style={{flex:'0 0 120px'}} placeholder="Label" value={link.label} onChange={e => { const l=[...navbarDraft.links]; l[i]={...l[i],label:e.target.value}; setNavbarDraft({...navbarDraft,links:l}) }} />
+              <input className="admin-input" style={{flex:1}} placeholder="URL" value={link.to} onChange={e => { const l=[...navbarDraft.links]; l[i]={...l[i],to:e.target.value}; setNavbarDraft({...navbarDraft,links:l}) }} />
+              <label style={{display:'flex',alignItems:'center',gap:6,whiteSpace:'nowrap',fontSize:13}}>
+                <input type="checkbox" checked={link.visible} onChange={e => { const l=[...navbarDraft.links]; l[i]={...l[i],visible:e.target.checked}; setNavbarDraft({...navbarDraft,links:l}) }} />Visible
+              </label>
+              <button className="admin-btn" onClick={() => setNavbarDraft({...navbarDraft, links: navbarDraft.links.filter((_,j)=>j!==i)})}>✕</button>
+            </div>
+          ))}
+          <button className="cms-add-btn" onClick={() => setNavbarDraft({...navbarDraft, links:[...navbarDraft.links,{label:'New',to:'/',visible:true}]})}>+ Add Link</button>
+          <div className="cms-save-bar">
+            <button className="admin-btn admin-btn-primary" disabled={saving} onClick={() => save('navbar', navbarDraft)}>{saving?'Saving…':'Save Navbar'}</button>
+            {saveMsg && <span className="cms-save-msg">{saveMsg}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* ── Footer ── */}
+      {activeTab === 'footer' && footerDraft && (
+        <div>
+          <p className="cms-section-note">Controls the footer on all pages.</p>
+          <div className="admin-plan-editor-grid">
+            <label style={{gridColumn:'span 2'}}>Tagline<textarea className="admin-input" rows={2} value={footerDraft.tagline} onChange={e => setFooterDraft({...footerDraft,tagline:e.target.value})} /></label>
+            <label style={{gridColumn:'span 2'}}>Copyright<input className="admin-input" value={footerDraft.copyright} onChange={e => setFooterDraft({...footerDraft,copyright:e.target.value})} /></label>
+          </div>
+          <h4 style={{margin:'16px 0 10px',fontSize:14}}>Social Links</h4>
+          <div className="admin-plan-editor-grid">
+            <label>GitHub<input className="admin-input" value={footerDraft.social.github} onChange={e => setFooterDraft({...footerDraft,social:{...footerDraft.social,github:e.target.value}})} /></label>
+            <label>Twitter/X<input className="admin-input" value={footerDraft.social.twitter} onChange={e => setFooterDraft({...footerDraft,social:{...footerDraft.social,twitter:e.target.value}})} /></label>
+            <label>Discord<input className="admin-input" value={footerDraft.social.discord} onChange={e => setFooterDraft({...footerDraft,social:{...footerDraft.social,discord:e.target.value}})} /></label>
+          </div>
+          <h4 style={{margin:'16px 0 10px',fontSize:14}}>Footer Columns</h4>
+          {footerDraft.columns.map((col, ci) => (
+            <div key={ci} style={{marginBottom:16,padding:12,background:'var(--admin-bg)',borderRadius:8,border:'1px solid var(--admin-border)'}}>
+              <input className="admin-input" style={{marginBottom:8,fontWeight:600}} value={col.title} onChange={e => { const c=footerDraft.columns.map((x,j)=>j===ci?{...x,title:e.target.value}:x); setFooterDraft({...footerDraft,columns:c}) }} />
+              {col.links.map((link, li) => (
+                <div key={li} className="cms-list-item">
+                  <input className="admin-input" style={{flex:'0 0 130px'}} placeholder="Label" value={link.label} onChange={e => { const c=footerDraft.columns.map((x,j)=>j!==ci?x:{...x,links:x.links.map((l,k)=>k===li?{...l,label:e.target.value}:l)}); setFooterDraft({...footerDraft,columns:c}) }} />
+                  <input className="admin-input" style={{flex:1}} placeholder="URL" value={link.href} onChange={e => { const c=footerDraft.columns.map((x,j)=>j!==ci?x:{...x,links:x.links.map((l,k)=>k===li?{...l,href:e.target.value}:l)}); setFooterDraft({...footerDraft,columns:c}) }} />
+                  <label style={{display:'flex',alignItems:'center',gap:6,whiteSpace:'nowrap',fontSize:13}}><input type="checkbox" checked={link.external} onChange={e => { const c=footerDraft.columns.map((x,j)=>j!==ci?x:{...x,links:x.links.map((l,k)=>k===li?{...l,external:e.target.checked}:l)}); setFooterDraft({...footerDraft,columns:c}) }} />External</label>
+                  <button className="admin-btn" onClick={() => { const c=footerDraft.columns.map((x,j)=>j!==ci?x:{...x,links:x.links.filter((_,k)=>k!==li)}); setFooterDraft({...footerDraft,columns:c}) }}>✕</button>
+                </div>
+              ))}
+              <button className="cms-add-btn" onClick={() => { const c=footerDraft.columns.map((x,j)=>j!==ci?x:{...x,links:[...x.links,{label:'New',href:'/',external:false}]}); setFooterDraft({...footerDraft,columns:c}) }}>+ Add Link</button>
+            </div>
+          ))}
+          <div className="cms-save-bar">
+            <button className="admin-btn admin-btn-primary" disabled={saving} onClick={() => save('footer', footerDraft)}>{saving?'Saving…':'Save Footer'}</button>
+            {saveMsg && <span className="cms-save-msg">{saveMsg}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* ── Branding ── */}
+      {activeTab === 'branding' && brandingDraft && (
+        <div>
+          <p className="cms-section-note">Controls the app name, logo text and gradient colors across the entire site.</p>
+          <div className="admin-plan-editor-grid">
+            <label>App Name<input className="admin-input" value={brandingDraft.appName} onChange={e => setBrandingDraft({...brandingDraft,appName:e.target.value})} /></label>
+            <label>Logo Text<input className="admin-input" value={brandingDraft.logoText} onChange={e => setBrandingDraft({...brandingDraft,logoText:e.target.value})} /></label>
+            <label>Logo Highlight<input className="admin-input" value={brandingDraft.logoHighlight} onChange={e => setBrandingDraft({...brandingDraft,logoHighlight:e.target.value})} /></label>
+            <label style={{gridColumn:'span 2'}}>Tagline<input className="admin-input" value={brandingDraft.tagline} onChange={e => setBrandingDraft({...brandingDraft,tagline:e.target.value})} /></label>
+          </div>
+          <h4 style={{margin:'16px 0 10px',fontSize:14}}>Logo Gradient</h4>
+          <div className="admin-plan-editor-grid">
+            <label>Start Color<div className="cms-color-row"><input type="color" className="cms-color-swatch" value={brandingDraft.logoGradientStart} onChange={e => setBrandingDraft({...brandingDraft,logoGradientStart:e.target.value})} /><input className="admin-input" value={brandingDraft.logoGradientStart} onChange={e => setBrandingDraft({...brandingDraft,logoGradientStart:e.target.value})} /></div></label>
+            <label>End Color<div className="cms-color-row"><input type="color" className="cms-color-swatch" value={brandingDraft.logoGradientEnd} onChange={e => setBrandingDraft({...brandingDraft,logoGradientEnd:e.target.value})} /><input className="admin-input" value={brandingDraft.logoGradientEnd} onChange={e => setBrandingDraft({...brandingDraft,logoGradientEnd:e.target.value})} /></div></label>
+          </div>
+          <div className="cms-save-bar">
+            <button className="admin-btn admin-btn-primary" disabled={saving} onClick={() => save('branding', brandingDraft)}>{saving?'Saving…':'Save Branding'}</button>
+            {saveMsg && <span className="cms-save-msg">{saveMsg}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* ── Colors ── */}
+      {activeTab === 'colors' && colorsDraft && (
+        <div>
+          <p className="cms-section-note">Changes site-wide accent colors (applied as CSS custom properties). Visitors see the new colors on next page load.</p>
+          {([
+            {key:'accentPrimary' as keyof ColorsCms,  label:'Primary Accent'},
+            {key:'accentSecondary' as keyof ColorsCms,label:'Secondary Accent'},
+            {key:'gradientStart' as keyof ColorsCms,  label:'Gradient Start'},
+            {key:'gradientMid' as keyof ColorsCms,    label:'Gradient Mid'},
+            {key:'gradientEnd' as keyof ColorsCms,    label:'Gradient End'},
+          ]).map(({key,label}) => (
+            <div key={key} style={{marginBottom:14}}>
+              <div style={{fontSize:13,color:'var(--admin-text-muted)',marginBottom:6}}>{label}</div>
+              <div className="cms-color-row">
+                <input type="color" className="cms-color-swatch" value={colorsDraft[key]} onChange={e => setColorsDraft({...colorsDraft,[key]:e.target.value})} />
+                <input className="admin-input" value={colorsDraft[key]} onChange={e => setColorsDraft({...colorsDraft,[key]:e.target.value})} />
+                <div style={{width:36,height:36,borderRadius:6,background:colorsDraft[key],border:'1px solid var(--admin-border)',flexShrink:0}} />
+              </div>
+            </div>
+          ))}
+          <div className="cms-save-bar">
+            <button className="admin-btn admin-btn-primary" disabled={saving} onClick={() => save('colors', colorsDraft)}>{saving?'Saving…':'Save Colors'}</button>
+            {saveMsg && <span className="cms-save-msg">{saveMsg}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* ── Marketing ── */}
+      {activeTab === 'marketing' && marketingDraft && (
+        <div>
+          <p className="cms-section-note">Controls promotional banners, social proof stats, and featured content visibility.</p>
+          <h4 style={{margin:'0 0 10px',fontSize:14}}>Promotional Banner</h4>
+          <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+            <input type="checkbox" checked={marketingDraft.promotionalBanner.show} onChange={e => setMarketingDraft({...marketingDraft,promotionalBanner:{...marketingDraft.promotionalBanner,show:e.target.checked}})} />
+            Show announcement bar sitewide
+          </label>
+          <div className="admin-plan-editor-grid">
+            <label style={{gridColumn:'span 2'}}>Banner Text<input className="admin-input" value={marketingDraft.promotionalBanner.text} onChange={e => setMarketingDraft({...marketingDraft,promotionalBanner:{...marketingDraft.promotionalBanner,text:e.target.value}})} /></label>
+            <label>URL<input className="admin-input" value={marketingDraft.promotionalBanner.url} onChange={e => setMarketingDraft({...marketingDraft,promotionalBanner:{...marketingDraft.promotionalBanner,url:e.target.value}})} /></label>
+            <label>Type<select className="admin-input" value={marketingDraft.promotionalBanner.type} onChange={e => setMarketingDraft({...marketingDraft,promotionalBanner:{...marketingDraft.promotionalBanner,type:e.target.value}})}>
+              <option value="info">Info</option><option value="promo">Promo</option><option value="warning">Warning</option>
+            </select></label>
+          </div>
+          <h4 style={{margin:'20px 0 10px',fontSize:14}}>Social Proof (displayed in hero)</h4>
+          <div className="admin-plan-editor-grid">
+            <label>Rating<input className="admin-input" value={marketingDraft.socialProof.rating} onChange={e => setMarketingDraft({...marketingDraft,socialProof:{...marketingDraft.socialProof,rating:e.target.value}})} /></label>
+            <label>Count<input className="admin-input" value={marketingDraft.socialProof.count} onChange={e => setMarketingDraft({...marketingDraft,socialProof:{...marketingDraft.socialProof,count:e.target.value}})} /></label>
+            <label>Label<input className="admin-input" value={marketingDraft.socialProof.label} onChange={e => setMarketingDraft({...marketingDraft,socialProof:{...marketingDraft.socialProof,label:e.target.value}})} /></label>
+          </div>
+          <h4 style={{margin:'20px 0 10px',fontSize:14}}>Featured Section</h4>
+          <label style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+            <input type="checkbox" checked={marketingDraft.featuredSection.show} onChange={e => setMarketingDraft({...marketingDraft,featuredSection:{...marketingDraft.featuredSection,show:e.target.checked}})} />
+            Show featured section on homepage
+          </label>
+          <div className="admin-plan-editor-grid">
+            <label>Title<input className="admin-input" value={marketingDraft.featuredSection.title} onChange={e => setMarketingDraft({...marketingDraft,featuredSection:{...marketingDraft.featuredSection,title:e.target.value}})} /></label>
+            <label>Subtitle<input className="admin-input" value={marketingDraft.featuredSection.subtitle} onChange={e => setMarketingDraft({...marketingDraft,featuredSection:{...marketingDraft.featuredSection,subtitle:e.target.value}})} /></label>
+          </div>
+          <div className="cms-save-bar">
+            <button className="admin-btn admin-btn-primary" disabled={saving} onClick={() => save('marketing', marketingDraft)}>{saving?'Saving…':'Save Marketing'}</button>
+            {saveMsg && <span className="cms-save-msg">{saveMsg}</span>}
+          </div>
+        </div>
       )}
     </div>
   )

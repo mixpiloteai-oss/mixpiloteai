@@ -1,4 +1,5 @@
 import { Routes, Route, useLocation } from 'react-router-dom'
+import { SiteConfigProvider } from './contexts/SiteConfigContext'
 import Nav         from './components/Nav'
 import Footer      from './components/Footer'
 import OfflineBanner from './components/OfflineBanner'
@@ -61,13 +62,16 @@ function App() {
 
   if (isAdmin) {
     return (
-      <Routes>
-        <Route path="/admin/*" element={<AdminShell />} />
-      </Routes>
+      <SiteConfigProvider>
+        <Routes>
+          <Route path="/admin/*" element={<AdminShell />} />
+        </Routes>
+      </SiteConfigProvider>
     )
   }
 
   return (
+    <SiteConfigProvider>
     <div className="app">
       <OfflineBanner />
       <Nav />
@@ -129,6 +133,7 @@ function App() {
       </main>
       <Footer />
     </div>
+    </SiteConfigProvider>
   )
 }
 
