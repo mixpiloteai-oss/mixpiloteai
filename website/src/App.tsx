@@ -21,6 +21,7 @@ import CreatorDashboard from './pages/CreatorDashboard'
 import Checkout from './pages/Checkout'
 import Billing  from './pages/Billing'
 import { useOnlineStatus } from './hooks/useOnlineStatus'
+import ProtectedRoute from './components/ProtectedRoute'
 
 // ─── Offline placeholder for cloud-only pages ─────────────────────────────────
 
@@ -96,7 +97,7 @@ function App() {
           } />
           <Route path="/account" element={
             networkOk
-              ? <Account />
+              ? <ProtectedRoute><Account /></ProtectedRoute>
               : <CloudOfflinePage label="Account" />
           } />
           <Route path="/merch" element={
@@ -111,17 +112,17 @@ function App() {
           } />
           <Route path="/creator-dashboard" element={
             networkOk
-              ? <CreatorDashboard />
+              ? <ProtectedRoute><CreatorDashboard /></ProtectedRoute>
               : <CloudOfflinePage label="Dashboard" />
           } />
           <Route path="/checkout" element={
             networkOk
-              ? <Checkout />
+              ? <ProtectedRoute><Checkout /></ProtectedRoute>
               : <CloudOfflinePage label="Checkout" />
           } />
           <Route path="/billing" element={
             networkOk
-              ? <Billing />
+              ? <ProtectedRoute><Billing /></ProtectedRoute>
               : <CloudOfflinePage label="Billing" />
           } />
         </Routes>

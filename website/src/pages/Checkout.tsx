@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
+import { useSearchParams, Link, useNavigate } from 'react-router-dom'
+import { authTokens, isTokenExpired } from '../lib/api'
 import './Checkout.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -87,7 +88,16 @@ function formatExpiry(raw: string): string {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 function Checkout() {
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+
+  // Defense-in-depth auth guard (ProtectedRoute already handles this at router level)
+  useEffect(() => {
+    const token = authTokens.get()
+    if (!token || isTokenExpired()) {
+      navigate(`/login?redirect=${encodeURIComponent('/checkout' + window.location.search)}`, { replace: true })
+    }
+  }, [navigate])
 
   // URL params
   const plan    = searchParams.get('plan') ?? ''

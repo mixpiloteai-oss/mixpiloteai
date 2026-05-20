@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { login, register, ApiError } from '../lib/api'
 import './Login.css'
 
 type Mode = 'signin' | 'signup' | 'reset'
 
 function Login() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [mode, setMode] = useState<Mode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -30,7 +32,9 @@ function Login() {
         setSuccess('Account created! Download the app to start producing.')
       } else {
         await login(email, password)
-        setSuccess('Signed in! Open the NeuroTek AI app to continue.')
+        const redirect = searchParams.get('redirect')
+        const dest = redirect && redirect.startsWith('/') ? redirect : '/'
+        navigate(dest, { replace: true })
       }
     } catch (err: unknown) {
       const msg = err instanceof ApiError

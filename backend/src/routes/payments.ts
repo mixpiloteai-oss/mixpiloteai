@@ -141,7 +141,7 @@ router.post('/stripe/intent', requireAuth, async (req: AuthenticatedRequest, res
   // Fraud check
   const fraud = checkFraud({
     userId,
-    email: (req as AuthenticatedRequest).user?.email ?? 'unknown@unknown.com',
+    email: req.user!.email,
     amountCents,
     ipAddress: ip,
     countryCode: country,
@@ -186,8 +186,8 @@ router.post('/stripe/intent', requireAuth, async (req: AuthenticatedRequest, res
 });
 
 // POST /stripe/confirm
-router.post('/stripe/confirm', async (req: Request, res: Response): Promise<void> => {
-  const userId = getUserId(req);
+router.post('/stripe/confirm', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user!.id;
   const { paymentIntentId, paymentMethodId } = req.body as {
     paymentIntentId: string;
     paymentMethodId: string;
@@ -203,11 +203,10 @@ router.post('/stripe/confirm', async (req: Request, res: Response): Promise<void
 
     log({ userId, event: 'payment_succeeded', amountCents: intent.amount, currency: intent.currency, paymentMethod: 'stripe', stripeIntentId: intent.id, success: true });
 
-    const authReq = req as AuthenticatedRequest;
     const invoice = createInvoice({
       userId,
-      customerName: authReq.user?.name ?? 'Customer',
-      customerEmail: authReq.user?.email ?? 'customer@example.com',
+      customerName: req.user!.name,
+      customerEmail: req.user!.email,
       customerAddress: { line1: '', city: '', country: 'US', postalCode: '' },
       lineItems: [{ description: 'NeuroTek AI Purchase', quantity: 1, unitPriceCents: intent.amount, totalCents: intent.amount }],
       subtotalCents: intent.amount,
@@ -293,8 +292,8 @@ router.post('/stripe/webhook', (req: Request, res: Response): void => {
 // ══════════════════════════════════════════════════════════════
 
 // POST /paypal/create-order
-router.post('/paypal/create-order', async (req: Request, res: Response): Promise<void> => {
-  const userId = getUserId(req);
+router.post('/paypal/create-order', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user!.id;
   const ip = getIP(req);
   const { amountUSD, description = 'NeuroTek AI Purchase', productType = 'marketplace' } = req.body as {
     amountUSD: string;
@@ -311,7 +310,7 @@ router.post('/paypal/create-order', async (req: Request, res: Response): Promise
 
   const fraud = checkFraud({
     userId,
-    email: (req as AuthenticatedRequest).user?.email ?? 'unknown@unknown.com',
+    email: req.user!.email,
     amountCents,
     ipAddress: ip,
     countryCode: 'US',
@@ -338,8 +337,8 @@ router.post('/paypal/create-order', async (req: Request, res: Response): Promise
 });
 
 // POST /paypal/capture
-router.post('/paypal/capture', async (req: Request, res: Response): Promise<void> => {
-  const userId = getUserId(req);
+router.post('/paypal/capture', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user!.id;
   const { orderId } = req.body as { orderId: string };
 
   if (!orderId) {
@@ -356,11 +355,10 @@ router.post('/paypal/capture', async (req: Request, res: Response): Promise<void
 
     log({ userId, event: 'payment_succeeded', amountCents, currency: 'usd', paymentMethod: 'paypal', paypalOrderId: orderId, success: true });
 
-    const authReq = req as AuthenticatedRequest;
     const invoice = createInvoice({
       userId,
-      customerName: authReq.user?.name ?? 'Customer',
-      customerEmail: authReq.user?.email ?? 'customer@example.com',
+      customerName: req.user!.name,
+      customerEmail: req.user!.email,
       customerAddress: { line1: '', city: '', country: 'US', postalCode: '' },
       lineItems: [{ description: 'NeuroTek AI Purchase (PayPal)', quantity: 1, unitPriceCents: amountCents, totalCents: amountCents }],
       subtotalCents: amountCents,
@@ -397,8 +395,8 @@ router.post('/paypal/webhook', async (req: Request, res: Response): Promise<void
 // ══════════════════════════════════════════════════════════════
 
 // POST /subscribe
-router.post('/subscribe', async (req: Request, res: Response): Promise<void> => {
-  const userId = getUserId(req);
+router.post('/subscribe', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user!.id;
   const {
     planId,
     paymentMethod = 'stripe',
@@ -500,8 +498,8 @@ router.post('/subscribe', async (req: Request, res: Response): Promise<void> => 
 });
 
 // GET /subscription
-router.get('/subscription', (req: Request, res: Response): void => {
-  const userId = getUserId(req);
+router.get('/subscription', requireAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const userId = req.user!.id;
   const sub = userSubscriptions.get(userId);
 
   if (!sub) {
@@ -513,13 +511,18 @@ router.get('/subscription', (req: Request, res: Response): void => {
 });
 
 // POST /cancel
-router.post('/cancel', async (req: Request, res: Response): Promise<void> => {
-  const userId = getUserId(req);
+router.post('/cancel', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user!.id;
   const { immediately = false } = req.body as { immediately?: boolean };
 
   const sub = userSubscriptions.get(userId);
   if (!sub) {
     res.status(404).json({ success: false, error: 'No active subscription found' });
+    return;
+  }
+  // Verify the subscription belongs to this user
+  if (sub.subscriptionId && !sub.subscriptionId.includes(userId) && userSubscriptions.get(userId) !== sub) {
+    res.status(403).json({ success: false, error: 'Forbidden' });
     return;
   }
 
@@ -547,8 +550,8 @@ router.post('/cancel', async (req: Request, res: Response): Promise<void> => {
 });
 
 // POST /upgrade
-router.post('/upgrade', async (req: Request, res: Response): Promise<void> => {
-  const userId = getUserId(req);
+router.post('/upgrade', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user!.id;
   const { planId } = req.body as { planId: string };
 
   if (!planId) {
@@ -592,8 +595,8 @@ router.post('/upgrade', async (req: Request, res: Response): Promise<void> => {
 // ══════════════════════════════════════════════════════════════
 
 // POST /marketplace/buy
-router.post('/marketplace/buy', async (req: Request, res: Response): Promise<void> => {
-  const userId = getUserId(req);
+router.post('/marketplace/buy', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user!.id;
   const ip = getIP(req);
   const {
     productId,
@@ -649,8 +652,8 @@ router.post('/marketplace/buy', async (req: Request, res: Response): Promise<voi
 });
 
 // POST /credits
-router.post('/credits', async (req: Request, res: Response): Promise<void> => {
-  const userId = getUserId(req);
+router.post('/credits', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user!.id;
   const ip = getIP(req);
   const {
     package: pkg,
@@ -747,8 +750,8 @@ router.post('/coupon/validate', (req: Request, res: Response): void => {
 });
 
 // POST /coupon/apply
-router.post('/coupon/apply', (req: Request, res: Response): void => {
-  const userId = getUserId(req);
+router.post('/coupon/apply', requireAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const userId = req.user!.id;
   const { code, planId } = req.body as { code: string; planId: string };
 
   if (!code || !planId) {
@@ -765,16 +768,16 @@ router.post('/coupon/apply', (req: Request, res: Response): void => {
 // ══════════════════════════════════════════════════════════════
 
 // GET /history
-router.get('/history', (req: Request, res: Response): void => {
-  const userId = getUserId(req);
+router.get('/history', requireAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const userId = req.user!.id;
   const limit = parseInt(String(req.query['limit'] ?? '20'), 10);
   const history = getUserHistory(userId, limit);
   res.json({ success: true, data: history, count: history.length });
 });
 
 // GET /invoices
-router.get('/invoices', (req: Request, res: Response): void => {
-  const userId = getUserId(req);
+router.get('/invoices', requireAuth, (req: AuthenticatedRequest, res: Response): void => {
+  const userId = req.user!.id;
   const invoiceList = listUserInvoices(userId);
   res.json({ success: true, data: invoiceList, count: invoiceList.length });
 });
@@ -791,8 +794,8 @@ router.get('/invoices/:id', (req: Request, res: Response): void => {
 });
 
 // POST /refund
-router.post('/refund', async (req: Request, res: Response): Promise<void> => {
-  const userId = getUserId(req);
+router.post('/refund', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const userId = req.user!.id;
   const { paymentIntentId, reason, amountCents } = req.body as {
     paymentIntentId: string;
     reason?: string;

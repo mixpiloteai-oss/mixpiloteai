@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { authTokens, isTokenExpired } from '../lib/api'
 import './Billing.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -106,7 +107,14 @@ function StatusBadge({ status }: { status: Invoice['status'] | HistoryEntry['sta
 // ─── Component ────────────────────────────────────────────────────────────────
 
 function Billing() {
-  const token = localStorage.getItem('token')
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const token = authTokens.get()
+    if (!token || isTokenExpired()) {
+      navigate('/login?redirect=/billing', { replace: true })
+    }
+  }, [navigate])
 
   const [activeTab, setActiveTab] = useState<BillingTab>('plan')
   const [showCancelModal, setShowCancelModal] = useState(false)
@@ -147,21 +155,6 @@ function Billing() {
   const handleRefundSubmit = () => {
     setRefundDone(true)
     setTimeout(() => { setRefundModalEntry(null); setRefundDone(false); setRefundReason('') }, 2000)
-  }
-
-  if (!token) {
-    return (
-      <div className="billing-page">
-        <div className="container">
-          <div className="billing-login-prompt glass-card">
-            <div className="login-prompt-icon">🔒</div>
-            <h2>Sign in to view billing</h2>
-            <p>You need to be signed in to access your billing information and manage your subscription.</p>
-            <Link to="/login" className="btn-primary">Sign In →</Link>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (
