@@ -11,6 +11,15 @@ interface ManagedPlan {
   active: boolean; trialDays: number; sortOrder: number; updatedAt: string
 }
 
+interface CreditPack {
+  id: string
+  credits: number
+  amountCents: number
+  active: boolean
+  sortOrder: number
+  updatedAt: string
+}
+
 interface SubEvent {
   id: number
   date: string
@@ -84,6 +93,7 @@ export default function Subscriptions() {
   const [editDraft, setEditDraft] = useState<Partial<ManagedPlan>>({})
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
+  const [creditPacks, setCreditPacks] = useState<CreditPack[]>([])
 
   async function fetchPlans() {
     setPlansLoading(true)
@@ -95,8 +105,23 @@ export default function Subscriptions() {
   }
 
   useEffect(() => {
-    if (activeTab === 'plans') fetchPlans()
+    if (activeTab === 'plans') {
+      fetchPlans()
+      apiGet<{ success: boolean; data: CreditPack[] }>('/api/admin/credit-packs')
+        .then(res => { if (res.data) setCreditPacks(res.data) })
+        .catch(() => {})
+    }
   }, [activeTab])
+
+  async function saveCreditPack(id: string, updates: Partial<CreditPack>) {
+    try {
+      await apiPatch(`/api/admin/credit-packs/${id}`, updates)
+      const res = await apiGet<{ success: boolean; data: CreditPack[] }>('/api/admin/credit-packs')
+      if (res.data) setCreditPacks(res.data)
+    } catch (err) {
+      console.error('Failed to save credit pack', err)
+    }
+  }
 
   async function savePlan(id: string) {
     setSaving(true)
@@ -266,6 +291,63 @@ export default function Subscriptions() {
           {!plansLoading && plans.length === 0 && (
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--admin-muted)' }}>
               Aucun plan trouvé. L'API admin est peut-être indisponible.
+            </div>
+          )}
+
+          {/* Credit Packs section */}
+          {creditPacks.length > 0 && (
+            <div style={{ marginBottom: 32 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: 'var(--admin-text)' }}>Credit Packs</h3>
+              {creditPacks.map(pack => (
+                <div key={pack.id} className={`admin-plan-card${!pack.active ? ' inactive' : ''}`} style={{ marginBottom: 12 }}>
+                  <div className="admin-plan-header">
+                    <div className="admin-plan-name">
+                      <span className="admin-plan-id">{pack.credits.toLocaleString()} credits</span>
+                      <span className={`admin-badge ${pack.active ? 'badge-green' : 'badge-grey'}`}>
+                        {pack.active ? 'Actif' : 'Inactif'}
+                      </span>
+                    </div>
+                    <div className="admin-plan-actions">
+                      <button
+                        className={`admin-btn-sm ${pack.active ? 'btn-danger-sm' : 'btn-success-sm'}`}
+                        onClick={() => saveCreditPack(pack.id, { active: !pack.active })}
+                      >{pack.active ? 'Désactiver' : 'Activer'}</button>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, padding: '12px 0' }}>
+                    <div>
+                      <label className="admin-field-label">Crédits</label>
+                      <input
+                        type="number"
+                        className="admin-input"
+                        defaultValue={pack.credits}
+                        onBlur={e => {
+                          const val = parseInt(e.target.value, 10)
+                          if (!isNaN(val) && val !== pack.credits) saveCreditPack(pack.id, { credits: val })
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="admin-field-label">Prix (cents)</label>
+                      <input
+                        type="number"
+                        className="admin-input"
+                        defaultValue={pack.amountCents}
+                        onBlur={e => {
+                          const val = parseInt(e.target.value, 10)
+                          if (!isNaN(val) && val !== pack.amountCents) saveCreditPack(pack.id, { amountCents: val })
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="admin-field-label">Prix ($)</label>
+                      <div style={{ paddingTop: 6, fontSize: 14, fontWeight: 600, color: 'var(--admin-green)' }}>
+                        ${(pack.amountCents / 100).toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 

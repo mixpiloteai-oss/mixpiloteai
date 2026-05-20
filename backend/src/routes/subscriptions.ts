@@ -7,18 +7,21 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { subscriptions, getTodayUsage, getDailyLimit, type Plan } from '../data/mockDB';
 import { getUserPlanStatus } from '../lib/subscriptionValidator';
 import { getPlans as getManagedPlans } from '../lib/planManager';
+import { getCreditPacks } from '../lib/creditPackManager';
 
 const router = Router();
 
-const PLANS = [
-  { id: 'free', name: 'Free', price: 0, currency: 'EUR', billing: 'forever', color: '#475569', features: ['20 AI requests / day', 'Basic templates', 'Track organizer', 'Dashboard & project manager'], limits: { dailyAiRequests: 20, projects: 3, templates: 3 }, cta: 'Get Started Free' },
-  { id: 'pro', name: 'Pro', price: 1490, currency: 'EUR', billing: 'monthly', color: '#7c3aed', popular: true, features: ['200 AI requests / day', 'All genre templates', 'Mix Assistant with AI analysis', 'Live Mode + scene launcher', 'AI Chat with project context', 'FX chain recommendations', 'Kick & acid design assistant'], limits: { dailyAiRequests: 200, projects: 20, templates: 'unlimited' }, cta: 'Start Pro — €14.90/mo' },
-  { id: 'studio', name: 'Studio', price: 3900, currency: 'EUR', billing: 'monthly', color: '#06b6d4', features: ['Unlimited AI requests', 'Full AI conversation history', 'Real-time live AI assistance', 'Cloud project sync', 'Priority AI processing', 'Multi-project workspace', 'Team collaboration (coming soon)', 'API access'], limits: { dailyAiRequests: 9999, projects: 'unlimited', templates: 'unlimited' }, cta: 'Go Studio — €39/mo' },
-];
-
 router.get('/plans', (_req, res) => {
-  const plans = getManagedPlans(false)  // active only, public endpoint
+  res.set('Cache-Control', 'no-store')
+  res.set('Last-Modified', new Date().toUTCString())
+  const plans = getManagedPlans(false)
   res.json({ success: true, data: plans, count: plans.length })
+});
+
+router.get('/credit-packs', (_req, res) => {
+  res.set('Cache-Control', 'no-store')
+  const packs = getCreditPacks(false)
+  res.json({ success: true, data: packs, count: packs.length })
 });
 
 // GET /my — subscription details with quota, DB-first plan resolution
@@ -33,7 +36,7 @@ router.get('/my', requireAuth, asyncHandler(async (req: AuthenticatedRequest, re
   const mockSub = subscriptions.find((s) => s.userId === userId);
   const limitPlan = (status.plan ?? mockSub?.plan ?? 'free') as Plan;
   const limit = getDailyLimit(limitPlan);
-  const planDetails = PLANS.find((p) => p.id === status.plan);
+  const planDetails = getManagedPlans(true).find(p => p.id === status.plan);
 
   res.json({
     success: true,

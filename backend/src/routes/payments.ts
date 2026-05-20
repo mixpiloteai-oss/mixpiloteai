@@ -30,6 +30,7 @@ import {
 } from '../lib/paymentSync';
 
 import { asyncHandler } from '../middleware/asyncHandler';
+import { getCreditPack } from '../lib/creditPackManager';
 
 import {
   createOrder as ppCreateOrder,
@@ -80,12 +81,6 @@ function getIP(req: Request): string {
   return req.socket.remoteAddress ?? '0.0.0.0';
 }
 
-// ── Credit package price map ──────────────────────────────────
-const CREDIT_PACKAGES: Record<string, { priceId: string; amountCents: number; credits: number }> = {
-  '100':  { priceId: STRIPE_PRICES.credits_100,  amountCents: 499,  credits: 100 },
-  '500':  { priceId: STRIPE_PRICES.credits_500,  amountCents: 1999, credits: 500 },
-  '2000': { priceId: STRIPE_PRICES.credits_2000, amountCents: 6999, credits: 2000 },
-};
 
 // ── Plan to Stripe price mapping ──────────────────────────────
 const PLAN_TO_STRIPE: Record<string, string> = {
@@ -159,12 +154,7 @@ router.post('/stripe/session', requireAuth, asyncHandler(async (req: Authenticat
     metaPlanId = planId;
     description = `Neurotek AI ${planId.charAt(0).toUpperCase() + planId.slice(1)} ${annual ? 'Annual' : 'Monthly'}`;
   } else if (type === 'credits' && pkg) {
-    const packs: Record<string, { credits: number; amountCents: number }> = {
-      '100':  { credits: 100,  amountCents: 499  },
-      '500':  { credits: 500,  amountCents: 1999 },
-      '2000': { credits: 2000, amountCents: 6999 },
-    };
-    const pack = packs[pkg];
+    const pack = getCreditPack(pkg);
     if (!pack) {
       res.status(400).json({ error: 'Invalid credit package' });
       return;
@@ -1111,7 +1101,7 @@ router.post('/credits', requireAuth, async (req: AuthenticatedRequest, res: Resp
     country?: string;
   };
 
-  const pkgData = CREDIT_PACKAGES[pkg];
+  const pkgData = getCreditPack(pkg);
   if (!pkgData) {
     res.status(400).json({ success: false, error: 'Invalid credit package. Choose: 100, 500, or 2000' });
     return;

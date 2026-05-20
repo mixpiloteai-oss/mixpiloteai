@@ -60,6 +60,7 @@ import {
 import { getCoupon } from '../services/couponService';
 import { logger } from '../utils/logger';
 import { getPlans, getPlan, updatePlan, createPlan, togglePlan } from '../lib/planManager';
+import { getCreditPacks, getCreditPack, updateCreditPack, toggleCreditPack } from '../lib/creditPackManager';
 import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
@@ -1200,6 +1201,34 @@ router.patch('/plans/:id/toggle', asyncHandler(async (req, res) => {
   if (typeof active !== 'boolean') return res.status(400).json({ error: 'active (boolean) required' })
   const updated = await togglePlan(req.params['id'] ?? '', active)
   if (!updated) return res.status(404).json({ error: 'Plan not found' })
+  res.json({ success: true, data: updated })
+}))
+
+// GET /api/admin/credit-packs
+router.get('/credit-packs', asyncHandler(async (_req, res) => {
+  res.json({ success: true, data: getCreditPacks(true) })
+}))
+
+// PATCH /api/admin/credit-packs/:id
+router.patch('/credit-packs/:id', asyncHandler(async (req, res) => {
+  const id = req.params['id'] ?? ''
+  const body = req.body as Record<string, unknown>
+  const updates: Partial<Omit<import('../lib/creditPackManager').CreditPack, 'id'>> = {}
+  if (typeof body['credits'] === 'number')      updates.credits = body['credits']
+  if (typeof body['amountCents'] === 'number')  updates.amountCents = body['amountCents']
+  if (typeof body['active'] === 'boolean')      updates.active = body['active']
+  if (typeof body['sortOrder'] === 'number')    updates.sortOrder = body['sortOrder']
+  const updated = await updateCreditPack(id, updates)
+  if (!updated) return res.status(404).json({ error: 'Credit pack not found' })
+  res.json({ success: true, data: updated })
+}))
+
+// PATCH /api/admin/credit-packs/:id/toggle
+router.patch('/credit-packs/:id/toggle', asyncHandler(async (req, res) => {
+  const { active } = req.body as { active: boolean }
+  if (typeof active !== 'boolean') return res.status(400).json({ error: 'active (boolean) required' })
+  const updated = await toggleCreditPack(req.params['id'] ?? '', active)
+  if (!updated) return res.status(404).json({ error: 'Credit pack not found' })
   res.json({ success: true, data: updated })
 }))
 
