@@ -8,6 +8,7 @@ import { aiRateLimiter } from '../middleware/rateLimiter';
 import { callClaude, getDemoResponse, isConfigured, type AIRequest } from '../services/aiGateway';
 import { logger } from '../utils/logger';
 import { incrementUsage, getTodayUsage, getDailyLimit, type Plan } from '../data/mockDB';
+import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
 router.use(requireAuth);
@@ -40,13 +41,13 @@ async function executeAI(req: AuthenticatedRequest, res: Response, aiReq: AIRequ
   }
 }
 
-router.post('/chat', async (req: AuthenticatedRequest, res: Response) => {
+router.post('/chat', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { message, context, history, type = 'chat' } = req.body;
   if (!message || typeof message !== 'string') return res.status(400).json({ success: false, error: 'message is required' });
   const validTypes = ['chat', 'template', 'mix', 'fx', 'live', 'kick', 'acid'];
   const messageType = validTypes.includes(type) ? type : 'chat';
   await executeAI(req, res, { userId: req.user!.id, plan: req.user!.plan, messageType, userMessage: message, projectContext: context, history }, messageType);
-});
+}));
 
 router.post('/generate-template', async (req: AuthenticatedRequest, res: Response) => {
   const { genre, bpm, mood } = req.body;

@@ -11,10 +11,21 @@ import type { CollabOp, CollabOpType, CollabEvent, RoomPresence } from '../servi
 import * as teamService from '../services/teamService';
 import type { TeamRole } from '../services/teamService';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
+import { JWT_SECRET } from '../lib/config';
+import { db } from '../data/mockDB';
+import rateLimit from 'express-rate-limit';
 
 const router = Router();
 
-const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production';
+// Rate limiter for collaboration ops: max 120 ops/min per user
+const collabOpsRateLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req as AuthenticatedRequest).user?.id ?? req.ip ?? 'unknown',
+  message: { success: false, error: 'Too many ops. Slow down.', code: 'COLLAB_RATE_LIMITED' },
+});
 
 /**
  * Auth gate for the SSE stream. EventSource cannot set custom headers,

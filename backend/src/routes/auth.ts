@@ -14,12 +14,12 @@ import {
   getDailyLimit,
   type Plan,
 } from '../services/userService';
+import { JWT_SECRET, JWT_EXPIRES_IN as CONFIG_JWT_EXPIRES_IN, REFRESH_EXPIRES_IN } from '../lib/config';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-in-production';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? 'dev-refresh-secret';
-const JWT_EXPIRES_IN = (process.env.JWT_EXPIRES_IN ?? '7d') as jwt.SignOptions['expiresIn'];
-const JWT_REFRESH_EXPIRES_IN = (process.env.JWT_REFRESH_EXPIRES_IN ?? '30d') as jwt.SignOptions['expiresIn'];
+const JWT_EXPIRES_IN = CONFIG_JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'];
+const JWT_REFRESH_EXPIRES_IN = REFRESH_EXPIRES_IN as jwt.SignOptions['expiresIn'];
 
 function signTokens(userId: string, email: string, name: string, plan: string) {
   const payload = { id: userId, email, name, plan };
