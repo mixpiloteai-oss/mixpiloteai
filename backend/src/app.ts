@@ -46,6 +46,7 @@ import updatesRouter from './routes/updates';
 import errorsRouter  from './routes/errors';
 import metricsRouter from './routes/metrics';
 import { requestMetrics, getMetricsSummary } from './middleware/requestMetrics';
+import { shortCache, mediumCache, longCache, aiDedupCache } from './lib/serverCache';
 
 const app = express();
 
@@ -147,6 +148,12 @@ app.get('/health/detailed', (_req, res) => {
     version: process.env['npm_package_version'] ?? '0.2.0',
     env:     process.env.NODE_ENV ?? 'development',
     ...summary,
+    cache: {
+      short:   shortCache.getStats(),
+      medium:  mediumCache.getStats(),
+      long:    longCache.getStats(),
+      aiDedup: aiDedupCache.getStats(),
+    },
   });
 });
 
