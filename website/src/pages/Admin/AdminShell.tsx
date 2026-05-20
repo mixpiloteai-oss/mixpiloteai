@@ -4,6 +4,7 @@ import './admin.css'
 import { adminLogin, adminLogout, isAdminAuthed } from './services/adminApi'
 
 const AdminDashboard   = lazy(() => import('./AdminDashboard'))
+const CMS              = lazy(() => import('./CMS'))
 const Monitoring       = lazy(() => import('./Monitoring'))
 const Analytics        = lazy(() => import('./Analytics'))
 const Security         = lazy(() => import('./Security'))
@@ -195,6 +196,7 @@ export default function AdminShell() {
         {/* CONTENT */}
         <div className="admin-nav-group">
           <div className="admin-nav-group-label">Content</div>
+          <SidebarItem to="/admin/cms"        icon="✎" label="Landing CMS" />
           <SidebarItem to="/admin/moderation" icon="⊛" label="Moderation" badge={5} />
           <SidebarItem to="/admin/ai"         icon="✦" label="AI Models"  />
         </div>
@@ -246,6 +248,7 @@ export default function AdminShell() {
             <Route path="/subscriptions" element={<Subscriptions />} />
             <Route path="/marketplace"   element={<MarketplaceAdmin />} />
             <Route path="/payments"      element={<Payments />} />
+            <Route path="/cms"           element={<CMS />} />
             <Route path="/moderation"    element={<Moderation />} />
             <Route path="/ai"            element={<AIManagement />} />
             <Route path="/support"       element={<Support />} />

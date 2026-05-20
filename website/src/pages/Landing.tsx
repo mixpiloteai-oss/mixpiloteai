@@ -178,6 +178,39 @@ function useScrollReveal() {
 function Landing() {
   const [demoOpen, setDemoOpen] = useState(false)
   const pageRef = useScrollReveal()
+  const [cms, setCms] = useState<Record<string, unknown> | null>(null)
+
+  useEffect(() => {
+    import('../lib/api').then(({ apiGet }) => {
+      (apiGet as (p: string) => Promise<{ success: boolean; data: Record<string, unknown> }>)('/api/cms/landing')
+        .then(res => { if (res.data) setCms(res.data) })
+        .catch(() => {})
+    })
+    const id = setInterval(() => {
+      import('../lib/api').then(({ apiGet }) => {
+        (apiGet as (p: string) => Promise<{ success: boolean; data: Record<string, unknown> }>)('/api/cms/landing')
+          .then(res => { if (res.data) setCms(res.data) })
+          .catch(() => {})
+      })
+    }, 5 * 60 * 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  function cmsGet<T>(section: string, key: string, fallback: T): T {
+    if (!cms) return fallback
+    const s = cms[section] as Record<string, unknown> | undefined
+    if (!s) return fallback
+    const val = s[key]
+    return val !== undefined && val !== null ? (val as T) : fallback
+  }
+
+  function cmsArr<T>(section: string, key: string, fallback: T[]): T[] {
+    if (!cms) return fallback
+    const s = cms[section] as Record<string, unknown> | undefined
+    if (!s) return fallback
+    const val = s[key]
+    return Array.isArray(val) ? (val as T[]) : fallback
+  }
 
   return (
     <div className="lp" ref={pageRef}>
@@ -197,42 +230,42 @@ function Landing() {
           <div className="lp-hero-content">
             <div className="lp-badge anim-float-up">
               <span className="lp-badge-dot" aria-hidden="true" />
-              New — Studio 2.0 is live
+              {cmsGet('hero', 'badge', 'New — Studio 2.0 is live')}
             </div>
 
             <h1 className="lp-hero-title anim-float-up anim-float-up-1">
-              The DAW that<br />
-              <span className="grad">thinks.</span>
+              {cmsGet('hero', 'titleLine1', 'The DAW that')}<br />
+              <span className="grad">{cmsGet('hero', 'titleHighlight', 'thinks.')}</span>
             </h1>
 
             <p className="lp-hero-sub anim-float-up anim-float-up-2">
-              AI-native music production. Professional tools. Zero compromise.
+              {cmsGet('hero', 'subtitle', 'AI-native music production. Professional tools. Zero compromise.')}
             </p>
 
             <div className="lp-hero-actions anim-float-up anim-float-up-3">
-              <Link to="/download" className="lp-btn-primary">
+              <Link to={cmsGet('hero', 'cta1Url', '/download')} className="lp-btn-primary">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                   <path d="M8 1v8M4 7l4 4 4-4M1 13h14" stroke="currentColor" strokeWidth="2"
                     strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                Download Free
+                {cmsGet('hero', 'cta1Text', 'Download Free')}
               </Link>
               <button className="lp-btn-ghost" onClick={() => setDemoOpen(true)}>
                 <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
                   <circle cx="7.5" cy="7.5" r="6.5" stroke="currentColor" strokeWidth="1.5" />
                   <path d="M6 5.5l4.5 2L6 9.5V5.5z" fill="currentColor" />
                 </svg>
-                Watch Demo
+                {cmsGet('hero', 'cta2Text', 'Watch Demo')}
               </button>
             </div>
 
             <div className="anim-float-up anim-float-up-4" style={{ textAlign: 'left' }}>
-              <Link to="/get-started" className="lp-guide-link">Nouveau ? Commence ici →</Link>
+              <Link to="/get-started" className="lp-guide-link">{cmsGet('hero', 'guideLink', 'Nouveau ? Commence ici →')}</Link>
             </div>
 
             <div className="lp-social-proof anim-float-up anim-float-up-4">
               <span className="lp-stars" aria-label="5 stars">★★★★★</span>
-              <span>4.9 · 12,400 producers</span>
+              <span>{cmsGet('hero', 'socialProof', '4.9 · 12,400 producers')}</span>
             </div>
           </div>
 
@@ -301,9 +334,9 @@ function Landing() {
       {/* ═══ LOGOS STRIP ════════════════════════════════════════════════ */}
       <section className="lp-logos">
         <div className="lp-logos-inner">
-          <p className="lp-logos-label">Trusted by producers at</p>
+          <p className="lp-logos-label">{cmsGet('logos', 'label', 'Trusted by producers at')}</p>
           <div className="lp-logos-row">
-            {LOGOS.map((name) => (
+            {cmsArr('logos', 'items', LOGOS).map((name: string) => (
               <span key={name} className="lp-logo-item">{name}</span>
             ))}
           </div>
@@ -313,16 +346,16 @@ function Landing() {
       {/* ═══ STATS ══════════════════════════════════════════════════════ */}
       <section className="lp-stats">
         <div className="lp-stats-inner">
-          {[
-            { val: '12,400+',  label: 'Producers',       delay: '0s' },
-            { val: '2.4M',     label: 'Projects Created', delay: '0.1s' },
-            { val: '98%',      label: 'Uptime SLA',       delay: '0.2s' },
-            { val: '< 50 ms',  label: 'AI Latency',       delay: '0.3s' },
-          ].map(({ val, label, delay }) => (
+          {(Array.isArray(cms?.['stats']) ? (cms?.['stats'] as {val:string;label:string;delay?:string}[]) : [
+            { val: '12,400+', label: 'Producers',        delay: '0s' },
+            { val: '2.4M',    label: 'Projects Created', delay: '0.1s' },
+            { val: '98%',     label: 'Uptime SLA',       delay: '0.2s' },
+            { val: '< 50 ms', label: 'AI Latency',       delay: '0.3s' },
+          ]).map(({ val, label, delay }, i) => (
             <div
               key={label}
               className="lp-stat reveal"
-              style={{ animationDelay: delay }}
+              style={{ animationDelay: delay ?? `${i * 0.1}s` }}
             >
               <span className="lp-stat-value">{val}</span>
               <span className="lp-stat-label">{label}</span>
@@ -334,18 +367,18 @@ function Landing() {
       {/* ═══ FEATURES ═══════════════════════════════════════════════════ */}
       <section className="lp-features" id="features">
         <div className="lp-section-head reveal">
-          <p className="lp-section-eyebrow">Features</p>
+          <p className="lp-section-eyebrow">{cmsGet('features', 'eyebrow', 'Features')}</p>
           <h2 className="lp-section-title">
-            Everything you need to{' '}
-            <span className="grad">produce music</span>
+            {cmsGet('features', 'title', 'Everything you need to')}{' '}
+            <span className="grad">{cmsGet('features', 'highlight', 'produce music')}</span>
           </h2>
           <p className="lp-section-desc">
-            From AI-generated beats to professional export — one tool, zero compromise.
+            {cmsGet('features', 'desc', 'From AI-generated beats to professional export — one tool, zero compromise.')}
           </p>
         </div>
 
         <div className="lp-features-grid">
-          {FEATURES.map((f, i) => (
+          {cmsArr<typeof FEATURES[0]>('features', 'items', FEATURES).map((f, i) => (
             <div
               key={f.title}
               className="lp-feature-card reveal"
@@ -371,15 +404,15 @@ function Landing() {
       {/* ═══ HOW IT WORKS ═══════════════════════════════════════════════ */}
       <section className="lp-how" id="how-it-works">
         <div className="lp-section-head reveal">
-          <p className="lp-section-eyebrow">How it works</p>
+          <p className="lp-section-eyebrow">{cmsGet('how', 'eyebrow', 'How it works')}</p>
           <h2 className="lp-section-title">
-            From idea to track{' '}
-            <span className="grad">in three steps</span>
+            {cmsGet('how', 'title', 'From idea to track')}{' '}
+            <span className="grad">{cmsGet('how', 'highlight', 'in three steps')}</span>
           </h2>
         </div>
 
         <div className="lp-how-steps">
-          {HOW_STEPS.map((step, i) => (
+          {cmsArr<typeof HOW_STEPS[0]>('how', 'items', HOW_STEPS).map((step, i) => (
             <>
               <div
                 key={step.num}
@@ -407,10 +440,10 @@ function Landing() {
       <section className="lp-compare">
         <div className="lp-compare-inner">
           <div className="lp-section-head reveal" style={{ maxWidth: '100%', marginBottom: 48 }}>
-            <p className="lp-section-eyebrow">Why switch</p>
+            <p className="lp-section-eyebrow">{cmsGet('compare', 'eyebrow', 'Why switch')}</p>
             <h2 className="lp-section-title">
-              NeuroTek vs{' '}
-              <span className="grad">traditional DAWs</span>
+              {cmsGet('compare', 'title', 'NeuroTek vs')}{' '}
+              <span className="grad">{cmsGet('compare', 'highlight', 'traditional DAWs')}</span>
             </h2>
           </div>
 
@@ -423,11 +456,11 @@ function Landing() {
               </tr>
             </thead>
             <tbody>
-              {COMPARE_ROWS.map((row) => (
+              {cmsArr<typeof COMPARE_ROWS[0]>('compare', 'rows', COMPARE_ROWS).map((row) => (
                 <tr key={row.feature}>
                   <td>{row.feature}</td>
-                  <td className="yes">{row.nt}</td>
-                  <td className="no">{row.trad}</td>
+                  <td className={row.nt.startsWith('✓') ? 'yes' : 'no'}>{row.nt}</td>
+                  <td className={row.trad.startsWith('✓') ? 'yes' : 'no'}>{row.trad}</td>
                 </tr>
               ))}
             </tbody>
@@ -438,13 +471,13 @@ function Landing() {
       {/* ═══ PRICING TEASER ═════════════════════════════════════════════ */}
       <section className="lp-pricing" id="pricing">
         <div className="lp-section-head reveal">
-          <p className="lp-section-eyebrow">Pricing</p>
+          <p className="lp-section-eyebrow">{cmsGet('pricing', 'eyebrow', 'Pricing')}</p>
           <h2 className="lp-section-title">
-            Simple, transparent{' '}
-            <span className="grad">pricing</span>
+            {cmsGet('pricing', 'title', 'Simple, transparent')}{' '}
+            <span className="grad">{cmsGet('pricing', 'highlight', 'pricing')}</span>
           </h2>
           <p className="lp-section-desc">
-            Start free. Scale when you're ready. No hidden fees, ever.
+            {cmsGet('pricing', 'desc', "Start free. Scale when you're ready. No hidden fees, ever.")}
           </p>
         </div>
 
@@ -489,23 +522,22 @@ function Landing() {
         </div>
         <div className="lp-cta-inner reveal">
           <h2 className="lp-cta-title">
-            Start making music{' '}
-            <span className="grad">differently.</span>
+            {cmsGet('cta', 'title', 'Start making music')}{' '}
+            <span className="grad">{cmsGet('cta', 'highlight', 'differently.')}</span>
           </h2>
           <p className="lp-cta-sub">
-            Download NeuroTek AI and produce your first track in minutes.
-            Free forever — no credit card required.
+            {cmsGet('cta', 'subtitle', 'Download NeuroTek AI and produce your first track in minutes. Free forever — no credit card required.')}
           </p>
           <div className="lp-cta-actions">
-            <Link to="/download" className="lp-btn-primary">
+            <Link to={cmsGet('cta', 'cta1Url', '/download')} className="lp-btn-primary">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M8 1v8M4 7l4 4 4-4M1 13h14" stroke="currentColor" strokeWidth="2"
                   strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              Download Free
+              {cmsGet('cta', 'cta1Text', 'Download Free')}
             </Link>
-            <Link to="/pricing" className="lp-btn-ghost">
-              See all plans
+            <Link to={cmsGet('cta', 'cta2Url', '/pricing')} className="lp-btn-ghost">
+              {cmsGet('cta', 'cta2Text', 'See all plans')}
             </Link>
           </div>
         </div>

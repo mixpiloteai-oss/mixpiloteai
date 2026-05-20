@@ -1083,3 +1083,82 @@
 .admin-save-msg { font-size: 13px; color: var(--nt-green); font-weight: 600; }
 .badge-grey { background: rgba(100,116,139,0.15); color: var(--nt-text-dim); border-color: rgba(100,116,139,0.3); }
 select.admin-input { cursor: pointer; }
+
+/* ============================================================
+   CMS Editor
+   ============================================================ */
+
+.cms-section-note {
+  background: var(--nt-bg-raised);
+  border-left: 3px solid var(--nt-purple-500);
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--nt-text-muted);
+  margin-bottom: 20px;
+}
+
+.cms-color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cms-color-swatch {
+  width: 40px;
+  height: 36px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 2px;
+  background: transparent;
+}
+
+.cms-list-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.cms-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px dashed var(--admin-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--nt-text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  margin-bottom: 16px;
+}
+
+.cms-add-btn:hover {
+  border-color: var(--nt-purple-500);
+  color: var(--nt-text);
+}
+
+.cms-save-bar {
+  position: sticky;
+  bottom: 0;
+  background: var(--admin-bg);
+  border-top: 1px solid var(--admin-border);
+  padding: 14px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.cms-save-msg {
+  font-size: 13px;
+  color: #22d3ee;
+  font-weight: 600;
+}
+
+.cms-save-msg.error {
+  color: #f87171;
+}

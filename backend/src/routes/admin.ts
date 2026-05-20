@@ -60,6 +60,7 @@ import {
 import { getCoupon } from '../services/couponService';
 import { logger } from '../utils/logger';
 import { getPlans, getPlan, updatePlan, createPlan, togglePlan } from '../lib/planManager';
+import { getLandingContent, getSection, updateSection, getAvailableSections } from '../lib/cmsManager';
 import { getCreditPacks, getCreditPack, updateCreditPack, toggleCreditPack } from '../lib/creditPackManager';
 import { asyncHandler } from '../middleware/asyncHandler';
 
@@ -1229,6 +1230,30 @@ router.patch('/credit-packs/:id/toggle', asyncHandler(async (req, res) => {
   if (typeof active !== 'boolean') return res.status(400).json({ error: 'active (boolean) required' })
   const updated = await toggleCreditPack(req.params['id'] ?? '', active)
   if (!updated) return res.status(404).json({ error: 'Credit pack not found' })
+  res.json({ success: true, data: updated })
+}))
+
+// GET /api/admin/cms — all sections
+router.get('/cms', asyncHandler(async (_req, res) => {
+  res.set('Cache-Control', 'no-store')
+  res.json({ success: true, data: getLandingContent(), sections: getAvailableSections() })
+}))
+
+// GET /api/admin/cms/:section — single section
+router.get('/cms/:section', asyncHandler(async (req, res) => {
+  const section = getSection(req.params['section'] ?? '')
+  if (!section) return res.status(404).json({ error: 'Section not found' })
+  res.json({ success: true, data: section })
+}))
+
+// PATCH /api/admin/cms/:section — update section (deep merge)
+router.patch('/cms/:section', asyncHandler(async (req, res) => {
+  const sectionId = req.params['section'] ?? ''
+  if (!getAvailableSections().includes(sectionId)) {
+    return res.status(400).json({ error: `Unknown section: ${sectionId}` })
+  }
+  const updated = await updateSection(sectionId, req.body)
+  logger.info(`[admin] cms section '${sectionId}' updated by ${asAdmin(req).adminEmail}`)
   res.json({ success: true, data: updated })
 }))
 

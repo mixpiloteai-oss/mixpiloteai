@@ -41,6 +41,7 @@ import creatorsRouter from './routes/creators';
 import { cacheHeaders } from './middleware/cacheHeaders';
 import paymentsRouter from './routes/payments';
 import adminRouter from './routes/admin';
+import cmsRouter from './routes/cms';
 import pluginsRouter from './routes/plugins'
 import updatesRouter from './routes/updates';
 import errorsRouter  from './routes/errors';
@@ -132,6 +133,7 @@ app.use('/api/marketplace', marketplaceRouter);
 app.use('/api/creators',    creatorsRouter);
 app.use('/api/payments',    paymentsRouter);
 app.use('/api/admin',       adminRouter);
+app.use('/api/cms',         cmsRouter);
 app.use('/api/plugins',     pluginsRouter);
 app.use('/api/updates',     updatesRouter);
 app.use('/api/errors',      errorsRouter);
