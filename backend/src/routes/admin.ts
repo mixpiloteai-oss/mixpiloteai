@@ -5,6 +5,7 @@ import { Router, Request, Response } from 'express';
 import {
   requireAdmin,
   requireSuperAdmin,
+  requirePermission,
   AdminRequest,
   signAccessToken,
   signRefreshToken,
@@ -416,7 +417,7 @@ router.get('/users/:id/activity', async (req: Request, res: Response): Promise<v
   }
 });
 
-router.delete('/users/:id', (req: Request, res: Response): void => {
+router.delete('/users/:id', requirePermission('users.delete') as unknown as (req: Request, res: Response, next: () => void) => void, (req: Request, res: Response): void => {
   requireSuperAdmin(asAdmin(req), res, async () => {
     try {
       const ok = await deleteUserReal(req.params['id'] ?? '', asAdmin(req).adminId);
@@ -829,7 +830,7 @@ router.get('/stripe/subscriptions', async (req: Request, res: Response): Promise
   }
 });
 
-router.post('/stripe/refund', (req: Request, res: Response): void => {
+router.post('/stripe/refund', requirePermission('payments.refund') as unknown as (req: Request, res: Response, next: () => void) => void, (req: Request, res: Response): void => {
   requireSuperAdmin(asAdmin(req), res, async () => {
     const { chargeId, amount, reason } = req.body as {
       chargeId?: string;
@@ -886,7 +887,7 @@ router.get('/stripe/coupons', async (_req: Request, res: Response): Promise<void
   }
 });
 
-router.post('/stripe/coupons', (req: Request, res: Response): void => {
+router.post('/stripe/coupons', requirePermission('coupons.write') as unknown as (req: Request, res: Response, next: () => void) => void, (req: Request, res: Response): void => {
   requireSuperAdmin(asAdmin(req), res, async () => {
     const { id, percent_off, amount_off, currency, duration, max_redemptions, name } = req.body as {
       id?: string;
@@ -932,7 +933,7 @@ router.post('/stripe/coupons', (req: Request, res: Response): void => {
   });
 });
 
-router.delete('/stripe/coupons/:id', (req: Request, res: Response): void => {
+router.delete('/stripe/coupons/:id', requirePermission('coupons.write') as unknown as (req: Request, res: Response, next: () => void) => void, (req: Request, res: Response): void => {
   requireSuperAdmin(asAdmin(req), res, async () => {
     const couponId = req.params['id'] ?? '';
 
@@ -1027,7 +1028,7 @@ router.get('/paypal/webhook-logs', (req: Request, res: Response) => {
   res.json({ success: true, data: getPayPalWebhookLogs(limit) });
 });
 
-router.post('/paypal/refund', async (req: Request, res: Response): Promise<void> => {
+router.post('/paypal/refund', requirePermission('payments.refund') as unknown as (req: Request, res: Response, next: () => void) => void, async (req: Request, res: Response): Promise<void> => {
   const { captureId, amount, currency, note } = req.body as {
     captureId?: string; amount?: string; currency?: string; note?: string;
   };

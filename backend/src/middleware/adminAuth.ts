@@ -290,6 +290,67 @@ export function requireSuperAdmin(
   });
 }
 
+// ── Permission-based RBAC ─────────────────────────────────────
+//
+// Permissions are derived from the admin role. super_admin gets all,
+// admin gets the operational set, moderator gets read-only views plus
+// content moderation. Route handlers call requirePermission(perm) to
+// gate sensitive operations finer than the role gate alone.
+
+export type AdminPermission =
+  | 'users.read'   | 'users.write'   | 'users.delete' | 'users.ban'
+  | 'payments.read' | 'payments.refund'
+  | 'plans.read'    | 'plans.write'   | 'plans.delete'
+  | 'coupons.read'  | 'coupons.write'
+  | 'webhooks.read'
+  | 'marketplace.moderate'
+  | 'support.reply'
+  | 'cms.write'
+  | 'settings.write'
+  | 'admin.manage'
+
+const ROLE_PERMISSIONS: Record<AdminRequest['adminRole'], readonly AdminPermission[]> = {
+  super_admin: [
+    'users.read','users.write','users.delete','users.ban',
+    'payments.read','payments.refund',
+    'plans.read','plans.write','plans.delete',
+    'coupons.read','coupons.write',
+    'webhooks.read',
+    'marketplace.moderate','support.reply','cms.write','settings.write','admin.manage',
+  ],
+  admin: [
+    'users.read','users.write','users.ban',
+    'payments.read','payments.refund',
+    'plans.read','plans.write',
+    'coupons.read','coupons.write',
+    'webhooks.read',
+    'marketplace.moderate','support.reply','cms.write',
+  ],
+  moderator: [
+    'users.read',
+    'payments.read',
+    'plans.read',
+    'webhooks.read',
+    'marketplace.moderate','support.reply',
+  ],
+}
+
+export function hasPermission(role: AdminRequest['adminRole'], perm: AdminPermission): boolean {
+  return ROLE_PERMISSIONS[role]?.includes(perm) ?? false
+}
+
+export function requirePermission(perm: AdminPermission) {
+  return function (req: AdminRequest, res: Response, next: NextFunction): void {
+    requireAdmin(req, res, () => {
+      if (!hasPermission(req.adminRole, perm)) {
+        res.status(403).json({ success: false, error: `Permission denied: ${perm}` })
+        return
+      }
+      next()
+    })
+  }
+}
+
 // ── Legacy helper (used in other routes) ─────────────────────
 export function getAdminId(req: Request): string {
   const key = req.headers['x-admin-key'];

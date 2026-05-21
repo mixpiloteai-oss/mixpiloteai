@@ -15,6 +15,7 @@ const Subscriptions    = lazy(() => import('./Subscriptions'))
 const MarketplaceAdmin = lazy(() => import('./MarketplaceAdmin'))
 const Payments         = lazy(() => import('./Payments'))
 const StripeAdmin      = lazy(() => import('./StripeAdmin'))
+const PayPalAdmin      = lazy(() => import('./PayPalAdmin'))
 const Moderation       = lazy(() => import('./Moderation'))
 const AIManagement     = lazy(() => import('./AIManagement'))
 const Support          = lazy(() => import('./Support'))
@@ -197,6 +198,7 @@ export default function AdminShell() {
           <SidebarItem to="/admin/marketplace"   icon="◈" label="Marketplace"   badge={5} />
           <SidebarItem to="/admin/payments"      icon="⊟" label="Payments"      />
           <SidebarItem to="/admin/stripe"        icon="$" label="Stripe"        />
+          <SidebarItem to="/admin/paypal"        icon="₽" label="PayPal"        />
         </div>
 
         {/* CONTENT */}
@@ -257,6 +259,7 @@ export default function AdminShell() {
             <Route path="/marketplace"   element={<MarketplaceAdmin />} />
             <Route path="/payments"      element={<Payments />} />
             <Route path="/stripe"        element={<StripeAdmin />} />
+            <Route path="/paypal"        element={<PayPalAdmin />} />
             <Route path="/cms"           element={<CMS />} />
             <Route path="/moderation"    element={<Moderation />} />
             <Route path="/ai"            element={<AIManagement />} />

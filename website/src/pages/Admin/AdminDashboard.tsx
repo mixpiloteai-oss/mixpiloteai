@@ -1,6 +1,6 @@
 import './admin.css'
 import { useState, useEffect, useCallback } from 'react'
-import { adminApi, type PlatformStats, type StripeOverview } from './services/adminApi'
+import { adminApi, type PlatformStats, type StripeOverview, type StripeAnalytics, type PayPalAnalytics } from './services/adminApi'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -67,18 +67,24 @@ function StatCard({ label, value, delta, deltaDir, sub, glowColor, loading }: St
 export default function AdminDashboard() {
   const [stats, setStats] = useState<PlatformStats | null>(null)
   const [stripe, setStripe] = useState<StripeOverview | null>(null)
+  const [analytics, setAnalytics] = useState<StripeAnalytics | null>(null)
+  const [paypal, setPaypal] = useState<PayPalAnalytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [, setTick] = useState(0)
 
   const loadData = useCallback(async () => {
     try {
-      const [statsRes, stripeRes] = await Promise.all([
+      const [statsRes, stripeRes, analyticsRes, paypalRes] = await Promise.all([
         adminApi.stats(),
         adminApi.stripeOverview(),
+        adminApi.stripeAnalytics().catch(() => null),
+        adminApi.paypalAnalytics().catch(() => null),
       ])
       setStats(statsRes.data)
       setStripe(stripeRes.data)
+      if (analyticsRes) setAnalytics(analyticsRes.data)
+      if (paypalRes) setPaypal(paypalRes.data)
       setLastUpdated(new Date())
     } catch (e) {
       console.error('Dashboard load error:', e)
@@ -183,6 +189,30 @@ export default function AdminDashboard() {
           delta="open support tickets"
           deltaDir="down"
           glowColor="#ef4444"
+          loading={loading}
+        />
+        <StatCard
+          label="MRR"
+          value={analytics ? fmtUSD(analytics.mrr) : stripe ? fmtUSD(stripe.mrr) : '—'}
+          delta={analytics ? `ARR ${fmtUSD(analytics.arr)}` : '…'}
+          deltaDir="up"
+          glowColor="#6366f1"
+          loading={loading}
+        />
+        <StatCard
+          label="Churn rate"
+          value={analytics ? `${analytics.churnRate.toFixed(2)}%` : '—'}
+          delta={analytics ? `${analytics.canceledThisMonth} canceled / ${analytics.newThisMonth} new` : '…'}
+          deltaDir={analytics && analytics.churnRate > 5 ? 'down' : 'up'}
+          glowColor="#ec4899"
+          loading={loading}
+        />
+        <StatCard
+          label="PayPal revenue"
+          value={paypal ? fmtUSD(paypal.todayRevenue) : '—'}
+          delta={paypal ? `${paypal.activeSubscriptions} active subs` : '…'}
+          deltaDir="up"
+          glowColor="#0070ba"
           loading={loading}
         />
         <StatCard

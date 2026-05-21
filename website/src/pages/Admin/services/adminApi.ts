@@ -197,6 +197,13 @@ export const adminApi = {
   deleteStripeCoupon:  (id: string) => adminFetch<{ success: boolean }>(`/api/admin/stripe/coupons/${id}`, { method: 'DELETE' }),
   stripePortal:        (customerId: string, returnUrl: string) => adminFetch<{ success: boolean; data: { url: string } }>('/api/admin/stripe/portal', { method: 'POST', body: JSON.stringify({ customerId, returnUrl }) }),
 
+  // PayPal
+  paypalAnalytics:     () => adminFetch<{ success: boolean; data: PayPalAnalytics }>('/api/admin/paypal/analytics'),
+  paypalTransactions:  (limit = 50) => adminFetch<{ success: boolean; data: PayPalTransaction[] }>(`/api/admin/paypal/transactions?limit=${limit}`),
+  paypalSubscriptions: (limit = 50) => adminFetch<{ success: boolean; data: PayPalSubscriptionRow[] }>(`/api/admin/paypal/subscriptions?limit=${limit}`),
+  paypalWebhookLogs:   (limit = 100) => adminFetch<{ success: boolean; data: PayPalWebhookLog[] }>(`/api/admin/paypal/webhook-logs?limit=${limit}`),
+  paypalRefund:        (captureId: string, amount?: string, currency?: string, note?: string) => adminFetch<{ success: boolean; data: { id: string; status: string } }>('/api/admin/paypal/refund', { method: 'POST', body: JSON.stringify({ captureId, amount, currency, note }) }),
+
   // Plans (full CRUD)
   plans:        () => adminFetch<{ success: boolean; data: unknown[] }>('/api/admin/plans'),
   plan:         (id: string) => adminFetch<{ success: boolean; data: unknown }>(`/api/admin/plans/${id}`),
@@ -284,6 +291,25 @@ export interface StripeCoupon {
   id: string; name: string; percent_off?: number; amount_off?: number; currency?: string
   duration: string; duration_in_months?: number
   times_redeemed: number; max_redemptions?: number; valid: boolean; created: number
+}
+export interface PayPalAnalytics {
+  totalRevenue: number; todayRevenue: number; monthRevenue: number
+  revenue7d: Array<{ date: string; amount: number }>
+  activeSubscriptions: number; newThisMonth: number; canceledThisMonth: number
+  successRate: number; refundCount: number; refundAmount: number; failedPayments: number
+}
+export interface PayPalTransaction {
+  id: string; status: string; amount: number; currency: string
+  payer_email: string; description: string; created: number
+  capture_id?: string; refunded: boolean
+}
+export interface PayPalSubscriptionRow {
+  id: string; plan_id: string; status: string; payer_email: string
+  amount: number; currency: string; next_billing: number | null; created: number
+}
+export interface PayPalWebhookLog {
+  id: string; event_type: string; status: 'success' | 'failed'
+  created: number; resource_type?: string; error?: string
 }
 export interface StripeWebhookLog {
   id: string; type: string; created: number; livemode: boolean
