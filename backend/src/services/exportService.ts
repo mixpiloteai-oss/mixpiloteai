@@ -81,10 +81,11 @@ export function deleteExportJob(jobId: string, userId: string): boolean {
   return true
 }
 
-// Auto-evict jobs older than 7 days
-setInterval(() => {
+// Auto-evict jobs older than 7 days — unref'd so the timer never blocks exit
+const _exportEvictTimer = setInterval(() => {
   const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
   for (const [id, job] of jobs) {
     if (job.createdAt < cutoff) jobs.delete(id)
   }
 }, 60 * 60 * 1000)
+if (typeof _exportEvictTimer.unref === 'function') _exportEvictTimer.unref()

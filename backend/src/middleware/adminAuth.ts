@@ -65,8 +65,9 @@ const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;   // 15 min
 const LOCK_MS   = 30 * 60 * 1000;   // 30 min
 
-// Clean stale entries every 10 min
-setInterval(() => {
+// Clean stale entries every 10 min. unref() so the timer never blocks
+// process exit — important for tests and graceful shutdown.
+const _attemptCleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [ip, entry] of loginAttempts.entries()) {
     const expired = entry.lockedUntil
@@ -75,6 +76,7 @@ setInterval(() => {
     if (expired) loginAttempts.delete(ip);
   }
 }, 10 * 60 * 1000);
+if (typeof _attemptCleanupTimer.unref === 'function') _attemptCleanupTimer.unref();
 
 export function isIPBlocked(ip: string): boolean {
   const entry = loginAttempts.get(ip);

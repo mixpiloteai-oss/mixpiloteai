@@ -97,8 +97,8 @@ function getCurrentMetric(): SystemMetric {
   }
 }
 
-// Collect a new metric every 30 seconds
-setInterval(() => {
+// Collect a new metric every 30 seconds — unref so it doesn't block exit
+const _metricsTimer = setInterval(() => {
   const sample = getCurrentMetric()
   metricsBuffer.push(sample)
   if (metricsBuffer.length > BUFFER_SIZE) {
@@ -106,6 +106,7 @@ setInterval(() => {
   }
   checkAlerts(sample)
 }, 30_000);
+if (typeof _metricsTimer.unref === 'function') _metricsTimer.unref();
 
 // ── Public API ───────────────────────────────────────────────
 

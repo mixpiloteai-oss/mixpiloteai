@@ -81,7 +81,7 @@ function clearStaleEntries(): void {
   }
 }
 
-setInterval(clearStaleEntries, 5 * MINUTE_MS);
+const _t = setInterval(clearStaleEntries, 5 * MINUTE_MS); if (typeof _t.unref === "function") _t.unref();
 
 // ── Record a failure for the user ────────────────────────────
 export function recordPaymentFailure(userId: string): void {

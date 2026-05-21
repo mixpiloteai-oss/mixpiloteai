@@ -839,4 +839,4 @@ export function moderateProduct(
 
 // ── Init ─────────────────────────────────────────────────────
 seedProducts()
-setInterval(updateTrendingScores, 5 * 60 * 1000)
+const _t = setInterval(updateTrendingScores, 5 * 60 * 1000); if (typeof _t.unref === "function") _t.unref();

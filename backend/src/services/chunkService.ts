@@ -28,7 +28,7 @@ function evictStaleSessions(): void {
   }
 }
 
-setInterval(evictStaleSessions, 5 * 60 * 1000)
+const _t = setInterval(evictStaleSessions, 5 * 60 * 1000); if (typeof _t.unref === "function") _t.unref();
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
