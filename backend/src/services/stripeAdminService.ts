@@ -73,7 +73,7 @@ export interface StripeWebhookLog {
   type: string;
   created: number;
   livemode: boolean;
-  status: 'success' | 'error';
+  status: 'success' | 'failed';
   error?: string;
 }
 
@@ -150,12 +150,18 @@ async function stripeDelete<T>(path: string): Promise<T> {
 const webhookEventLog: StripeWebhookLog[] = [];
 const MAX_WEBHOOK_LOG = 200;
 
-export function recordWebhookEvent(type: string, status: 'success' | 'error', error?: string): void {
+export function recordWebhookEvent(
+  type: string,
+  status: 'success' | 'failed',
+  error?: string,
+  eventId?: string,
+  livemode?: boolean,
+): void {
   const entry: StripeWebhookLog = {
-    id: `wh_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    id: eventId ?? `wh_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     type,
     created: Math.floor(Date.now() / 1000),
-    livemode: !IS_MOCK,
+    livemode: livemode ?? !IS_MOCK,
     status,
     ...(error ? { error } : {}),
   };
@@ -178,14 +184,14 @@ export function getWebhookLogs(limit = 50): StripeWebhookLog[] {
       'charge.refunded',
       'payment_intent.succeeded',
     ];
-    const statuses: Array<'success' | 'error'> = ['success', 'success', 'success', 'success', 'error'];
+    const statuses: Array<'success' | 'failed'> = ['success', 'success', 'success', 'success', 'failed'];
     return Array.from({ length: Math.min(limit, 20) }, (_, i) => ({
       id: `wh_mock_${(i + 1).toString().padStart(4, '0')}`,
       type: eventTypes[i % eventTypes.length]!,
       created: now - i * 3600,
       livemode: false,
       status: statuses[i % statuses.length]!,
-      ...(statuses[i % statuses.length] === 'error' ? { error: 'Handler threw: connection timeout' } : {}),
+      ...(statuses[i % statuses.length] === 'failed' ? { error: 'Handler threw: connection timeout' } : {}),
     }));
   }
   return webhookEventLog.slice(0, limit);

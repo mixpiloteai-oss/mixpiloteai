@@ -70,6 +70,13 @@ import {
   getWebhookLogs,
   recordWebhookEvent,
 } from '../services/stripeAdminService';
+import {
+  getPayPalAnalytics,
+  listPayPalTransactions,
+  listPayPalSubscriptions,
+  getPayPalWebhookLogs,
+  refundPayPalCapture,
+} from '../services/paypalAdminService';
 import { logger } from '../utils/logger';
 import { getPlans, getPlan, updatePlan, createPlan, togglePlan } from '../lib/planManager';
 import { getLandingContent, getSection, updateSection, getAvailableSections } from '../lib/cmsManager';
@@ -985,6 +992,60 @@ router.post('/stripe/portal', async (req: Request, res: Response) => {
 router.get('/stripe/webhook-logs', (req: Request, res: Response) => {
   const limit = Math.min(parseInt(String(req.query['limit'] ?? '100'), 10) || 100, 500);
   res.json({ success: true, data: getWebhookLogs(limit) });
+});
+
+// ── PayPal admin endpoints ────────────────────────────────────
+
+router.get('/paypal/analytics', async (_req: Request, res: Response) => {
+  try {
+    res.json({ success: true, data: await getPayPalAnalytics() });
+  } catch (err) {
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+router.get('/paypal/transactions', async (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(parseInt(String(req.query['limit'] ?? '50'), 10) || 50, 500);
+    res.json({ success: true, data: await listPayPalTransactions(limit) });
+  } catch (err) {
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+router.get('/paypal/subscriptions', async (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(parseInt(String(req.query['limit'] ?? '50'), 10) || 50, 500);
+    res.json({ success: true, data: await listPayPalSubscriptions(limit) });
+  } catch (err) {
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+router.get('/paypal/webhook-logs', (req: Request, res: Response) => {
+  const limit = Math.min(parseInt(String(req.query['limit'] ?? '100'), 10) || 100, 500);
+  res.json({ success: true, data: getPayPalWebhookLogs(limit) });
+});
+
+router.post('/paypal/refund', async (req: Request, res: Response): Promise<void> => {
+  const { captureId, amount, currency, note } = req.body as {
+    captureId?: string; amount?: string; currency?: string; note?: string;
+  };
+  if (!captureId) {
+    res.status(400).json({ success: false, error: 'captureId required' });
+    return;
+  }
+  try {
+    const r = await refundPayPalCapture(
+      captureId,
+      amount ? { value: amount, currency_code: currency ?? 'USD' } : undefined,
+      note,
+    );
+    await logAdminAction(asAdmin(req).adminEmail, 'paypal_refund', captureId, req.ip ?? '0.0.0.0', asAdmin(req).adminId);
+    res.json({ success: true, data: r });
+  } catch (err) {
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
 });
 
 // Suppress unused-import warnings: keep references for future wiring.

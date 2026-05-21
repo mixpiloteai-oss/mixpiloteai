@@ -61,6 +61,8 @@ import {
 } from '../services/invoiceService';
 
 import { log, getUserHistory } from '../services/paymentLogService';
+import { recordWebhookEvent } from '../services/stripeAdminService';
+import { recordPayPalWebhookEvent } from '../services/paypalAdminService';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -370,16 +372,18 @@ router.post('/stripe/webhook', asyncHandler(async (req: Request, res: Response) 
   if (secret && typeof signature === 'string' && rawBody) {
     const valid = verifyWebhookSignature(rawBody.toString('utf8'), signature, secret);
     if (!valid) {
+      recordWebhookEvent('signature_verification', 'failed', 'Invalid signature');
       res.status(400).json({ error: 'Invalid signature' });
       return;
     }
   }
 
-  let event: { type: string; data: { object: Record<string, unknown> } };
+  let event: { id?: string; type: string; livemode?: boolean; data: { object: Record<string, unknown> } };
   try {
     const bodyStr = rawBody ? rawBody.toString('utf8') : JSON.stringify(req.body);
     event = JSON.parse(bodyStr) as typeof event;
   } catch {
+    recordWebhookEvent('unknown', 'failed', 'Invalid JSON');
     res.status(400).json({ error: 'Invalid JSON' });
     return;
   }
@@ -481,6 +485,7 @@ router.post('/stripe/webhook', asyncHandler(async (req: Request, res: Response) 
     }
   }
 
+  recordWebhookEvent(eventType, 'success', undefined, event.id, event.livemode);
   res.json({ received: true });
 }));
 
@@ -611,16 +616,18 @@ router.post('/paypal/webhook', asyncHandler(async (req: Request, res: Response) 
   const valid = await verifyWebhookEvent(headerMap, rawBody)
   if (!valid) {
     logger.warn('[paypal-webhook] invalid signature')
+    recordPayPalWebhookEvent('signature_verification', 'failed', 'Invalid signature')
     // Still return 200 to avoid PayPal retries on signature issues
     res.json({ received: true })
     return
   }
 
   // Parse event
-  let event: { event_type: string; resource: Record<string, unknown>; id: string }
+  let event: { event_type: string; resource: Record<string, unknown>; id: string; resource_type?: string }
   try {
     event = JSON.parse(rawBody) as typeof event
   } catch {
+    recordPayPalWebhookEvent('unknown', 'failed', 'Invalid JSON')
     res.status(400).json({ error: 'Invalid JSON' })
     return
   }
@@ -770,8 +777,11 @@ router.post('/paypal/webhook', asyncHandler(async (req: Request, res: Response) 
     }
     // Other events (e.g. BILLING.SUBSCRIPTION.CREATED) are informational — no action needed
 
+    recordPayPalWebhookEvent(event_type, 'success', undefined, eventId, event.resource_type)
   } catch (err) {
-    logger.error('[paypal-webhook] processing error', { error: err instanceof Error ? err.message : String(err) })
+    const msg = err instanceof Error ? err.message : String(err)
+    logger.error('[paypal-webhook] processing error', { error: msg })
+    recordPayPalWebhookEvent(event_type, 'failed', msg, eventId, event.resource_type)
     // Do NOT return 500 — PayPal would retry. Return 200 and log the error.
   }
 
