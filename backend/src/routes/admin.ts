@@ -58,6 +58,18 @@ import {
   getStorageInfo,
 } from '../services/monitoringService';
 import { getCoupon } from '../services/couponService';
+import {
+  getStripeAnalytics,
+  listCharges as stripeListCharges,
+  listSubscriptions as stripeListSubscriptions,
+  listCoupons as stripeListCoupons,
+  createCoupon as stripeCreateCoupon,
+  deleteCoupon as stripeDeleteCoupon,
+  listInvoices as stripeListInvoices,
+  createCustomerPortalSession,
+  getWebhookLogs,
+  recordWebhookEvent,
+} from '../services/stripeAdminService';
 import { logger } from '../utils/logger';
 import { getPlans, getPlan, updatePlan, createPlan, togglePlan } from '../lib/planManager';
 import { getLandingContent, getSection, updateSection, getAvailableSections } from '../lib/cmsManager';
@@ -932,6 +944,52 @@ router.delete('/stripe/coupons/:id', (req: Request, res: Response): void => {
     }
   });
 });
+
+// ── Stripe analytics + extras (new admin endpoints) ───────────
+
+router.get('/stripe/analytics', async (_req: Request, res: Response) => {
+  try {
+    const data = await getStripeAnalytics();
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+router.get('/stripe/invoices', async (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(parseInt(String(req.query['limit'] ?? '25'), 10) || 25, 100);
+    const customerId = req.query['customer'] ? String(req.query['customer']) : undefined;
+    const data = await stripeListInvoices(limit, customerId);
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+router.post('/stripe/portal', async (req: Request, res: Response) => {
+  const { customerId, returnUrl } = req.body as { customerId?: string; returnUrl?: string };
+  if (!customerId || !returnUrl) {
+    res.status(400).json({ success: false, error: 'customerId and returnUrl required' });
+    return;
+  }
+  try {
+    const session = await createCustomerPortalSession(customerId, returnUrl);
+    await logAdminAction(asAdmin(req).adminEmail, 'stripe_portal', customerId, req.ip ?? '0.0.0.0', asAdmin(req).adminId);
+    res.json({ success: true, data: session });
+  } catch (err) {
+    res.status(500).json({ success: false, error: (err as Error).message });
+  }
+});
+
+router.get('/stripe/webhook-logs', (req: Request, res: Response) => {
+  const limit = Math.min(parseInt(String(req.query['limit'] ?? '100'), 10) || 100, 500);
+  res.json({ success: true, data: getWebhookLogs(limit) });
+});
+
+// Suppress unused-import warnings: keep references for future wiring.
+void stripeListCharges; void stripeListSubscriptions; void stripeListCoupons;
+void stripeCreateCoupon; void stripeDeleteCoupon; void recordWebhookEvent;
 
 // ══════════════════════════════════════════════════════════════
 // AI

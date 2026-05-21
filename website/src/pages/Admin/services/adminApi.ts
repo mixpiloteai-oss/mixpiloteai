@@ -189,6 +189,20 @@ export const adminApi = {
   stripeCharges:       (limit = 25, startingAfter?: string) => adminFetch<{ success: boolean; data: StripeCharge[] }>(`/api/admin/stripe/charges?limit=${limit}${startingAfter ? `&starting_after=${startingAfter}` : ''}`),
   stripeSubscriptions: (limit = 25) => adminFetch<{ success: boolean; data: StripeSub[] }>(`/api/admin/stripe/subscriptions?limit=${limit}`),
   refund:              (chargeId: string, reason: string) => adminFetch<{ success: boolean }>('/api/admin/stripe/refund', { method: 'POST', body: JSON.stringify({ chargeId, reason }) }),
+  stripeAnalytics:     () => adminFetch<{ success: boolean; data: StripeAnalytics }>('/api/admin/stripe/analytics'),
+  stripeInvoices:      (limit = 25, customer?: string) => adminFetch<{ success: boolean; data: StripeInvoice[] }>(`/api/admin/stripe/invoices?limit=${limit}${customer ? `&customer=${customer}` : ''}`),
+  stripeWebhookLogs:   (limit = 100) => adminFetch<{ success: boolean; data: StripeWebhookLog[] }>(`/api/admin/stripe/webhook-logs?limit=${limit}`),
+  stripeCoupons:       () => adminFetch<{ success: boolean; data: StripeCoupon[] }>('/api/admin/stripe/coupons'),
+  createStripeCoupon:  (data: { name: string; percentOff?: number; amountOff?: number; currency?: string; duration: string; durationInMonths?: number; maxRedemptions?: number }) => adminFetch<{ success: boolean; data: StripeCoupon }>('/api/admin/stripe/coupons', { method: 'POST', body: JSON.stringify(data) }),
+  deleteStripeCoupon:  (id: string) => adminFetch<{ success: boolean }>(`/api/admin/stripe/coupons/${id}`, { method: 'DELETE' }),
+  stripePortal:        (customerId: string, returnUrl: string) => adminFetch<{ success: boolean; data: { url: string } }>('/api/admin/stripe/portal', { method: 'POST', body: JSON.stringify({ customerId, returnUrl }) }),
+
+  // Plans (full CRUD)
+  plans:        () => adminFetch<{ success: boolean; data: unknown[] }>('/api/admin/plans'),
+  plan:         (id: string) => adminFetch<{ success: boolean; data: unknown }>(`/api/admin/plans/${id}`),
+  createPlan:   (data: Record<string, unknown>) => adminFetch<{ success: boolean; data: unknown }>('/api/admin/plans', { method: 'POST', body: JSON.stringify(data) }),
+  updatePlan:   (id: string, data: Record<string, unknown>) => adminFetch<{ success: boolean; data: unknown }>(`/api/admin/plans/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  togglePlan:   (id: string, active: boolean) => adminFetch<{ success: boolean }>(`/api/admin/plans/${id}/toggle`, { method: 'POST', body: JSON.stringify({ active }) }),
 
   // Monitoring
   monitoring:       () => adminFetch<{ success: boolean; data: MonitoringData }>('/api/admin/monitoring'),
@@ -251,3 +265,27 @@ export interface AIModel { id: string; name: string; status: string; requestsTod
 export interface AdminSettings { maintenanceMode: boolean; registrationsEnabled: boolean; maxUploadMB: number; supportEmail: string; features: Record<string, boolean> }
 export interface BanEntry { id: string; userId: string; name: string; email: string; reason: string; bannedAt: string; permanent: boolean }
 export interface AuditLog { id: number; actor: string; action: string; target: string; time: string }
+export interface StripeAnalytics {
+  mrr: number; arr: number; totalRevenue: number; todayRevenue: number
+  revenue7d: Array<{ date: string; amount: number }>
+  revenue30d: Array<{ date: string; amount: number }>
+  activeSubscriptions: number; canceledThisMonth: number; newThisMonth: number
+  churnRate: number; avgRevenuePerUser: number
+  successRate: number; failedPayments: number
+  refundCount: number; refundAmount: number; balance: number
+}
+export interface StripeInvoice {
+  id: string; customer: string; customer_email: string
+  amount_paid: number; amount_due: number; currency: string
+  status: string; created: number; period_start: number; period_end: number
+  subscription?: string; hosted_invoice_url?: string
+}
+export interface StripeCoupon {
+  id: string; name: string; percent_off?: number; amount_off?: number; currency?: string
+  duration: string; duration_in_months?: number
+  times_redeemed: number; max_redemptions?: number; valid: boolean; created: number
+}
+export interface StripeWebhookLog {
+  id: string; type: string; created: number; livemode: boolean
+  status: 'success' | 'failed'; error?: string
+}
