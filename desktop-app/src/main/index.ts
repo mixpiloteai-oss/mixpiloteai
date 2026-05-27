@@ -9,6 +9,7 @@ import autosaveModule from './modules/autosave'
 import updaterModule from './modules/updater'
 import { registerAudioIPCHandlers } from './audio/AudioIPCHandler'
 import { getAudioEngineProcess }     from './audio/AudioEngineProcess'
+import { getAudioEngineWatchdog }    from './audio/AudioEngineWatchdog'
 import { registerPluginIPC }         from './modules/pluginIPC'
 import { logCrash, registerCrashIPC } from './modules/errorReporter'
 import { initStartupGuard } from './modules/startupGuard'
@@ -196,9 +197,10 @@ app.whenReady().then(async () => {
   // Stability monitoring and auto-recovery
   registerStabilityIPC(ipcMain, () => mainWindow)
 
-  // Native audio engine IPC + process management
+  // Native audio engine IPC + process management + watchdog
   registerAudioIPCHandlers(ipcMain, () => mainWindow)
   getAudioEngineProcess().start().catch(e => console.warn('[main] audio engine start failed:', e))
+  getAudioEngineWatchdog().start()  // begins health polling (5s interval, unref'd)
 
   startProductionMonitor()
 
@@ -220,6 +222,7 @@ powerMonitor.on('resume',  () => mainWindow?.webContents.send('power-event', 're
 app.on('before-quit', () => {
   console.log('[main] before-quit: cleaning up')
   stopProductionMonitor()
+  getAudioEngineWatchdog().stop()
   getAudioEngineProcess().stop()
 })
 

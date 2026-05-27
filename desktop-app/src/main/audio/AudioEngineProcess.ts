@@ -10,10 +10,6 @@
  *   │  (Node.js)   │ ◄───────────── │  ASIO/WASAPI/CoreAudio│
  *   └──────────────┘   JSON/stdout  └─────────────────────┘
  *
- * The renderer communicates with the main process via IPC (preload API).
- * The main process forwards commands to the native engine and
- * routes events back to the renderer window.
- *
  * Binary packaging:
  *   Production builds package the binary via electron-builder extraResources:
  *     from: native/audio-engine/target/release/audio-engine[.exe]
@@ -21,7 +17,7 @@
  *
  *   If the binary is not found, the process starts in "Web Audio fallback"
  *   mode — the renderer uses the Web Audio API instead.  This is NEVER
- *   silent: a warning is logged and the status is queryable via IPC.
+ *   silent: a warning is logged and status is queryable via IPC.
  */
 
 import { ChildProcess, spawn }  from 'node:child_process'
@@ -33,7 +29,7 @@ import {
   findEngineBinary,
 } from './enginePaths'
 
-// ─── Protocol types (mirrors Rust protocol.rs) ───────────────────────────────
+// ─── Protocol types ───────────────────────────────────────────────────────────
 
 export interface EngineCommand {
   cmd:  string
@@ -47,23 +43,51 @@ export interface EngineEvent {
 
 export type EngineEventListener = (evt: EngineEvent) => void
 
-// ─── Engine status (queryable via IPC: audio-engine-status) ──────────────────
+// ─── CrashEntry ───────────────────────────────────────────────────────────────
+
+export interface CrashEntry {
+  timestamp:  number
+  code:       number | null
+  signal:     string | null
+  restartNum: number          // which restart attempt this was (0 = first crash)
+}
+
+// ─── EngineStatus ─────────────────────────────────────────────────────────────
 
 export interface EngineStatus {
-  /** Operating mode: 'native' = Rust binary running; 'web-audio-fallback' = binary not found */
-  mode:         'native' | 'web-audio-fallback'
-  /** Whether the native binary was found on disk */
-  binaryFound:  boolean
-  /** Full path to the binary that was found (null if not found) */
-  binaryPath:   string | null
-  /** All candidate paths that were checked during startup */
-  checkedPaths: string[]
-  /** node process.platform value */
-  platform:     string
-  /** Whether the child process is currently running */
-  isRunning:    boolean
-  /** How many times the engine has been restarted in this session */
-  restarts:     number
+  // ── Mode ────────────────────────────────────────────────────────────────
+  /** 'native' = Rust binary running; 'web-audio-fallback' = binary not found */
+  mode:          'native' | 'web-audio-fallback'
+
+  // ── Binary ──────────────────────────────────────────────────────────────
+  binaryFound:   boolean
+  binaryPath:    string | null
+  checkedPaths:  string[]
+  platform:      string
+
+  // ── Process ─────────────────────────────────────────────────────────────
+  pid:           number | null          // OS process ID when running
+  isRunning:     boolean
+  uptimeSeconds: number | null          // seconds since last successful start
+
+  // ── Crash / restart tracking ─────────────────────────────────────────────
+  restarts:      number                 // restarts in this session
+  crashCount:    number                 // total non-intentional crashes this session
+  lastCrashAt:   number | null          // epoch ms of last crash
+  lastCrashCode: number | null
+  lastCrashSig:  string | null
+  recentCrashes: CrashEntry[]          // last 5 entries
+
+  // ── Real-time metrics (from native engine events) ──────────────────────
+  cpuPercent:    number | null          // from profiler_update event
+  memoryMB:      number | null          // from profiler_update event
+  xrunCount:     number                 // cumulative buffer underruns
+
+  // ── Audio config ─────────────────────────────────────────────────────────
+  driver:        string | null
+  sampleRate:    number | null
+  bufferSize:    number | null
+  latencyMs:     number | null          // driver-reported round-trip latency
 }
 
 // ─── AudioEngineProcess ───────────────────────────────────────────────────────
@@ -71,79 +95,125 @@ export interface EngineStatus {
 export class AudioEngineProcess extends EventEmitter {
   private _proc:        ChildProcess | null = null
   private _ready        = false
-  private _cmdQueue:    EngineCommand[]     = []   // commands buffered before ready
+  private _cmdQueue:    EngineCommand[]     = []
   private _restarts     = 0
-  private _stopping     = false              // true when stop() was called intentionally
+  private _stopping     = false
   private readonly _maxRestarts   = 5
-  private readonly _maxQueueSize  = 64       // prevent unbounded queue growth
+  private readonly _maxQueueSize  = 64
 
-  // Status tracked from last start() call — set before/after binary search
-  private _status: EngineStatus = {
+  // ── Crash / uptime tracking ──────────────────────────────────────────────
+  private _crashCount   = 0
+  private _lastCrashAt: number | null   = null
+  private _lastCrashCode: number | null = null
+  private _lastCrashSig: string | null  = null
+  private _recentCrashes: CrashEntry[]  = []
+  private _startedAt: number | null     = null
+
+  // ── Real-time metrics ────────────────────────────────────────────────────
+  private _cpuPercent: number | null  = null
+  private _memoryMB:   number | null  = null
+  private _xrunCount   = 0
+
+  // ── Config ───────────────────────────────────────────────────────────────
+  private _driver:     string | null = null
+  private _sampleRate: number | null = null
+  private _bufferSize: number | null = null
+  private _latencyMs:  number | null = null
+
+  // ── Base status (set at start(), updated on lifecycle events) ───────────
+  private _baseStatus: Pick<EngineStatus, 'mode' | 'binaryFound' | 'binaryPath' | 'checkedPaths' | 'platform'> = {
     mode:         'web-audio-fallback',
     binaryFound:  false,
     binaryPath:   null,
     checkedPaths: [],
     platform:     process.platform,
-    isRunning:    false,
-    restarts:     0,
   }
+
+  // ─── Public getters ────────────────────────────────────────────────────
 
   get ready(): boolean { return this._ready }
 
-  /** Returns the current engine status snapshot. */
+  get pid(): number | null { return this._proc?.pid ?? null }
+
+  get crashCount(): number { return this._crashCount }
+
+  /** Full live snapshot of the engine status — safe to serialise and send over IPC. */
   getStatus(): EngineStatus {
+    const now = Date.now()
     return {
-      ...this._status,
-      isRunning: this._proc !== null && !this._proc.killed,
-      restarts:  this._restarts,
+      ...this._baseStatus,
+      pid:           this._proc?.pid ?? null,
+      isRunning:     this._proc !== null && !this._proc.killed,
+      uptimeSeconds: this._startedAt !== null ? Math.floor((now - this._startedAt) / 1000) : null,
+      restarts:      this._restarts,
+      crashCount:    this._crashCount,
+      lastCrashAt:   this._lastCrashAt,
+      lastCrashCode: this._lastCrashCode,
+      lastCrashSig:  this._lastCrashSig,
+      recentCrashes: this._recentCrashes.slice(-5),
+      cpuPercent:    this._cpuPercent,
+      memoryMB:      this._memoryMB,
+      xrunCount:     this._xrunCount,
+      driver:        this._driver,
+      sampleRate:    this._sampleRate,
+      bufferSize:    this._bufferSize,
+      latencyMs:     this._latencyMs,
     }
   }
 
-  // ── Lifecycle ─────────────────────────────────────────────────────────────
+  // ─── Lifecycle ─────────────────────────────────────────────────────────
 
-  async start(driver = 'default', device = '', sampleRate = 44100, bufferSize = 512): Promise<void> {
+  async start(
+    driver     = 'default',
+    device     = '',
+    sampleRate = 44100,
+    bufferSize = 512,
+  ): Promise<void> {
     if (this._proc) {
-      console.warn('[AudioEngineProcess] start called but process already running')
+      console.warn('[AudioEngineProcess] start() called while process is already running')
       return
     }
-    this._stopping = false   // fresh start, clear intentional-stop flag
+    this._stopping  = false
+    this._driver    = driver
+    this._sampleRate = sampleRate
+    this._bufferSize = bufferSize
 
     const { path: binaryPath, checkedPaths } = this._findBinary()
+
     if (!binaryPath) {
-      this._status = {
+      this._baseStatus = {
         mode:         'web-audio-fallback',
         binaryFound:  false,
         binaryPath:   null,
         checkedPaths,
         platform:     process.platform,
-        isRunning:    false,
-        restarts:     this._restarts,
       }
       console.warn(
-        '[AudioEngineProcess] ⚠️  Native audio engine binary NOT FOUND.\n' +
-        '  Falling back to Web Audio API — reduced performance, no ASIO/WASAPI/CoreAudio.\n' +
+        '\n[AudioEngineProcess] ⚠️  NATIVE AUDIO ENGINE BINARY NOT FOUND\n' +
+        '  ┌─────────────────────────────────────────────────────────────────┐\n' +
+        '  │  Falling back to Web Audio API.                                  │\n' +
+        '  │  ASIO / WASAPI / CoreAudio output is NOT available.              │\n' +
+        '  │  Latency and performance will be degraded.                        │\n' +
+        '  └─────────────────────────────────────────────────────────────────┘\n' +
         '  Searched paths:\n' +
-        checkedPaths.map(p => `    • ${p}`).join('\n') + '\n' +
-        '  To fix: run `cargo build --release` in native/audio-engine/' +
-        '  and restart the app, or rebuild with a release build.'
+        checkedPaths.map(p => `    ✗ ${p}`).join('\n') + '\n' +
+        '  Fix: run `cargo build --release` in native/audio-engine/ and restart.\n'
       )
       this._ready = true
       this.emit('ready')
-      this.emit('engine-mode', this._status)
+      this.emit('engine-mode', this.getStatus())
       return
     }
 
-    this._status = {
+    this._baseStatus = {
       mode:         'native',
       binaryFound:  true,
       binaryPath,
       checkedPaths,
       platform:     process.platform,
-      isRunning:    false,  // will flip to true once 'ready' event arrives
-      restarts:     this._restarts,
     }
-    console.log(`[AudioEngineProcess] ✓ Native audio engine binary found: ${binaryPath}`)
-    this.emit('engine-mode', this._status)
+    console.log(`[AudioEngineProcess] ✓ Binary found: ${binaryPath}`)
+    this.emit('engine-mode', this.getStatus())
 
     const args = [
       '--driver',      driver,
@@ -152,7 +222,7 @@ export class AudioEngineProcess extends EventEmitter {
     ]
     if (device) args.push('--device', device)
 
-    console.log(`[AudioEngineProcess] spawning: ${binaryPath} ${args.join(' ')}`)
+    console.log(`[AudioEngineProcess] Spawning: ${binaryPath} ${args.join(' ')}`)
 
     try {
       this._proc = spawn(binaryPath, args, {
@@ -160,29 +230,23 @@ export class AudioEngineProcess extends EventEmitter {
         env:   { ...process.env, RUST_LOG: 'info' },
       })
 
-      // Timeout guard: if process doesn't send 'ready' within 10s, consider it dead
+      // 10s guard: if process doesn't send 'ready', assume it's stuck
       const readyTimeout = setTimeout(() => {
         if (!this._ready && this._proc) {
-          console.error('[AudioEngineProcess] ready timeout — killing stalled process')
+          console.error('[AudioEngineProcess] ⏱️  Ready timeout (10s) — killing stalled process')
           this._proc.kill('SIGKILL')
           this._proc = null
           this._ready = false
         }
       }, 10_000)
 
-      this._proc.on('exit',  (code, sig) => {
-        clearTimeout(readyTimeout)
-        this._onExit(code, sig)
-      })
-      this._proc.on('error', (err) => {
-        clearTimeout(readyTimeout)
-        this._onError(err)
-      })
+      this._proc.on('exit',  (code, sig) => { clearTimeout(readyTimeout); this._onExit(code, sig) })
+      this._proc.on('error', (err)       => { clearTimeout(readyTimeout); this._onError(err) })
 
       if (this._proc.stderr) {
         this._proc.stderr.on('data', (d: Buffer) => {
           const line = d.toString().trim()
-          if (line) console.log(`[audio-engine] ${line}`)
+          if (line) console.log(`[audio-engine stderr] ${line}`)
         })
       }
 
@@ -191,8 +255,8 @@ export class AudioEngineProcess extends EventEmitter {
         rl.on('line', (line) => this._handleLine(line.trim()))
       }
     } catch (err) {
-      console.error('[AudioEngineProcess] spawn error:', err)
-      this._proc = null
+      console.error('[AudioEngineProcess] Spawn failed:', err)
+      this._proc  = null
       this._ready = false
       throw err
     }
@@ -200,57 +264,54 @@ export class AudioEngineProcess extends EventEmitter {
 
   stop(): void {
     if (!this._proc) {
-      this._ready   = false
+      this._ready    = false
       this._stopping = false
       return
     }
 
     this._ready    = false
-    this._stopping = true   // flag intentional stop so auto-restart knows to skip
+    this._stopping = true
 
-    try {
-      this.send({ cmd: 'shutdown' })
-    } catch { /* already dead */ }
+    try { this.send({ cmd: 'shutdown' }) } catch { /* already dead */ }
 
-    // Forcefully kill if not exited within timeout
     const killTimeout = setTimeout(() => {
       if (this._proc) {
-        console.warn('[AudioEngineProcess] kill timeout, forcing SIGKILL')
+        console.warn('[AudioEngineProcess] Shutdown timeout — forcing SIGKILL')
         try { this._proc.kill('SIGKILL') } catch { /* already dead */ }
         this._proc = null
       }
     }, 2_000)
 
-    // Cleanup on exit
     this._proc?.once('exit', () => {
       clearTimeout(killTimeout)
-      this._proc = null
+      this._proc      = null
+      this._startedAt = null
     })
   }
 
-  // ── Command sending ───────────────────────────────────────────────────────
+  // ─── Command sending ────────────────────────────────────────────────────
 
   send(cmd: EngineCommand): void {
     if (!this._ready) {
-      // Buffer commands only if we expect to be ready soon, and queue isn't full
       if (this._restarts < this._maxRestarts && this._cmdQueue.length < this._maxQueueSize) {
         this._cmdQueue.push(cmd)
       } else if (this._cmdQueue.length >= this._maxQueueSize) {
-        console.warn(`[AudioEngineProcess] command queue full (${this._maxQueueSize}), dropping: ${cmd.cmd}`)
+        console.warn(`[AudioEngineProcess] Queue full (${this._maxQueueSize}) — dropping: ${cmd.cmd}`)
       }
       return
     }
     this._write(cmd)
   }
 
+  // Convenience wrappers ──────────────────────────────────────────────────
   play():                                 void { this.send({ cmd: 'play' }) }
   stopPlayback():                         void { this.send({ cmd: 'stop' }) }
   pause():                                void { this.send({ cmd: 'pause' }) }
   seek(bar: number, beat = 1):            void { this.send({ cmd: 'seek', bar, beat }) }
   setBpm(bpm: number):                    void { this.send({ cmd: 'set_bpm', bpm }) }
   setTimeSig(num: number, den: number):   void { this.send({ cmd: 'set_time_sig', numerator: num, denominator: den }) }
-  setLoop(enabled: boolean, startBar: number, endBar: number): void {
-    this.send({ cmd: 'set_loop', enabled, start_bar: startBar, end_bar: endBar })
+  setLoop(enabled: boolean, s: number, e: number): void {
+    this.send({ cmd: 'set_loop', enabled, start_bar: s, end_bar: e })
   }
   setMasterGain(db: number):              void { this.send({ cmd: 'set_master_gain', db }) }
   setDriver(driver: string, device: string): void { this.send({ cmd: 'set_driver', driver, device }) }
@@ -258,97 +319,114 @@ export class AudioEngineProcess extends EventEmitter {
   setSampleRate(rate: number):            void { this.send({ cmd: 'set_sample_rate', rate }) }
   queryDevices():                         void { this.send({ cmd: 'query_devices' }) }
   getState():                             void { this.send({ cmd: 'get_state' }) }
-
   addTrack(id: string, type: string, name: string, color = '#7c3aed'): void {
     this.send({ cmd: 'add_track', id, type, name, color })
   }
-  removeTrack(id: string): void { this.send({ cmd: 'remove_track', id }) }
-
-  setTrackGain(id: string, db: number):      void { this.send({ cmd: 'set_track_gain', id, db }) }
-  setTrackPan(id: string, pan: number):      void { this.send({ cmd: 'set_track_pan',  id, pan }) }
-  muteTrack(id: string, muted: boolean):     void { this.send({ cmd: 'mute_track',     id, muted }) }
-  soloTrack(id: string, soloed: boolean):    void { this.send({ cmd: 'solo_track',     id, soloed }) }
-  armTrack(id: string, armed: boolean):      void { this.send({ cmd: 'arm_track',      id, armed }) }
-
-  addSend(fromId: string, toId: string, gainDb = 0, preFader = false): void {
-    this.send({ cmd: 'add_send', from_id: fromId, to_id: toId, gain_db: gainDb, pre_fader: preFader })
+  removeTrack(id: string):                                         void { this.send({ cmd: 'remove_track', id }) }
+  setTrackGain(id: string, db: number):                            void { this.send({ cmd: 'set_track_gain', id, db }) }
+  setTrackPan(id: string, pan: number):                            void { this.send({ cmd: 'set_track_pan', id, pan }) }
+  muteTrack(id: string, muted: boolean):                           void { this.send({ cmd: 'mute_track', id, muted }) }
+  soloTrack(id: string, soloed: boolean):                          void { this.send({ cmd: 'solo_track', id, soloed }) }
+  armTrack(id: string, armed: boolean):                            void { this.send({ cmd: 'arm_track', id, armed }) }
+  addSend(from: string, to: string, gainDb = 0, preFader = false): void {
+    this.send({ cmd: 'add_send', from_id: from, to_id: to, gain_db: gainDb, pre_fader: preFader })
   }
 
-  // ── Internal ──────────────────────────────────────────────────────────────
+  // ─── Internal ───────────────────────────────────────────────────────────
 
   private _write(cmd: EngineCommand): void {
     if (!this._proc?.stdin?.writable) {
-      console.warn('[AudioEngineProcess] stdin not writable, dropping command:', cmd.cmd)
+      console.warn('[AudioEngineProcess] stdin not writable — dropping:', cmd.cmd)
       return
     }
     try {
-      const json = JSON.stringify(cmd)
-      this._proc.stdin.write(json + '\n')
+      this._proc.stdin.write(JSON.stringify(cmd) + '\n')
     } catch (err) {
-      console.error('[AudioEngineProcess] write failed:', err, 'cmd:', cmd.cmd)
-      // Don't crash on write errors — process may be dying
+      console.error('[AudioEngineProcess] Write error:', err, '— cmd:', cmd.cmd)
     }
   }
 
   private _handleLine(line: string): void {
     if (!line || !line.startsWith('{')) return
-
     try {
       const evt = JSON.parse(line) as EngineEvent
       if (!evt.event) return
 
-      if (evt.event === 'ready') {
-        this._ready = true
-        this._restarts = 0  // Reset restart counter on successful startup
-        this._status = { ...this._status, isRunning: true, restarts: 0 }
-        // Flush buffered commands
-        const cmds = this._cmdQueue.slice()
-        this._cmdQueue = []
-        for (const cmd of cmds) {
-          try {
-            this._write(cmd)
-          } catch (e) {
-            console.error('[AudioEngineProcess] failed to flush queued command:', e)
+      switch (evt.event) {
+        case 'ready':
+          this._ready     = true
+          this._restarts  = 0
+          this._startedAt = Date.now()
+          // Flush buffered commands
+          {
+            const cmds = this._cmdQueue.splice(0)
+            for (const cmd of cmds) this._write(cmd)
           }
-        }
-        this.emit('ready')
+          this.emit('ready')
+          break
+
+        case 'profiler_update':
+          // { event: 'profiler_update', cpu_load: 0.12, xrun_count: 0, frame_variance: 0.0 }
+          if (typeof evt.cpu_load      === 'number') this._cpuPercent = Math.round(evt.cpu_load * 100)
+          if (typeof evt.xrun_count    === 'number') this._xrunCount  = evt.xrun_count as number
+          if (typeof evt.memory_mb     === 'number') this._memoryMB   = evt.memory_mb as number
+          if (typeof evt.latency_ms    === 'number') this._latencyMs  = evt.latency_ms as number
+          break
+
+        case 'engine_state':
+          // { event: 'engine_state', driver: 'wasapi', sample_rate: 48000, buffer_size: 256 }
+          if (typeof evt.driver      === 'string') this._driver     = evt.driver as string
+          if (typeof evt.sample_rate === 'number') this._sampleRate = evt.sample_rate as number
+          if (typeof evt.buffer_size === 'number') this._bufferSize = evt.buffer_size as number
+          if (typeof evt.latency_ms  === 'number') this._latencyMs  = evt.latency_ms as number
+          break
       }
 
       this.emit('event', evt)
       this.emit(evt.event, evt)  // named event for direct subscription
     } catch (err) {
-      console.warn('[AudioEngineProcess] parse error:', err instanceof Error ? err.message : String(err))
-      // Malformed line, but don't crash — continue parsing
+      console.warn('[AudioEngineProcess] JSON parse error:', err instanceof Error ? err.message : String(err))
     }
   }
 
   private _onExit(code: number | null, signal: string | null): void {
     const pid = this._proc?.pid
-    console.log(`[AudioEngineProcess] exited — pid=${pid ?? '?'} code=${code} signal=${signal}`)
+    console.log(`[AudioEngineProcess] Exit — pid=${pid ?? '?'} code=${code} signal=${signal ?? 'none'}`)
 
-    this._proc  = null
-    this._ready = false
+    this._proc      = null
+    this._ready     = false
+    this._startedAt = null
+    this._cpuPercent = null   // metrics stale after exit
     this.emit('exit', { code, signal })
 
-    // Do not auto-restart if:
-    //   - stop() was called intentionally (_stopping flag)
-    //   - clean exit (code 0)
-    //   - max restarts exceeded
     if (this._stopping) {
-      console.log('[AudioEngineProcess] intentional stop — no restart')
-      this._stopping  = false
-      this._cmdQueue  = []   // discard stale queued commands
-      return
-    }
-
-    if (code === 0) {
-      console.log('[AudioEngineProcess] clean exit (code 0) — no restart')
+      console.log('[AudioEngineProcess] Intentional stop — no restart')
+      this._stopping = false
       this._cmdQueue = []
       return
     }
 
+    if (code === 0) {
+      console.log('[AudioEngineProcess] Clean exit (code 0) — no restart')
+      this._cmdQueue = []
+      return
+    }
+
+    // ── Crash ─────────────────────────────────────────────────────────────
+    this._crashCount++
+    this._lastCrashAt   = Date.now()
+    this._lastCrashCode = code
+    this._lastCrashSig  = signal
+    this._recentCrashes.push({ timestamp: this._lastCrashAt, code, signal, restartNum: this._restarts })
+    if (this._recentCrashes.length > 10) this._recentCrashes.shift()
+    this.emit('crash', { code, signal, crashCount: this._crashCount })
+    console.error(
+      `[AudioEngineProcess] 💥 CRASH #${this._crashCount} — ` +
+      `code=${code} signal=${signal ?? 'none'} restarts=${this._restarts}/${this._maxRestarts}`
+    )
+
     if (this._restarts >= this._maxRestarts) {
-      console.error(`[AudioEngineProcess] max restart attempts (${this._maxRestarts}) reached — staying down`)
+      console.error('[AudioEngineProcess] Max restarts reached — engine staying down')
       this._cmdQueue = []
       this.emit('max-restarts-exceeded')
       return
@@ -356,39 +434,37 @@ export class AudioEngineProcess extends EventEmitter {
 
     this._restarts++
     const delay = Math.min(1000 * Math.pow(1.5, this._restarts - 1), 10_000)
-    console.log(`[AudioEngineProcess] restarting in ${Math.round(delay)}ms (attempt ${this._restarts}/${this._maxRestarts})`)
+    console.log(
+      `[AudioEngineProcess] Restarting in ${Math.round(delay)}ms ` +
+      `(attempt ${this._restarts}/${this._maxRestarts})`
+    )
     setTimeout(() => {
-      this.start().catch(e => {
-        console.error('[AudioEngineProcess] restart failed:', e)
-        this.emit('error', e)
-      })
+      this.start(this._driver ?? 'default', '', this._sampleRate ?? 44100, this._bufferSize ?? 512)
+        .catch(e => {
+          console.error('[AudioEngineProcess] Restart failed:', e)
+          this.emit('error', e)
+        })
     }, delay)
   }
 
   private _onError(err: Error): void {
-    console.error('[AudioEngineProcess] spawn error:', err.message)
+    console.error('[AudioEngineProcess] Spawn error:', err.message)
     this.emit('error', err)
-    // Don't auto-restart on spawn error — caller should handle
+    // Spawn errors are not auto-restarted — likely a permissions/missing-file issue
   }
 
   private _findBinary(): ReturnType<typeof findEngineBinary> {
     const candidates = getEngineBinaryCandidates(app.getAppPath(), __dirname, process.platform)
     const result     = findEngineBinary(candidates)
-
-    // Verbose logging so users/support can diagnose packaging issues
     for (const p of result.checkedPaths) {
-      if (p === result.path) {
-        console.log(`[AudioEngineProcess] ✓ ${p}`)
-      } else {
-        console.log(`[AudioEngineProcess] ✗ ${p}`)
-      }
+      console.log(`[AudioEngineProcess] ${p === result.path ? '✓' : '✗'} ${p}`)
     }
-
     return result
   }
 }
 
-// Singleton
+// ─── Singleton ────────────────────────────────────────────────────────────────
+
 let _instance: AudioEngineProcess | null = null
 export function getAudioEngineProcess(): AudioEngineProcess {
   if (!_instance) _instance = new AudioEngineProcess()

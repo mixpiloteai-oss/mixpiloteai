@@ -14,7 +14,11 @@
  *   <EngineStatusBanner />
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
+
+const AudioDiagnosticsPanel = lazy(() =>
+  import('./AudioDiagnosticsPanel').then(m => ({ default: m.AudioDiagnosticsPanel }))
+)
 
 // ─── Types (mirrors AudioEngineProcess.EngineStatus) ─────────────────────────
 
@@ -31,9 +35,10 @@ interface EngineStatus {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function EngineStatusBanner() {
-  const [status,    setStatus]    = useState<EngineStatus | null>(null)
-  const [dismissed, setDismissed] = useState(false)
-  const [expanded,  setExpanded]  = useState(false)
+  const [status,      setStatus]      = useState<EngineStatus | null>(null)
+  const [dismissed,   setDismissed]   = useState(false)
+  const [expanded,    setExpanded]    = useState(false)
+  const [showDiagPanel, setShowDiagPanel] = useState(false)
 
   // ── Load status on mount ────────────────────────────────────────────────
   useEffect(() => {
@@ -84,6 +89,14 @@ export function EngineStatusBanner() {
         </button>
 
         <button
+          style={{ ...styles.detailBtn, borderColor: '#6366f180', color: '#a5b4fc' }}
+          onClick={() => setShowDiagPanel(true)}
+          title="Open full diagnostics panel"
+        >
+          🔬 Diagnostics
+        </button>
+
+        <button
           style={styles.dismissBtn}
           onClick={() => setDismissed(true)}
           title="Dismiss this warning"
@@ -92,6 +105,12 @@ export function EngineStatusBanner() {
           ✕
         </button>
       </div>
+
+      {showDiagPanel && (
+        <Suspense fallback={null}>
+          <AudioDiagnosticsPanel onClose={() => setShowDiagPanel(false)} />
+        </Suspense>
+      )}
 
       {expanded && (
         <div style={styles.details}>

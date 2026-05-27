@@ -67,10 +67,31 @@ const api = {
   audioEngineStop:      ()               => ipcRenderer.invoke('audio-engine-stop'),
   audioEngineReady:     ()               => ipcRenderer.invoke('audio-engine-ready'),
   /** Returns the full engine status: mode, binaryPath, checkedPaths, platform, etc. */
-  audioEngineStatus:    ()               => ipcRenderer.invoke('audio-engine-status'),
-  /** Fires immediately after start() resolves, with the engine mode and binary info. */
-  onAudioEngineMode:    (cb: (status: unknown) => void) =>
+  audioEngineStatus:      ()               => ipcRenderer.invoke('audio-engine-status'),
+  /** Returns engine status + live OS metrics (CPU/memory via `ps`). */
+  audioEngineDiagnostics: ()               => ipcRenderer.invoke('audio-engine-diagnostics'),
+  /** Aggregates crash.log + snapshots into a text bundle; also writes to disk. */
+  audioEngineExportLogs:  ()               => ipcRenderer.invoke('audio-engine-export-logs'),
+
+  // ── Engine lifecycle events ──────────────────────────────────────────────
+  /** Fires immediately after start() resolves: mode, binary, checkedPaths. */
+  onAudioEngineMode:       (cb: (status: unknown) => void) =>
     ipcRenderer.on('audio-engine-mode', (_e, s) => cb(s)),
+  /** Fires on every unclean engine exit (crash). */
+  onAudioEngineCrash:      (cb: (info: unknown) => void) =>
+    ipcRenderer.on('audio-engine-crash', (_e, i) => cb(i)),
+  /** Fires when engine status changes (after restart, stop, etc.). */
+  onAudioEngineStatusUpdate:(cb: (status: unknown) => void) =>
+    ipcRenderer.on('audio-engine-status-update', (_e, s) => cb(s)),
+  /** Fires when all restart attempts are exhausted. */
+  onAudioEngineMaxRestarts:(cb: (info: unknown) => void) =>
+    ipcRenderer.on('audio-engine-max-restarts', (_e, i) => cb(i)),
+  /** Fires when watchdog detects an anomaly (high CPU, memory, xrun spike, dead process). */
+  onAudioEngineWatchdogAlert:(cb: (alert: unknown) => void) =>
+    ipcRenderer.on('audio-engine-watchdog-alert', (_e, a) => cb(a)),
+  /** Fires every watchdog poll with live OS-level metrics. */
+  onAudioEngineMetrics:    (cb: (metrics: unknown) => void) =>
+    ipcRenderer.on('audio-engine-metrics', (_e, m) => cb(m)),
   audioDetectDrivers:   ()               => ipcRenderer.invoke('audio-detect-drivers'),
   audioDetectDevices:   ()               => ipcRenderer.invoke('audio-detect-devices'),
   audioPreferredDriver: ()               => ipcRenderer.invoke('audio-preferred-driver'),
