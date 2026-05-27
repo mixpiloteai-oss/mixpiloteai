@@ -47,13 +47,15 @@ router.get('/me', requireAuth, requirePlan('pro'), async (req: AuthenticatedRequ
   const totalCost     = history.reduce((s, d) => s + d.cost, 0);
   const avgPerDay     = history.length > 0 ? totalRequests / history.length : 0;
 
+  const todayUsage = await getTodayUsage(userId);
+  const dailyLimit = getDailyLimit(plan);
   res.json({
     success: true,
     data: {
       today: {
-        requests: getTodayUsage(userId),
-        limit: getDailyLimit(plan),
-        remaining: Math.max(0, getDailyLimit(plan) - getTodayUsage(userId)),
+        requests: todayUsage,
+        limit: dailyLimit,
+        remaining: Math.max(0, dailyLimit - todayUsage),
         tokensIn: todayStats.tokensIn,
         tokensOut: todayStats.tokensOut,
         estimatedCostUSD: todayStats.cost,

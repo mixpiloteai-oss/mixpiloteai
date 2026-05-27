@@ -15,18 +15,18 @@ interface RecommendationOpts {
   limit: number
 }
 
-export function getRecommendations(opts: RecommendationOpts): MarketProduct[] {
+export async function getRecommendations(opts: RecommendationOpts): Promise<MarketProduct[]> {
   const { downloadHistory, likedCategories, limit } = opts
   const downloadedSet = new Set(downloadHistory)
 
-  const { products: allProducts } = getProducts({ sort: 'trending', page: 1, limit: 200 })
+  const { products: allProducts } = await getProducts({ sort: 'trending', page: 1, limit: 200 })
 
   // Collect all tags from liked categories to infer creator preferences
   const likedCategorySet = new Set(likedCategories)
 
   const scored = allProducts
-    .filter((p) => !downloadedSet.has(p.id))
-    .map((p) => {
+    .filter((p: MarketProduct) => !downloadedSet.has(p.id))
+    .map((p: MarketProduct) => {
       let score = 0
 
       // Category match: 2 pts per matched liked category
@@ -48,23 +48,23 @@ export function getRecommendations(opts: RecommendationOpts): MarketProduct[] {
 
       return { product: p, score }
     })
-    .sort((a, b) => b.score - a.score)
+    .sort((a: { product: MarketProduct; score: number }, b: { product: MarketProduct; score: number }) => b.score - a.score)
     .slice(0, limit)
-    .map(({ product }) => product)
+    .map(({ product }: { product: MarketProduct }) => product)
 
   return scored
 }
 
-export function getSimilar(productId: string, limit = 6): MarketProduct[] {
-  const source = getProduct(productId)
+export async function getSimilar(productId: string, limit = 6): Promise<MarketProduct[]> {
+  const source = await getProduct(productId)
   if (!source) return []
 
-  const { products: allProducts } = getProducts({ sort: 'popular', page: 1, limit: 200 })
+  const { products: allProducts } = await getProducts({ sort: 'popular', page: 1, limit: 200 })
   const sourceTagSet = new Set(source.tags)
 
   const scored = allProducts
-    .filter((p) => p.id !== productId)
-    .map((p) => {
+    .filter((p: MarketProduct) => p.id !== productId)
+    .map((p: MarketProduct) => {
       let score = 0
 
       // Same category: strong match
@@ -86,9 +86,9 @@ export function getSimilar(productId: string, limit = 6): MarketProduct[] {
 
       return { product: p, score }
     })
-    .sort((a, b) => b.score - a.score)
+    .sort((a: { product: MarketProduct; score: number }, b: { product: MarketProduct; score: number }) => b.score - a.score)
     .slice(0, limit)
-    .map(({ product }) => product)
+    .map(({ product }: { product: MarketProduct }) => product)
 
   return scored
 }

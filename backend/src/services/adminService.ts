@@ -2,7 +2,6 @@
 // NEUROTEK AI — Admin Service (Supabase-backed with mock fallback)
 // ============================================================
 import { v4 as uuidv4 } from 'uuid';
-import { users, subscriptions } from '../data/mockDB';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { getProducts, moderateProduct, MarketProduct } from './marketplaceService';
 import { getUserHistory, getStats } from './paymentLogService';
@@ -267,19 +266,15 @@ seedAdminData();
 
 // ── Public API ───────────────────────────────────────────────
 
-export function getPlatformStats(): PlatformStats {
+export async function getPlatformStats(): Promise<PlatformStats> {
   const now = Date.now();
   const day = 86_400_000;
 
   const today = now - day;
   const month30 = now - 30 * day;
 
-  // Users
-  const allMockUsers = [...users, ...adminUsers];
+  // Users (use admin seed data only — production code uses getRealPlatformStats)
   const uniqueById = new Map<string, { createdAt: string | number; banned: boolean; plan: string; lastActive?: number }>();
-  for (const u of users) {
-    uniqueById.set(u.id, { createdAt: u.createdAt, banned: false, plan: u.plan });
-  }
   for (const u of adminUsers) {
     uniqueById.set(u.id, { createdAt: u.createdAt, banned: u.banned, plan: u.plan, lastActive: u.lastActive });
   }
@@ -308,13 +303,12 @@ export function getPlatformStats(): PlatformStats {
   const totalMRR = subCounts.pro * mrrMap.pro + subCounts.studio * mrrMap.studio + subCounts.label * mrrMap.label;
 
   // Marketplace
-  const { products: allProducts } = getProducts({ limit: 9999 });
-  const allProductsRaw = allProducts;
-  const totalDownloads = allProductsRaw.reduce((s, p) => s + p.downloads, 0);
+  const { products: allProductsRaw } = await getProducts({ limit: 9999 });
+  const totalDownloads = allProductsRaw.reduce((s: number, p: MarketProduct) => s + p.downloads, 0);
 
   // Payments
   const payStats = getStats();
-  const refundCount = Math.floor(allMockUsers.length * 0.02);
+  const refundCount = Math.floor(adminUsers.length * 0.02);
 
   return {
     users: { total: totalUsers, active30d, newToday, banned },
@@ -481,28 +475,28 @@ export function assignTicket(id: string, adminId: string): SupportTicket | null 
   return ticket;
 }
 
-export function getMarketplaceItems(
+export async function getMarketplaceItems(
   filters: { status?: string; category?: string } = {}
-): MarketProduct[] {
-  const { products: allProducts } = getProducts({ limit: 9999 });
+): Promise<MarketProduct[]> {
+  const { products: allProducts } = await getProducts({ limit: 9999 });
   let result = allProducts;
-  if (filters.status) result = result.filter((p) => p.status === filters.status);
-  if (filters.category) result = result.filter((p) => p.category === filters.category);
+  if (filters.status) result = result.filter((p: MarketProduct) => p.status === filters.status);
+  if (filters.category) result = result.filter((p: MarketProduct) => p.category === filters.category);
   return result;
 }
 
-export function approveProduct(productId: string, _adminId: string): boolean {
-  const result = moderateProduct(productId, 'approved');
+export async function approveProduct(productId: string, _adminId: string): Promise<boolean> {
+  const result = await moderateProduct(productId, 'approved');
   return result !== null;
 }
 
-export function rejectProduct(productId: string, reason: string, _adminId: string): boolean {
-  const result = moderateProduct(productId, 'rejected', reason);
+export async function rejectProduct(productId: string, _reason: string, _adminId: string): Promise<boolean> {
+  const result = await moderateProduct(productId, 'rejected');
   return result !== null;
 }
 
-export function deleteProduct(productId: string, _adminId: string): boolean {
-  const result = moderateProduct(productId, 'rejected', 'deleted by admin');
+export async function deleteProduct(productId: string, _adminId: string): Promise<boolean> {
+  const result = await moderateProduct(productId, 'rejected');
   return result !== null;
 }
 
@@ -712,8 +706,8 @@ export async function getRealPlatformStats(): Promise<PlatformStats> {
     subCounts.studio * mrrMap.studio +
     subCounts.label * mrrMap.label;
 
-  const { products: allProducts } = getProducts({ limit: 9999 });
-  const totalDownloads = allProducts.reduce((s, p) => s + p.downloads, 0);
+  const { products: allProducts } = await getProducts({ limit: 9999 });
+  const totalDownloads = allProducts.reduce((s: number, p: MarketProduct) => s + p.downloads, 0);
   const payStats = getStats();
 
   return {

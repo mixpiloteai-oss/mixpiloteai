@@ -32,14 +32,14 @@ function getUserId(req: Request): string {
 }
 
 // GET /api/marketplace/products
-router.get('/products', (req: Request, res: Response) => {
+router.get('/products', async (req: Request, res: Response) => {
   const { category, tags, sort } = req.query
   const search = typeof req.query.search === 'string'
     ? req.query.search.trim().slice(0, 200)
     : undefined
   const page = Math.max(1, parseInt(req.query.page as string) || 1)
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20))
-  const result = getProducts({
+  const result = await getProducts({
     category: category as ProductCategory | undefined,
     tags: tags as string | undefined,
     search,
@@ -62,39 +62,39 @@ router.get('/products/trending', (req: Request, res: Response) => {
 })
 
 // GET /api/marketplace/products/:id
-router.get('/products/:id', (req: Request, res: Response) => {
-  const product = getProduct(req.params.id)
+router.get('/products/:id', async (req: Request, res: Response) => {
+  const product = await getProduct(req.params.id)
   if (!product) return res.status(404).json({ success: false, error: 'Product not found' })
   res.json({ success: true, data: product })
 })
 
 // GET /api/marketplace/products/:id/comments
-router.get('/products/:id/comments', (req: Request, res: Response) => {
-  const product = getProduct(req.params.id)
+router.get('/products/:id/comments', async (req: Request, res: Response) => {
+  const product = await getProduct(req.params.id)
   if (!product) return res.status(404).json({ success: false, error: 'Product not found' })
   res.json({ success: true, data: getComments(req.params.id) })
 })
 
 // POST /api/marketplace/products/:id/like
-router.post('/products/:id/like', requireAuth, (req: Request, res: Response) => {
+router.post('/products/:id/like', requireAuth, async (req: Request, res: Response) => {
   const userId = getUserId(req)
-  const product = getProduct(req.params.id)
+  const product = await getProduct(req.params.id)
   if (!product) return res.status(404).json({ success: false, error: 'Product not found' })
   const result = toggleLike(req.params.id, userId)
   res.json({ success: true, data: result })
 })
 
 // POST /api/marketplace/products/:id/download
-router.post('/products/:id/download', requireAuth, (req: Request, res: Response) => {
+router.post('/products/:id/download', requireAuth, async (req: Request, res: Response) => {
   const userId = getUserId(req)
-  const product = getProduct(req.params.id)
+  const product = await getProduct(req.params.id)
   if (!product) return res.status(404).json({ success: false, error: 'Product not found' })
   recordDownload(req.params.id, userId)
   res.json({ success: true, message: 'Download recorded', data: { fileUrl: product.fileUrl } })
 })
 
 // POST /api/marketplace/products/:id/comment
-router.post('/products/:id/comment', requireAuth, (req: Request, res: Response) => {
+router.post('/products/:id/comment', requireAuth, async (req: Request, res: Response) => {
   const userId = getUserId(req)
   const { text, rating, userName } = req.body as { text?: string; rating?: number; userName?: string }
   if (!text || typeof text !== 'string') {
@@ -104,7 +104,7 @@ router.post('/products/:id/comment', requireAuth, (req: Request, res: Response) 
   if (!rating || ratingNum < 1 || ratingNum > 5) {
     return res.status(400).json({ success: false, error: 'rating must be between 1 and 5' })
   }
-  const product = getProduct(req.params.id)
+  const product = await getProduct(req.params.id)
   if (!product) return res.status(404).json({ success: false, error: 'Product not found' })
   const comment = addComment(
     req.params.id,
@@ -117,8 +117,8 @@ router.post('/products/:id/comment', requireAuth, (req: Request, res: Response) 
 })
 
 // POST /api/marketplace/products/:id/purchase
-router.post('/products/:id/purchase', requireAuth, (req: Request, res: Response) => {
-  const product = getProduct(req.params.id)
+router.post('/products/:id/purchase', requireAuth, async (req: Request, res: Response) => {
+  const product = await getProduct(req.params.id)
   if (!product) return res.status(404).json({ success: false, error: 'Product not found' })
   const { buyerId } = req.body as { buyerId?: string }
   if (!buyerId) return res.status(400).json({ success: false, error: 'buyerId is required' })
@@ -132,7 +132,7 @@ router.post('/products/:id/purchase', requireAuth, (req: Request, res: Response)
 })
 
 // GET /api/marketplace/recommendations
-router.get('/recommendations', (req: Request, res: Response) => {
+router.get('/recommendations', async (req: Request, res: Response) => {
   const userId = getUserId(req)
   const { downloadHistory, likedCategories, limit } = req.query
   const history = typeof downloadHistory === 'string'
@@ -143,7 +143,7 @@ router.get('/recommendations', (req: Request, res: Response) => {
     : []
   const count = limit ? Math.min(Number(limit), 50) : 10
 
-  const results = getRecommendations({
+  const results = await getRecommendations({
     userId,
     downloadHistory: history,
     likedCategories: categories,
@@ -153,19 +153,19 @@ router.get('/recommendations', (req: Request, res: Response) => {
 })
 
 // GET /api/marketplace/similar/:id
-router.get('/similar/:id', (req: Request, res: Response) => {
+router.get('/similar/:id', async (req: Request, res: Response) => {
   const limit = req.query.limit ? Math.min(Number(req.query.limit), 20) : 6
-  const results = getSimilar(req.params.id, limit)
+  const results = await getSimilar(req.params.id, limit)
   res.json({ success: true, data: results })
 })
 
 // GET /api/marketplace/search
-router.get('/search', (req: Request, res: Response) => {
+router.get('/search', async (req: Request, res: Response) => {
   const { q, page, limit } = req.query
   if (!q || typeof q !== 'string') {
     return res.status(400).json({ success: false, error: 'q query parameter is required' })
   }
-  const result = getProducts({
+  const result = await getProducts({
     search: q,
     sort: 'popular',
     page: page ? Number(page) : 1,

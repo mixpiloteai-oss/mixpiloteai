@@ -96,16 +96,17 @@ function formatSSE(event: CollabEvent): string {
  * GET /api/collab/stream/:projectId
  * Query: ?userId=&userName=&userColor=
  */
-router.get('/stream/:projectId', requireAuthSSE, requirePlan('studio'), (req: Request, res: Response) => {
+router.get('/stream/:projectId', requireAuthSSE, requirePlan('studio'), async (req: Request, res: Response) => {
   const { projectId } = req.params;
 
   // Fix 1: Verify the authenticated user has access to this project
   const authedUser = (req as AuthenticatedRequest).user;
   const authedUserId = authedUser?.id;
-  const project = db.getProject(projectId);
-  const teamPerm = teamService.getProjectPermission(projectId);
+  const project = await db.getProject(projectId);
+  const teamPerm = await teamService.getProjectPermission(projectId);
+  const userProjectRole = authedUserId !== undefined ? await teamService.getUserProjectRole(authedUserId, projectId) : null;
   const hasTeamAccess = teamPerm
-    ? (authedUserId !== undefined && (authedUserId in teamPerm.memberPermissions || teamService.getUserProjectRole(authedUserId, projectId) !== null))
+    ? (authedUserId !== undefined && (authedUserId in teamPerm.memberPermissions || userProjectRole !== null))
     : false;
   if (!project && !hasTeamAccess) {
     res.status(403).json({ success: false, error: 'Forbidden' });
@@ -185,7 +186,7 @@ router.get('/stream/:projectId', requireAuthSSE, requirePlan('studio'), (req: Re
  * POST /api/collab/ops
  * Body: { projectId, userId, userName, userColor, type, payload, rev }
  */
-router.post('/ops', requireAuth, requirePlan('studio'), collabOpsRateLimiter, (req: Request, res: Response) => {
+router.post('/ops', requireAuth, requirePlan('studio'), collabOpsRateLimiter, async (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });
@@ -232,10 +233,11 @@ router.post('/ops', requireAuth, requirePlan('studio'), collabOpsRateLimiter, (r
   // Fix 1: Verify the authenticated user has access to this project
   const authedUser = (req as AuthenticatedRequest).user;
   const authedUserId = authedUser?.id;
-  const project = db.getProject(projectId);
-  const teamPerm = teamService.getProjectPermission(projectId);
+  const project = await db.getProject(projectId);
+  const teamPerm = await teamService.getProjectPermission(projectId);
+  const userProjectRole = authedUserId !== undefined ? await teamService.getUserProjectRole(authedUserId, projectId) : null;
   const hasTeamAccess = teamPerm
-    ? (authedUserId !== undefined && (authedUserId in teamPerm.memberPermissions || teamService.getUserProjectRole(authedUserId, projectId) !== null))
+    ? (authedUserId !== undefined && (authedUserId in teamPerm.memberPermissions || userProjectRole !== null))
     : false;
   if (!project && !hasTeamAccess) {
     res.status(403).json({ success: false, error: 'Forbidden' });
@@ -343,7 +345,7 @@ router.get('/rooms/:projectId/presence', (req: Request, res: Response) => {
  * POST /api/collab/invite
  * Body: { teamId, email, role }
  */
-router.post('/invite', requireAuth, (req: Request, res: Response) => {
+router.post('/invite', requireAuth, async (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });
@@ -366,7 +368,7 @@ router.post('/invite', requireAuth, (req: Request, res: Response) => {
   }
 
   const invitedBy = getUserId(req);
-  const invitation = teamService.createInvitation(teamId, email, role, invitedBy);
+  const invitation = await teamService.createInvitation(teamId, email, role, invitedBy);
 
   if (!invitation) {
     res.status(404).json({ success: false, error: 'Team not found' });
@@ -379,8 +381,8 @@ router.post('/invite', requireAuth, (req: Request, res: Response) => {
 /**
  * GET /api/collab/invite/:token
  */
-router.get('/invite/:token', (req: Request, res: Response) => {
-  const invitation = teamService.getInvitation(req.params.token);
+router.get('/invite/:token', async (req: Request, res: Response) => {
+  const invitation = await teamService.getInvitation(req.params.token);
   if (!invitation) {
     res.status(404).json({ success: false, error: 'Invitation not found' });
     return;
@@ -398,7 +400,7 @@ router.get('/invite/:token', (req: Request, res: Response) => {
  * POST /api/collab/invite/:token/accept
  * Body: { userId, userName }
  */
-router.post('/invite/:token/accept', requireAuth, (req: Request, res: Response) => {
+router.post('/invite/:token/accept', requireAuth, async (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });
@@ -409,7 +411,7 @@ router.post('/invite/:token/accept', requireAuth, (req: Request, res: Response) 
   const uid = typeof userId === 'string' ? userId : getUserId(req);
   const uname = typeof userName === 'string' ? userName : 'Unknown';
 
-  const member = teamService.acceptInvitation(req.params.token, uid, uname);
+  const member = await teamService.acceptInvitation(req.params.token, uid, uname);
   if (!member) {
     res.status(400).json({ success: false, error: 'Invitation invalid, expired, or already accepted' });
     return;
@@ -423,8 +425,8 @@ router.post('/invite/:token/accept', requireAuth, (req: Request, res: Response) 
 /**
  * GET /api/collab/permissions/:projectId
  */
-router.get('/permissions/:projectId', (req: Request, res: Response) => {
-  const perm = teamService.getProjectPermission(req.params.projectId);
+router.get('/permissions/:projectId', async (req: Request, res: Response) => {
+  const perm = await teamService.getProjectPermission(req.params.projectId);
   if (!perm) {
     res.status(404).json({ success: false, error: 'No permissions set for this project' });
     return;
@@ -436,7 +438,7 @@ router.get('/permissions/:projectId', (req: Request, res: Response) => {
  * PATCH /api/collab/permissions/:projectId
  * Body: { teamId, memberPermissions }
  */
-router.patch('/permissions/:projectId', requireAuth, (req: Request, res: Response) => {
+router.patch('/permissions/:projectId', requireAuth, async (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });
@@ -460,7 +462,7 @@ router.patch('/permissions/:projectId', requireAuth, (req: Request, res: Respons
     }
   }
 
-  const permission = teamService.setProjectPermission(req.params.projectId, teamId, perms);
+  const permission = await teamService.setProjectPermission(req.params.projectId, teamId, perms);
   res.json({ success: true, permission });
 });
 
@@ -470,7 +472,7 @@ router.patch('/permissions/:projectId', requireAuth, (req: Request, res: Respons
  * POST /api/teams
  * Body: { name, ownerName, ownerEmail }
  */
-router.post('/teams-create', requireAuth, (req: Request, res: Response) => {
+router.post('/teams-create', requireAuth, async (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });
@@ -485,7 +487,7 @@ router.post('/teams-create', requireAuth, (req: Request, res: Response) => {
   }
 
   const ownerId = getUserId(req);
-  const team = teamService.createTeam(
+  const team = await teamService.createTeam(
     name,
     ownerId,
     typeof ownerName === 'string' ? ownerName : 'Owner',
@@ -510,7 +512,7 @@ export const teamsRouter = Router();
 /**
  * POST /api/teams
  */
-teamsRouter.post('/', requireAuth, (req: Request, res: Response) => {
+teamsRouter.post('/', requireAuth, async (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });
@@ -525,7 +527,7 @@ teamsRouter.post('/', requireAuth, (req: Request, res: Response) => {
   }
 
   const ownerId = getUserId(req);
-  const team = teamService.createTeam(
+  const team = await teamService.createTeam(
     name,
     ownerId,
     typeof ownerName === 'string' ? ownerName : 'Owner',
@@ -538,17 +540,17 @@ teamsRouter.post('/', requireAuth, (req: Request, res: Response) => {
 /**
  * GET /api/teams
  */
-teamsRouter.get('/', (req: Request, res: Response) => {
+teamsRouter.get('/', async (req: Request, res: Response) => {
   const userId = getUserId(req);
-  const userTeams = teamService.listUserTeams(userId);
+  const userTeams = await teamService.listUserTeams(userId);
   res.json({ success: true, teams: userTeams });
 });
 
 /**
  * GET /api/teams/:id
  */
-teamsRouter.get('/:id', (req: Request, res: Response) => {
-  const team = teamService.getTeam(req.params.id);
+teamsRouter.get('/:id', async (req: Request, res: Response) => {
+  const team = await teamService.getTeam(req.params.id);
   if (!team) {
     res.status(404).json({ success: false, error: 'Team not found' });
     return;
@@ -560,7 +562,7 @@ teamsRouter.get('/:id', (req: Request, res: Response) => {
  * POST /api/teams/:id/members
  * Body: { userId, userName, email, role }
  */
-teamsRouter.post('/:id/members', requireAuth, (req: Request, res: Response) => {
+teamsRouter.post('/:id/members', requireAuth, async (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });
@@ -582,7 +584,7 @@ teamsRouter.post('/:id/members', requireAuth, (req: Request, res: Response) => {
     return;
   }
 
-  const member = teamService.addMember(
+  const member = await teamService.addMember(
     req.params.id,
     userId,
     typeof userName === 'string' ? userName : 'Unknown',
@@ -601,8 +603,8 @@ teamsRouter.post('/:id/members', requireAuth, (req: Request, res: Response) => {
 /**
  * DELETE /api/teams/:id/members/:uid
  */
-teamsRouter.delete('/:id/members/:uid', requireAuth, (req: Request, res: Response) => {
-  const removed = teamService.removeMember(req.params.id, req.params.uid);
+teamsRouter.delete('/:id/members/:uid', requireAuth, async (req: Request, res: Response) => {
+  const removed = await teamService.removeMember(req.params.id, req.params.uid);
   if (!removed) {
     res.status(400).json({ success: false, error: 'Could not remove member' });
     return;
@@ -614,7 +616,7 @@ teamsRouter.delete('/:id/members/:uid', requireAuth, (req: Request, res: Respons
  * PATCH /api/teams/:id/members/:uid
  * Body: { role }
  */
-teamsRouter.patch('/:id/members/:uid', requireAuth, (req: Request, res: Response) => {
+teamsRouter.patch('/:id/members/:uid', requireAuth, async (req: Request, res: Response) => {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });
@@ -627,7 +629,7 @@ teamsRouter.patch('/:id/members/:uid', requireAuth, (req: Request, res: Response
     return;
   }
 
-  const updated = teamService.updateMemberRole(req.params.id, req.params.uid, role);
+  const updated = await teamService.updateMemberRole(req.params.id, req.params.uid, role);
   if (!updated) {
     res.status(404).json({ success: false, error: 'Team or member not found' });
     return;

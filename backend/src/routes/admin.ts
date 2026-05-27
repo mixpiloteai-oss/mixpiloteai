@@ -245,7 +245,7 @@ router.get('/stats', async (_req: Request, res: Response): Promise<void> => {
     const data = await getRealPlatformStats();
     res.json({ success: true, data });
   } catch {
-    res.json({ success: true, data: getPlatformStats() });
+    res.json({ success: true, data: await getPlatformStats() });
   }
 });
 
@@ -500,9 +500,9 @@ router.get('/logs', async (req: Request, res: Response): Promise<void> => {
 // Marketplace
 // ══════════════════════════════════════════════════════════════
 
-router.get('/marketplace', (req: Request, res: Response) => {
+router.get('/marketplace', async (req: Request, res: Response) => {
   const { status, category } = req.query;
-  const items = getMarketplaceItems({
+  const items = await getMarketplaceItems({
     status: typeof status === 'string' ? status : undefined,
     category: typeof category === 'string' ? category : undefined,
   });
@@ -510,7 +510,7 @@ router.get('/marketplace', (req: Request, res: Response) => {
 });
 
 router.post('/marketplace/:id/approve', async (req: Request, res: Response): Promise<void> => {
-  const ok = approveProduct(req.params['id'] ?? '', asAdmin(req).adminId);
+  const ok = await approveProduct(req.params['id'] ?? '', asAdmin(req).adminId);
   if (!ok) {
     res.status(404).json({ success: false, error: 'Product not found' });
     return;
@@ -525,7 +525,7 @@ router.post('/marketplace/:id/reject', async (req: Request, res: Response): Prom
     res.status(400).json({ success: false, error: 'reason is required' });
     return;
   }
-  const ok = rejectProduct(req.params['id'] ?? '', reason, asAdmin(req).adminId);
+  const ok = await rejectProduct(req.params['id'] ?? '', reason, asAdmin(req).adminId);
   if (!ok) {
     res.status(404).json({ success: false, error: 'Product not found' });
     return;
@@ -536,7 +536,7 @@ router.post('/marketplace/:id/reject', async (req: Request, res: Response): Prom
 
 router.delete('/marketplace/:id', (req: Request, res: Response): void => {
   requireSuperAdmin(asAdmin(req), res, async () => {
-    const ok = deleteProduct(req.params['id'] ?? '', asAdmin(req).adminId);
+    const ok = await deleteProduct(req.params['id'] ?? '', asAdmin(req).adminId);
     if (!ok) {
       res.status(404).json({ success: false, error: 'Product not found' });
       return;
@@ -1089,12 +1089,12 @@ router.patch('/ai/models/:id', (req: Request, res: Response) => {
 // Coupons (local coupon service)
 // ══════════════════════════════════════════════════════════════
 
-router.get('/coupons', (_req: Request, res: Response) => {
-  res.json({ success: true, data: listCoupons() });
+router.get('/coupons', async (_req: Request, res: Response) => {
+  res.json({ success: true, data: await listCoupons() });
 });
 
 router.post('/coupons', (req: Request, res: Response): void => {
-  requireSuperAdmin(asAdmin(req), res, () => {
+  requireSuperAdmin(asAdmin(req), res, async () => {
     const {
       code,
       type,
@@ -1118,7 +1118,7 @@ router.post('/coupons', (req: Request, res: Response): void => {
       return;
     }
 
-    if (getCoupon(code)) {
+    if (await getCoupon(code)) {
       res.status(409).json({ success: false, error: 'Coupon code already exists' });
       return;
     }
@@ -1140,8 +1140,8 @@ router.post('/coupons', (req: Request, res: Response): void => {
   });
 });
 
-router.delete('/coupons/:code', (req: Request, res: Response) => {
-  const coupon = getCoupon(req.params['code'] ?? '');
+router.delete('/coupons/:code', async (req: Request, res: Response) => {
+  const coupon = await getCoupon(req.params['code'] ?? '');
   if (!coupon) {
     res.status(404).json({ success: false, error: 'Coupon not found' });
     return;

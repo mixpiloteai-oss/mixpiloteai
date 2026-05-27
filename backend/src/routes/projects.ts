@@ -10,13 +10,16 @@ import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/', asyncHandler(async (_req: Request, res: Response) => {
-  const projects = db.getAllProjects();
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
+  const userId = (req as AuthenticatedRequest).user?.id;
+  const projects = userId
+    ? await db.getUserProjects(userId)
+    : await db.getAllProjects();
   res.json(ok(projects, { count: projects.length }));
 }));
 
 router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
-  const project = db.getProject(req.params.id);
+  const project = await db.getProject(req.params.id);
   if (!project) {
     res.status(HTTP.NOT_FOUND).json(fail('Project not found'));
     return;
@@ -32,7 +35,7 @@ router.post('/', requireAuth, asyncHandler(async (req: Request, res: Response) =
   })) return;
 
   const { name, genre, bpm, key, mood, coverColor, tags } = req.body as Record<string, unknown>;
-  const project = db.createProject({
+  const project = await db.createProject({
     name: name as string,
     genre: (genre as string) ?? 'mentalcore',
     bpm: Number(bpm) ?? 140,
@@ -49,7 +52,7 @@ router.post('/', requireAuth, asyncHandler(async (req: Request, res: Response) =
 }));
 
 router.patch('/:id', requireAuth, asyncHandler(async (req: Request, res: Response) => {
-  const updated = db.updateProject(req.params.id, req.body);
+  const updated = await db.updateProject(req.params.id, req.body);
   if (!updated) {
     res.status(HTTP.NOT_FOUND).json(fail('Project not found'));
     return;
@@ -58,7 +61,7 @@ router.patch('/:id', requireAuth, asyncHandler(async (req: Request, res: Respons
 }));
 
 router.delete('/:id', requireAuth, asyncHandler(async (req: Request, res: Response) => {
-  const deleted = db.deleteProject(req.params.id);
+  const deleted = await db.deleteProject(req.params.id);
   if (!deleted) {
     res.status(HTTP.NOT_FOUND).json(fail('Project not found'));
     return;
@@ -67,12 +70,12 @@ router.delete('/:id', requireAuth, asyncHandler(async (req: Request, res: Respon
 }));
 
 router.post('/:id/star', requireAuth, asyncHandler(async (req: Request, res: Response) => {
-  const project = db.getProject(req.params.id);
+  const project = await db.getProject(req.params.id);
   if (!project) {
     res.status(HTTP.NOT_FOUND).json(fail('Project not found'));
     return;
   }
-  const updated = db.updateProject(req.params.id, { isStarred: !project.isStarred });
+  const updated = await db.updateProject(req.params.id, { isStarred: !project.isStarred });
   res.json(ok(updated));
 }));
 

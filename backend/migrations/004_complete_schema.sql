@@ -1,81 +1,23 @@
 -- ============================================================
--- NEUROTEK AI — Complete Supabase Schema
--- Single source of truth for all PostgreSQL tables.
--- Safe to re-run (all statements are idempotent).
+-- NEUROTEK AI — Migration 004: Complete Schema
+-- Adds all missing tables for full PostgreSQL persistence.
+-- Safe to re-run (idempotent via CREATE IF NOT EXISTS).
 -- ============================================================
-
--- ── Extensions ───────────────────────────────────────────────
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
--- ── Core User Tables ─────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS public.users (
-  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  email         TEXT        UNIQUE NOT NULL,
-  name          TEXT        NOT NULL,
-  password_hash TEXT        NOT NULL,
-  plan          TEXT        NOT NULL DEFAULT 'free'
-                            CHECK (plan IN ('free','pro','studio')),
-  refresh_token TEXT,
-  banned        BOOLEAN     NOT NULL DEFAULT false,
-  ban_reason    TEXT,
-  banned_at     TIMESTAMPTZ,
-  banned_by     TEXT,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.usage_log (
-  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  date    DATE NOT NULL DEFAULT CURRENT_DATE,
-  count   INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (user_id, date)
-);
-
-CREATE TABLE IF NOT EXISTS public.projects (
-  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id      UUID        NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  name         TEXT        NOT NULL,
-  genre        TEXT        NOT NULL DEFAULT 'hardtek',
-  bpm          INTEGER     NOT NULL DEFAULT 145,
-  key          TEXT        NOT NULL DEFAULT 'Am',
-  mood         TEXT        NOT NULL DEFAULT 'dark',
-  tracks       JSONB       NOT NULL DEFAULT '[]',
-  duration     NUMERIC     NOT NULL DEFAULT 0,
-  is_starred   BOOLEAN     NOT NULL DEFAULT false,
-  cover_color  TEXT        NOT NULL DEFAULT '#7c3aed',
-  tags         TEXT[]      NOT NULL DEFAULT '{}',
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.subscriptions (
-  id                       UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id                  UUID        NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  plan                     TEXT        NOT NULL DEFAULT 'free',
-  status                   TEXT        NOT NULL DEFAULT 'active'
-                           CHECK (status IN ('active','cancelled','expired')),
-  stripe_subscription_id   TEXT,
-  stripe_customer_id       TEXT,
-  current_period_start     TIMESTAMPTZ,
-  current_period_end       TIMESTAMPTZ,
-  cancel_at_period_end     BOOLEAN     NOT NULL DEFAULT false,
-  created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at               TIMESTAMPTZ NOT NULL DEFAULT now()
-);
 
 -- ── Templates ─────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.templates (
-  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  name          TEXT        NOT NULL,
-  genre         TEXT        NOT NULL DEFAULT '',
-  bpm           INTEGER     NOT NULL DEFAULT 145,
-  mood          TEXT        NOT NULL DEFAULT '',
-  description   TEXT        NOT NULL DEFAULT '',
-  tracks        JSONB       NOT NULL DEFAULT '[]',
-  ai_confidence NUMERIC(4,3) NOT NULL DEFAULT 0,
-  generated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  id            UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  name          TEXT          NOT NULL,
+  genre         TEXT          NOT NULL DEFAULT '',
+  bpm           INTEGER       NOT NULL DEFAULT 145,
+  mood          TEXT          NOT NULL DEFAULT '',
+  description   TEXT          NOT NULL DEFAULT '',
+  tracks        JSONB         NOT NULL DEFAULT '[]',
+  ai_confidence NUMERIC(4,3)  NOT NULL DEFAULT 0,
+  generated_at  TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 
--- ── Packs ─────────────────────────────────────────────────────
+-- ── Packs ──────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.packs (
   id           TEXT        PRIMARY KEY,
   name         TEXT        NOT NULL,
@@ -84,7 +26,8 @@ CREATE TABLE IF NOT EXISTS public.packs (
                CHECK (type IN ('template','fx-rack','drum-kit','live-scene','preset','chain','ai-workflow')),
   genre        TEXT        NOT NULL DEFAULT '',
   author       TEXT        NOT NULL,
-  author_plan  TEXT        NOT NULL DEFAULT 'free',
+  author_plan  TEXT        NOT NULL DEFAULT 'free'
+               CHECK (author_plan IN ('free','pro','studio')),
   downloads    INTEGER     NOT NULL DEFAULT 0,
   rating       NUMERIC(4,2) NOT NULL DEFAULT 0,
   rating_count INTEGER     NOT NULL DEFAULT 0,
@@ -147,7 +90,8 @@ CREATE TABLE IF NOT EXISTS public.marketplace_comments (
   user_id    TEXT        NOT NULL,
   user_name  TEXT        NOT NULL,
   text       TEXT        NOT NULL,
-  rating     INTEGER     NOT NULL DEFAULT 5 CHECK (rating BETWEEN 1 AND 5),
+  rating     INTEGER     NOT NULL DEFAULT 5
+             CHECK (rating BETWEEN 1 AND 5),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -250,30 +194,7 @@ CREATE TABLE IF NOT EXISTS public.billing_history (
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- ── Admin Tables ─────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS public.admin_sessions (
-  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  admin_id      TEXT        NOT NULL,
-  admin_email   TEXT        NOT NULL,
-  refresh_token TEXT        UNIQUE NOT NULL,
-  ip_address    TEXT,
-  user_agent    TEXT,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  expires_at    TIMESTAMPTZ NOT NULL,
-  revoked       BOOLEAN     NOT NULL DEFAULT false
-);
-
-CREATE TABLE IF NOT EXISTS public.admin_logs (
-  id          BIGSERIAL   PRIMARY KEY,
-  admin_id    TEXT        NOT NULL,
-  admin_email TEXT        NOT NULL,
-  action      TEXT        NOT NULL,
-  target      TEXT,
-  details     JSONB,
-  ip_address  TEXT,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
+-- ── Support Tickets ───────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.support_tickets (
   id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     UUID        NOT NULL,
@@ -301,104 +222,65 @@ CREATE TABLE IF NOT EXISTS public.ticket_messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS public.security_events (
-  id         BIGSERIAL   PRIMARY KEY,
-  type       TEXT        NOT NULL,
-  severity   TEXT        NOT NULL DEFAULT 'low',
-  ip         TEXT,
-  user_id    TEXT,
-  email      TEXT,
-  route      TEXT,
-  reason     TEXT,
-  meta       JSONB,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.plugin_crashes (
-  id           BIGSERIAL   PRIMARY KEY,
-  user_id      TEXT,
-  plugin_name  TEXT,
-  plugin_path  TEXT,
-  message      TEXT,
-  stack        TEXT,
-  app_version  TEXT,
-  platform     TEXT,
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
 -- ── Indexes ───────────────────────────────────────────────────
-CREATE INDEX IF NOT EXISTS idx_projects_user_id       ON public.projects(user_id);
-CREATE INDEX IF NOT EXISTS idx_usage_log_user_date    ON public.usage_log(user_id, date);
-CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id  ON public.subscriptions(user_id);
-CREATE INDEX IF NOT EXISTS idx_subscriptions_status   ON public.subscriptions(status);
+CREATE INDEX IF NOT EXISTS idx_packs_genre      ON public.packs(genre);
+CREATE INDEX IF NOT EXISTS idx_packs_type       ON public.packs(type);
+CREATE INDEX IF NOT EXISTS idx_packs_downloads  ON public.packs(downloads DESC);
 
-CREATE INDEX IF NOT EXISTS idx_packs_genre            ON public.packs(genre);
-CREATE INDEX IF NOT EXISTS idx_packs_type             ON public.packs(type);
-CREATE INDEX IF NOT EXISTS idx_packs_downloads        ON public.packs(downloads DESC);
+CREATE INDEX IF NOT EXISTS idx_market_category  ON public.marketplace_products(category);
+CREATE INDEX IF NOT EXISTS idx_market_status    ON public.marketplace_products(status);
+CREATE INDEX IF NOT EXISTS idx_market_trending  ON public.marketplace_products(trending_score DESC);
+CREATE INDEX IF NOT EXISTS idx_market_featured  ON public.marketplace_products(featured) WHERE featured = true;
 
-CREATE INDEX IF NOT EXISTS idx_market_category        ON public.marketplace_products(category);
-CREATE INDEX IF NOT EXISTS idx_market_status          ON public.marketplace_products(status);
-CREATE INDEX IF NOT EXISTS idx_market_trending        ON public.marketplace_products(trending_score DESC);
-CREATE INDEX IF NOT EXISTS idx_market_featured        ON public.marketplace_products(featured) WHERE featured = true;
+CREATE INDEX IF NOT EXISTS idx_teams_owner      ON public.teams(owner_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_user ON public.team_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_invitations_token ON public.team_invitations(token);
+CREATE INDEX IF NOT EXISTS idx_invitations_team  ON public.team_invitations(team_id);
 
-CREATE INDEX IF NOT EXISTS idx_teams_owner            ON public.teams(owner_id);
-CREATE INDEX IF NOT EXISTS idx_team_members_user      ON public.team_members(user_id);
-CREATE INDEX IF NOT EXISTS idx_invitations_token      ON public.team_invitations(token);
-CREATE INDEX IF NOT EXISTS idx_invitations_team       ON public.team_invitations(team_id);
+CREATE INDEX IF NOT EXISTS idx_project_versions_project ON public.project_versions(project_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_collab_rooms_project      ON public.collab_rooms(project_id);
+CREATE INDEX IF NOT EXISTS idx_collab_rooms_last_active  ON public.collab_rooms(last_active);
 
-CREATE INDEX IF NOT EXISTS idx_project_versions_proj  ON public.project_versions(project_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_collab_rooms_project   ON public.collab_rooms(project_id);
-CREATE INDEX IF NOT EXISTS idx_collab_rooms_active    ON public.collab_rooms(last_active);
+CREATE INDEX IF NOT EXISTS idx_billing_user     ON public.billing_history(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_billing_status   ON public.billing_history(status);
 
-CREATE INDEX IF NOT EXISTS idx_billing_user           ON public.billing_history(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_billing_status         ON public.billing_history(status);
-
-CREATE INDEX IF NOT EXISTS idx_tickets_status         ON public.support_tickets(status);
-CREATE INDEX IF NOT EXISTS idx_tickets_priority       ON public.support_tickets(priority);
-CREATE INDEX IF NOT EXISTS idx_ticket_msgs            ON public.ticket_messages(ticket_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_admin_logs_admin       ON public.admin_logs(admin_id);
-CREATE INDEX IF NOT EXISTS idx_admin_logs_created     ON public.admin_logs(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_security_events_ip     ON public.security_events(ip);
-CREATE INDEX IF NOT EXISTS idx_security_events_type   ON public.security_events(type);
-
--- ── Functions ─────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION public.increment_usage(p_user_id UUID, p_date DATE)
-RETURNS void LANGUAGE plpgsql AS $$
-BEGIN
-  INSERT INTO public.usage_log (user_id, date, count)
-  VALUES (p_user_id, p_date, 1)
-  ON CONFLICT (user_id, date)
-  DO UPDATE SET count = usage_log.count + 1;
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION public.refresh_trending_scores()
-RETURNS void LANGUAGE plpgsql AS $$
-BEGIN
-  UPDATE public.marketplace_products
-  SET trending_score = downloads * 2 + likes * 3 +
-    GREATEST(0, 30 - EXTRACT(EPOCH FROM (now() - created_at)) / 86400) * 5;
-END;
-$$;
+CREATE INDEX IF NOT EXISTS idx_tickets_status   ON public.support_tickets(status);
+CREATE INDEX IF NOT EXISTS idx_tickets_priority ON public.support_tickets(priority);
+CREATE INDEX IF NOT EXISTS idx_ticket_msgs      ON public.ticket_messages(ticket_id, created_at);
 
 -- ── Row-Level Security ────────────────────────────────────────
+ALTER TABLE public.templates             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.packs                 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pack_comments         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.marketplace_products  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.marketplace_likes     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.marketplace_comments  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.teams                 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.team_members          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.team_invitations      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.project_permissions   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.coupons               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.coupon_redemptions    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.project_versions      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.collab_rooms          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.billing_history       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.support_tickets       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ticket_messages       ENABLE ROW LEVEL SECURITY;
+
 DO $$
 DECLARE
   tbl TEXT;
   tables TEXT[] := ARRAY[
-    'users','usage_log','projects','subscriptions','templates',
-    'packs','pack_comments',
+    'templates','packs','pack_comments',
     'marketplace_products','marketplace_likes','marketplace_comments',
     'teams','team_members','team_invitations','project_permissions',
     'coupons','coupon_redemptions',
     'project_versions','collab_rooms',
     'billing_history',
-    'admin_sessions','admin_logs','support_tickets','ticket_messages',
-    'security_events','plugin_crashes'
+    'support_tickets','ticket_messages'
   ];
 BEGIN
   FOREACH tbl IN ARRAY tables LOOP
-    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tbl);
     IF NOT EXISTS (
       SELECT 1 FROM pg_policies
       WHERE tablename = tbl AND policyname = 'service_role_all'
@@ -411,17 +293,18 @@ BEGIN
   END LOOP;
 END $$;
 
--- ── Demo Accounts ─────────────────────────────────────────────
-INSERT INTO public.users (id, email, name, password_hash, plan)
-VALUES
-  ('00000000-0000-0000-0000-000000000001','free@neurotek.ai',   'Free Producer',   '$2a$10$8nbCJR5WS0m6VEPOLCfT0Oee0/4brvTDLEe7mlOL.X7ZAQiHEpfR6','free'),
-  ('00000000-0000-0000-0000-000000000002','pro@neurotek.ai',    'Pro Producer',    '$2a$10$8nbCJR5WS0m6VEPOLCfT0Oee0/4brvTDLEe7mlOL.X7ZAQiHEpfR6','pro'),
-  ('00000000-0000-0000-0000-000000000003','studio@neurotek.ai', 'Studio Producer', '$2a$10$8nbCJR5WS0m6VEPOLCfT0Oee0/4brvTDLEe7mlOL.X7ZAQiHEpfR6','studio')
-ON CONFLICT (email) DO NOTHING;
+-- ── Helper Functions ──────────────────────────────────────────
 
-INSERT INTO public.subscriptions (user_id, plan, status)
-VALUES
-  ('00000000-0000-0000-0000-000000000001','free',   'active'),
-  ('00000000-0000-0000-0000-000000000002','pro',    'active'),
-  ('00000000-0000-0000-0000-000000000003','studio', 'active')
-ON CONFLICT DO NOTHING;
+-- Update trending score: call periodically via cron or pg_cron
+CREATE OR REPLACE FUNCTION public.refresh_trending_scores()
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  UPDATE public.marketplace_products
+  SET trending_score = downloads * 2 + likes * 3 +
+    GREATEST(0, 30 - EXTRACT(EPOCH FROM (now() - created_at)) / 86400) * 5;
+END;
+$$;
+
+-- Rollback helper: soft-delete a migration step (example pattern)
+-- To rollback migration 004: DROP tables in reverse dependency order.
+-- Script: backend/scripts/rollback_004.sql

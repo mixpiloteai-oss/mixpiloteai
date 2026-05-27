@@ -19,9 +19,9 @@ export function checkQuota(
   }
 
   // Resolve plan from DB (authoritative) asynchronously, fall back to JWT
-  getUserPlanStatus(userId, req.user?.plan).then((planStatus) => {
+  getUserPlanStatus(userId, req.user?.plan).then(async (planStatus) => {
     const effectivePlan = (planStatus.isActive ? planStatus.plan : 'free') as Plan;
-    const used = getTodayUsage(userId);
+    const used = await getTodayUsage(userId);
     const { dailyAIRequests } = getPlanForQuota(effectivePlan);
     const limit = dailyAIRequests;
 
@@ -36,10 +36,10 @@ export function checkQuota(
     }
 
     next();
-  }).catch(() => {
+  }).catch(async () => {
     // If plan status lookup fails entirely, fall back to JWT plan
     const plan = (req.user?.plan ?? 'free') as Plan;
-    const used = getTodayUsage(userId);
+    const used = await getTodayUsage(userId);
     const { dailyAIRequests: fallbackLimit } = getPlanForQuota(plan);
     const limit = fallbackLimit;
 

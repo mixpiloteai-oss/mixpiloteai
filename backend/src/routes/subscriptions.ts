@@ -4,7 +4,7 @@
 import { Router, Response } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
 import { asyncHandler } from '../middleware/asyncHandler';
-import { subscriptions, getTodayUsage, getDailyLimit, type Plan } from '../data/mockDB';
+import { getTodayUsage, getDailyLimit, type Plan } from '../data/mockDB';
 import { getUserPlanStatus } from '../lib/subscriptionValidator';
 import { getPlans as getManagedPlans } from '../lib/planManager';
 import { getCreditPacks } from '../lib/creditPackManager';
@@ -39,10 +39,8 @@ router.get('/my', requireAuth, asyncHandler(async (req: AuthenticatedRequest, re
   const status  = await getUserPlanStatus(userId, jwtPlan);
 
   // Keep quota from existing implementation
-  const used  = getTodayUsage(userId);
-  // Use mockDB subscription for legacy quota limit lookup
-  const mockSub = subscriptions.find((s) => s.userId === userId);
-  const limitPlan = (status.plan ?? mockSub?.plan ?? 'free') as Plan;
+  const used  = await getTodayUsage(userId);
+  const limitPlan = (status.plan ?? 'free') as Plan;
   const limit = getDailyLimit(limitPlan);
   const planDetails = getManagedPlans(true).find(p => p.id === status.plan);
 
@@ -59,7 +57,7 @@ router.get('/my', requireAuth, asyncHandler(async (req: AuthenticatedRequest, re
       quota: {
         used,
         limit,
-        remaining: Math.max(0, limit - used),
+        remaining: Math.max(0, (limit as number) - (used as number)),
         resetAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
       },
     },
@@ -214,7 +212,7 @@ router.post('/validate-coupon', requireAuth, asyncHandler(async (req: Authentica
     res.status(400).json({ success: false, error: 'code and amountCents required' });
     return;
   }
-  const v = validateCoupon(code, planId);
+  const v = await validateCoupon(code, planId);
   if (!v.valid || !v.coupon) {
     res.status(400).json({ success: false, error: v.error ?? 'Invalid coupon' });
     return;
@@ -227,7 +225,7 @@ router.post('/validate-coupon', requireAuth, asyncHandler(async (req: Authentica
 router.post('/redeem-coupon', requireAuth, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { code, planId = 'pro' } = req.body as { code?: string; planId?: string };
   if (!code) { res.status(400).json({ success: false, error: 'code required' }); return; }
-  const result = redeemCoupon(code, req.user!.id, planId);
+  const result = await redeemCoupon(code, req.user!.id, planId);
   if (!result.success) {
     res.status(400).json({ success: false, error: result.error ?? 'Redemption failed' });
     return;
@@ -237,16 +235,17 @@ router.post('/redeem-coupon', requireAuth, asyncHandler(async (req: Authenticate
 
 // Mirror old /upgrade contract for the legacy in-memory client (kept for
 // backward compat with the offline demo store)
-router.post('/upgrade-legacy', requireAuth, (req: AuthenticatedRequest, res: Response) => {
+router.post('/upgrade-legacy', requireAuth, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { plan } = req.body as { plan?: string };
   if (!plan || !['free', 'pro', 'studio'].includes(plan)) {
     res.status(400).json({ success: false, error: 'Invalid plan' });
     return;
   }
-  const sub = subscriptions.find((s) => s.userId === req.user!.id);
-  if (!sub) { res.status(404).json({ success: false, error: 'Subscription not found' }); return; }
-  sub.plan = plan as Plan;
+  const userId = req.user!.id;
+  const dbSub = await getSubscriptionFromDb(userId);
+  if (!dbSub) { res.status(404).json({ success: false, error: 'Subscription not found' }); return; }
+  await syncSubscriptionToDb({ user_id: userId, plan_id: plan, status: 'active', payment_method: dbSub.payment_method ?? 'stripe' });
   res.json({ success: true, data: { plan, status: 'active' } });
-});
+}));
 
 export default router;

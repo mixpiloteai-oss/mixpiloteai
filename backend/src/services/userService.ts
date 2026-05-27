@@ -124,7 +124,7 @@ async function sbIncrementUsage(userId: string): Promise<void> {
 
 // ── Mock adapters (wrap the in-memory DB to match UserRecord shape) ──────────
 
-function mockToRecord(u: ReturnType<typeof mockFindByEmail>): UserRecord | null {
+function mockToRecord(u: Awaited<ReturnType<typeof mockFindByEmail>>): UserRecord | null {
   if (!u) return null;
   return {
     id: u.id,
@@ -141,12 +141,12 @@ function mockToRecord(u: ReturnType<typeof mockFindByEmail>): UserRecord | null 
 
 export async function findUserByEmail(email: string): Promise<UserRecord | null> {
   if (isSupabaseConfigured) return sbFindByEmail(email);
-  return mockToRecord(mockFindByEmail(email));
+  return mockToRecord(await mockFindByEmail(email));
 }
 
 export async function findUserById(id: string): Promise<UserRecord | null> {
   if (isSupabaseConfigured) return sbFindById(id);
-  return mockToRecord(mockFindById(id));
+  return mockToRecord(await mockFindById(id));
 }
 
 export async function createUser(data: {
@@ -156,7 +156,7 @@ export async function createUser(data: {
   plan?: Plan;
 }): Promise<UserRecord> {
   if (isSupabaseConfigured) return sbCreateUser(data);
-  const u = mockCreateUser(data);
+  const u = await mockCreateUser(data);
   return mockToRecord(u)!;
 }
 
@@ -165,7 +165,7 @@ export async function setRefreshToken(userId: string, token: string | null): Pro
     await sbSetRefreshToken(userId, token);
     return;
   }
-  const u = mockFindById(userId);
+  const u = await mockFindById(userId);
   if (u) u.refreshToken = token ?? undefined;
 }
 

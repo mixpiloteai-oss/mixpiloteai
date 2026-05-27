@@ -4,6 +4,7 @@
 // ============================================================
 
 import { v4 as uuidv4 } from 'uuid';
+import { collabRepository } from '../repositories/collabRepository';
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -97,6 +98,8 @@ function scheduleEviction(roomId: string): void {
       rooms.delete(roomId);
       projectRoomMap.delete(room.projectId);
       evictionTimers.delete(roomId);
+      // Remove room record from DB
+      collabRepository.deleteRoom(roomId).catch(() => {});
     }
   }, EVICT_DELAY_MS).unref(); // unref so test process can exit cleanly
   evictionTimers.set(roomId, timer);
@@ -195,6 +198,8 @@ export function getOrCreateRoom(projectId: string): CollabRoom {
 
   rooms.set(room.id, room);
   projectRoomMap.set(projectId, room.id);
+  // Persist room metadata so projectId→roomId mapping survives restart
+  collabRepository.upsertRoom(room.id, projectId, 0).catch(() => {});
   return room;
 }
 
@@ -250,6 +255,9 @@ export function submitOp(op: CollabOp): CommittedOp | null {
   if (room.ops.length > MAX_OPS) {
     room.ops.splice(0, room.ops.length - MAX_OPS);
   }
+
+  // Touch DB with current rev (fire-and-forget — hot path must stay fast)
+  collabRepository.touchRoom(room.id, room.rev).catch(() => {});
 
   // Broadcast to all connections in the room
   broadcastToRoom(room, { type: 'op', op: committed });

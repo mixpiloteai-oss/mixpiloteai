@@ -27,8 +27,8 @@ async function executeAI(req: AuthenticatedRequest, res: Response, aiReq: AIRequ
       await new Promise((r) => setTimeout(r, 800 + Math.random() * 400));
       content = getDemoResponse(demoType);
     }
-    incrementUsage(req.user!.id);
-    const used = getTodayUsage(req.user!.id);
+    await incrementUsage(req.user!.id);
+    const used = await getTodayUsage(req.user!.id);
     const limit = getDailyLimit(req.user!.plan as Plan);
     res.json({
       success: true,
@@ -88,8 +88,8 @@ router.post('/acid-pattern', async (req: AuthenticatedRequest, res: Response) =>
   await executeAI(req, res, { userId: req.user!.id, plan: req.user!.plan, messageType: 'acid', userMessage: message, projectContext: { bpm } }, 'acid');
 });
 
-router.get('/quota', (req: AuthenticatedRequest, res: Response) => {
-  const used = getTodayUsage(req.user!.id);
+router.get('/quota', async (req: AuthenticatedRequest, res: Response) => {
+  const used = await getTodayUsage(req.user!.id);
   const limit = getDailyLimit(req.user!.plan as Plan);
   res.json({ success: true, data: { plan: req.user!.plan, used, limit, remaining: Math.max(0, limit - used), resetAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString() } });
 });

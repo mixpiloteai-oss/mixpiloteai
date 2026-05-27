@@ -821,7 +821,7 @@ router.post('/subscribe', requireAuth, async (req: AuthenticatedRequest, res: Re
 
   // Validate & redeem coupon
   if (couponCode) {
-    const result = redeemCoupon(couponCode, userId, planId);
+    const result = await redeemCoupon(couponCode, userId, planId);
     if (!result.success) {
       res.status(400).json({ success: false, error: result.error });
       return;
@@ -1159,7 +1159,7 @@ router.post('/credits', requireAuth, async (req: AuthenticatedRequest, res: Resp
 // ══════════════════════════════════════════════════════════════
 
 // POST /coupon/validate
-router.post('/coupon/validate', (req: Request, res: Response): void => {
+router.post('/coupon/validate', async (req: Request, res: Response): Promise<void> => {
   const { code, planId } = req.body as { code: string; planId: string };
 
   if (!code || !planId) {
@@ -1167,7 +1167,7 @@ router.post('/coupon/validate', (req: Request, res: Response): void => {
     return;
   }
 
-  const result = validateCoupon(code, planId);
+  const result = await validateCoupon(code, planId);
   if (!result.valid || !result.coupon) {
     res.json({ success: true, valid: false, error: result.error });
     return;
@@ -1196,7 +1196,7 @@ router.post('/coupon/validate', (req: Request, res: Response): void => {
 });
 
 // POST /coupon/apply
-router.post('/coupon/apply', requireAuth, (req: AuthenticatedRequest, res: Response): void => {
+router.post('/coupon/apply', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const userId = req.user!.id;
   const { code, planId } = req.body as { code: string; planId: string };
 
@@ -1205,7 +1205,7 @@ router.post('/coupon/apply', requireAuth, (req: AuthenticatedRequest, res: Respo
     return;
   }
 
-  const result = redeemCoupon(code, userId, planId);
+  const result = await redeemCoupon(code, userId, planId);
   res.json(result);
 });
 
