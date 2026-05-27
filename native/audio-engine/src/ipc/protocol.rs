@@ -96,6 +96,73 @@ pub enum Command {
 
     /// Gracefully shut down the engine.
     Shutdown,
+
+    // ── Plugin commands ──────────────────────────────────────────────────────
+
+    /// Load a plugin from the given path.
+    LoadPlugin {
+        instance_id: String,
+        plugin_path: String,
+        /// "VST3" | "AU" | "CLAP" | "VST2"
+        format: String,
+    },
+
+    /// Unload a previously loaded plugin.
+    UnloadPlugin { instance_id: String },
+
+    /// Process a block of audio through a plugin.
+    ProcessPlugin {
+        instance_id: String,
+        input_samples: Vec<f32>,
+        num_samples: u32,
+        channels: u32,
+    },
+
+    /// Set a parameter on a loaded plugin.
+    SetPluginParameter {
+        instance_id: String,
+        param_id: u32,
+        value: f64,
+    },
+
+    /// Get a parameter value from a loaded plugin.
+    GetPluginParameter {
+        instance_id: String,
+        param_id: u32,
+    },
+
+    /// Send a MIDI event to a plugin.
+    SendMidiToPlugin {
+        instance_id: String,
+        event_type: String,
+        channel: u8,
+        note: u8,
+        velocity: u8,
+        control: u8,
+        value: u8,
+        pitch_bend: i16,
+        sample_offset: u32,
+    },
+
+    /// Add a plugin to a track's processing chain.
+    AddPluginToChain { track_id: String, instance_id: String },
+
+    /// Remove a plugin from a track's processing chain.
+    RemovePluginFromChain { track_id: String, instance_id: String },
+
+    /// Add an automation point for a plugin parameter.
+    AddAutomationPoint {
+        instance_id: String,
+        param_id: u32,
+        bar: u32,
+        beat: u32,
+        tick: u32,
+        value: f64,
+        curve: f32,
+    },
+
+    /// Request list of all loaded plugin instances.
+    GetPluginInstances,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -200,6 +267,52 @@ pub enum Event {
 
     /// Emitted once on startup after full initialization.
     Ready,
+
+    // ── Plugin events ────────────────────────────────────────────────────────
+
+    /// Response to LoadPlugin — success.
+    PluginLoaded {
+        instance_id: String,
+        name: String,
+        vendor: String,
+        param_count: u32,
+        latency_samples: u32,
+    },
+
+    /// Response to LoadPlugin — failure.
+    PluginLoadError {
+        instance_id: String,
+        error: String,
+    },
+
+    /// Response to UnloadPlugin.
+    PluginUnloaded { instance_id: String },
+
+    /// Response to ProcessPlugin.
+    PluginAudioOutput {
+        instance_id: String,
+        samples: Vec<f32>,
+        rms: f32,
+        peak: f32,
+    },
+
+    /// Response to GetPluginParameter.
+    PluginParameterValue {
+        instance_id: String,
+        param_id: u32,
+        value: f64,
+    },
+
+    /// List of all active plugin instances.
+    PluginInstances {
+        instances: Vec<crate::plugin::manager::PluginInstanceInfo>,
+    },
+
+    /// Plugin processing crash notification.
+    PluginCrashed {
+        instance_id: String,
+        error: String,
+    },
 }
 
 impl Event {

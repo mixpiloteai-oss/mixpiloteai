@@ -20,6 +20,7 @@ mod driver;
 mod engine;
 mod ipc;
 mod memory;
+mod plugin;
 mod realtime;
 
 use std::{
