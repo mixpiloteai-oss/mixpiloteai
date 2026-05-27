@@ -50,7 +50,8 @@ export const aiRateLimiter = rateLimit({
 // Auth brute-force protection
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  // In test mode use a high limit so automated test suites don't get throttled
+  max: process.env.NODE_ENV === 'test' ? 5000 : 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: 'Too many auth attempts. Try again later.', code: 'AUTH_RATE_LIMITED' },

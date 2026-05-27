@@ -183,3 +183,50 @@ export async function incrementUsage(userId: string): Promise<void> {
 }
 
 export { getDailyLimit };
+
+// ── Password update ────────────────────────────────────────────
+
+export async function updatePassword(userId: string, newPassword: string): Promise<void> {
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase!
+      .from('users')
+      .update({ password_hash: passwordHash })
+      .eq('id', userId);
+    if (error) throw error;
+    return;
+  }
+
+  // In-memory fallback
+  const u = await mockFindById(userId);
+  if (u) u.passwordHash = passwordHash;
+}
+
+// ── Email verification ─────────────────────────────────────────
+
+export async function setEmailVerified(userId: string): Promise<void> {
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase!
+      .from('users')
+      .update({ email_verified: true, email_verified_at: new Date().toISOString() })
+      .eq('id', userId);
+    if (error) throw error;
+    return;
+  }
+  // In-memory fallback: no-op (pre-verification era users treated as verified)
+  // The mockDB User type doesn't have emailVerified — skip silently
+}
+
+export async function isEmailVerified(userId: string): Promise<boolean> {
+  if (isSupabaseConfigured && supabase) {
+    const { data } = await supabase!
+      .from('users')
+      .select('email_verified')
+      .eq('id', userId)
+      .maybeSingle();
+    return !!((data ?? {}) as { email_verified?: boolean }).email_verified;
+  }
+  // In-memory fallback: treat as verified (pre-verification era)
+  return true;
+}

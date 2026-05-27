@@ -165,6 +165,37 @@ export const authApi = {
   me: () => apiClient.get('/api/auth/me'),
 
   logout: () => apiClient.post('/api/auth/logout'),
+
+  /** Send password reset email (always 200 — no email enumeration) */
+  forgotPassword: (email: string) =>
+    apiClient.post('/api/auth/forgot-password', { email }),
+
+  /** Consume reset token and set a new password */
+  resetPassword: (token: string, password: string) =>
+    apiClient.post('/api/auth/reset-password', { token, password }),
+
+  /** Verify email address with one-time token */
+  verifyEmail: (token: string) =>
+    apiClient.post('/api/auth/verify-email', { token }),
+
+  /** Resend email verification link (requires auth) */
+  resendVerification: () =>
+    apiClient.post('/api/auth/resend-verification'),
+
+  /** List all active sessions for the authenticated user */
+  sessions: () => apiClient.get('/api/auth/sessions'),
+
+  /** Revoke a specific session by ID */
+  revokeSession: (id: string) =>
+    apiClient.delete(`/api/auth/sessions/${id}`),
+
+  /** Revoke all sessions (sign out everywhere) */
+  revokeAllSessions: () =>
+    apiClient.delete('/api/auth/sessions'),
+
+  /** Change password (requires current password for verification) */
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiClient.post('/api/auth/change-password', { currentPassword, newPassword }),
 };
 
 // ── AI API (all server-side, key never visible here) ───────────
