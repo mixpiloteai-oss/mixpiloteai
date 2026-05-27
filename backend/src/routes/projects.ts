@@ -6,7 +6,7 @@ import { db } from '../data/mockDB';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ok, fail, HTTP } from '../utils/response';
 import { validate } from '../utils/validate';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -27,8 +27,8 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
 router.post('/', requireAuth, asyncHandler(async (req: Request, res: Response) => {
   if (!validate(req, res, {
     name:  { required: true, type: 'string' },
-    genre: { required: true, type: 'string' },
-    bpm:   { required: true, type: 'number' },
+    genre: { required: false, type: 'string' },
+    bpm:   { required: false, type: 'number' },
   })) return;
 
   const { name, genre, bpm, key, mood, coverColor, tags } = req.body as Record<string, unknown>;
@@ -43,7 +43,7 @@ router.post('/', requireAuth, asyncHandler(async (req: Request, res: Response) =
     isStarred: false,
     coverColor: (coverColor as string) ?? 'linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%)',
     tags: (tags as string[]) ?? [],
-    userId: '',
+    userId: (req as AuthenticatedRequest).user?.id ?? '',
   });
   res.status(HTTP.CREATED).json(ok(project));
 }));

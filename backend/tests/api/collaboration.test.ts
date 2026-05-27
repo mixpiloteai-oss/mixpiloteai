@@ -49,13 +49,35 @@ describe('Collaboration routes', () => {
   });
 
   test('GET /api/collab/stream/:projectId with valid token → SSE stream starts', async () => {
-    const u = await registerAndLogin(srv.baseUrl);
+    // Use pre-seeded studio plan user — collab is a studio-tier feature
+    const loginRes = await fetch(`${srv.baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'studio@neurotek.ai', password: 'demo1234' }),
+    });
+    assert.ok(loginRes.ok, `studio login failed: ${loginRes.status}`);
+    const loginBody = await loginRes.json() as { data?: { accessToken: string; user: { id: string } } };
+    const accessToken = loginBody.data?.accessToken;
+    const userId = loginBody.data?.user?.id;
+    assert.ok(accessToken, 'expected accessToken from login');
+
+    // Create a project owned by this user, so the collab access check passes
+    const projRes = await fetch(`${srv.baseUrl}/api/projects`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ name: 'Collab Test Project' }),
+    });
+    assert.ok(projRes.ok, `create project failed: ${projRes.status}`);
+    const projBody = await projRes.json() as { data?: { id: string } };
+    const projectId = projBody.data?.id;
+    assert.ok(projectId, 'expected project id');
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 500);
 
     try {
       const res = await fetch(
-        `${srv.baseUrl}/api/collab/stream/test-project?token=${u.accessToken}&userId=${u.user.id}&userName=TestUser`,
+        `${srv.baseUrl}/api/collab/stream/${projectId}?token=${accessToken}&userId=${userId}&userName=TestUser`,
         { signal: controller.signal }
       );
       clearTimeout(timeout);

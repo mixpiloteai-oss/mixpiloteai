@@ -98,7 +98,7 @@ function scheduleEviction(roomId: string): void {
       projectRoomMap.delete(room.projectId);
       evictionTimers.delete(roomId);
     }
-  }, EVICT_DELAY_MS);
+  }, EVICT_DELAY_MS).unref(); // unref so test process can exit cleanly
   evictionTimers.set(roomId, timer);
 }
 
@@ -286,7 +286,7 @@ export function updatePresence(
     presenceBroadcastTimers.delete(timerKey)
     const r = rooms.get(roomId)
     if (r) broadcastToRoom(r, { type: 'presence', presence: getPresenceList(r) })
-  }, 100)
+  }, 100).unref() // unref so test process can exit cleanly
   presenceBroadcastTimers.set(timerKey, timer)
 }
 

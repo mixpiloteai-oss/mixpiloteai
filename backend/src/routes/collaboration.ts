@@ -167,7 +167,7 @@ router.get('/stream/:projectId', requireAuthSSE, requirePlan('studio'), (req: Re
     } catch {
       // connection already closed
     }
-  }, HEARTBEAT_INTERVAL_MS);
+  }, HEARTBEAT_INTERVAL_MS).unref(); // unref so test process can exit cleanly
 
   // Clean up on disconnect
   const handleClose = (): void => {
