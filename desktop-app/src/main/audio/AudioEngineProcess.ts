@@ -39,11 +39,13 @@ export type EngineEventListener = (evt: EngineEvent) => void
 // ─── AudioEngineProcess ───────────────────────────────────────────────────────
 
 export class AudioEngineProcess extends EventEmitter {
-  private _proc:     ChildProcess | null = null
-  private _ready     = false
-  private _cmdQueue: EngineCommand[]     = []   // commands buffered before ready
-  private _restarts  = 0
-  private readonly _maxRestarts = 5
+  private _proc:        ChildProcess | null = null
+  private _ready        = false
+  private _cmdQueue:    EngineCommand[]     = []   // commands buffered before ready
+  private _restarts     = 0
+  private _stopping     = false              // true when stop() was called intentionally
+  private readonly _maxRestarts   = 5
+  private readonly _maxQueueSize  = 64       // prevent unbounded queue growth
 
   get ready(): boolean { return this._ready }
 
@@ -54,6 +56,7 @@ export class AudioEngineProcess extends EventEmitter {
       console.warn('[AudioEngineProcess] start called but process already running')
       return
     }
+    this._stopping = false   // fresh start, clear intentional-stop flag
 
     const binaryPath = this._findBinary()
     if (!binaryPath) {
@@ -118,11 +121,13 @@ export class AudioEngineProcess extends EventEmitter {
 
   stop(): void {
     if (!this._proc) {
-      this._ready = false
+      this._ready   = false
+      this._stopping = false
       return
     }
 
-    this._ready = false
+    this._ready    = false
+    this._stopping = true   // flag intentional stop so auto-restart knows to skip
 
     try {
       this.send({ cmd: 'shutdown' })
@@ -148,9 +153,11 @@ export class AudioEngineProcess extends EventEmitter {
 
   send(cmd: EngineCommand): void {
     if (!this._ready) {
-      // Buffer commands only if we expect to be ready soon
-      if (this._restarts < this._maxRestarts) {
+      // Buffer commands only if we expect to be ready soon, and queue isn't full
+      if (this._restarts < this._maxRestarts && this._cmdQueue.length < this._maxQueueSize) {
         this._cmdQueue.push(cmd)
+      } else if (this._cmdQueue.length >= this._maxQueueSize) {
+        console.warn(`[AudioEngineProcess] command queue full (${this._maxQueueSize}), dropping: ${cmd.cmd}`)
       }
       return
     }
@@ -236,28 +243,46 @@ export class AudioEngineProcess extends EventEmitter {
   }
 
   private _onExit(code: number | null, signal: string | null): void {
-    if (this._proc?.pid) {
-      console.log(`[AudioEngineProcess] exited — pid=${this._proc.pid} code=${code} signal=${signal}`)
-    } else {
-      console.log(`[AudioEngineProcess] exited — code=${code} signal=${signal}`)
-    }
+    const pid = this._proc?.pid
+    console.log(`[AudioEngineProcess] exited — pid=${pid ?? '?'} code=${code} signal=${signal}`)
 
     this._proc  = null
     this._ready = false
     this.emit('exit', { code, signal })
 
-    // Auto-restart unless shutdown intentionally (code 0) or max retries exceeded
-    if (code !== 0 && code !== null && this._restarts < this._maxRestarts) {
-      this._restarts++
-      const delay = Math.min(1000 * Math.pow(1.5, this._restarts - 1), 10_000)
-      console.log(`[AudioEngineProcess] restarting in ${Math.round(delay)}ms (attempt ${this._restarts}/${this._maxRestarts})`)
-      setTimeout(() => {
-        this.start().catch(e => console.error('[AudioEngineProcess] restart failed:', e))
-      }, delay)
-    } else if (this._restarts >= this._maxRestarts) {
-      console.error(`[AudioEngineProcess] max restart attempts (${this._maxRestarts}) exceeded`)
-      this.emit('max-restarts-exceeded')
+    // Do not auto-restart if:
+    //   - stop() was called intentionally (_stopping flag)
+    //   - clean exit (code 0)
+    //   - max restarts exceeded
+    if (this._stopping) {
+      console.log('[AudioEngineProcess] intentional stop — no restart')
+      this._stopping  = false
+      this._cmdQueue  = []   // discard stale queued commands
+      return
     }
+
+    if (code === 0) {
+      console.log('[AudioEngineProcess] clean exit (code 0) — no restart')
+      this._cmdQueue = []
+      return
+    }
+
+    if (this._restarts >= this._maxRestarts) {
+      console.error(`[AudioEngineProcess] max restart attempts (${this._maxRestarts}) reached — staying down`)
+      this._cmdQueue = []
+      this.emit('max-restarts-exceeded')
+      return
+    }
+
+    this._restarts++
+    const delay = Math.min(1000 * Math.pow(1.5, this._restarts - 1), 10_000)
+    console.log(`[AudioEngineProcess] restarting in ${Math.round(delay)}ms (attempt ${this._restarts}/${this._maxRestarts})`)
+    setTimeout(() => {
+      this.start().catch(e => {
+        console.error('[AudioEngineProcess] restart failed:', e)
+        this.emit('error', e)
+      })
+    }, delay)
   }
 
   private _onError(err: Error): void {

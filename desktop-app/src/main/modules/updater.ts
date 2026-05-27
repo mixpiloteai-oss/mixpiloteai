@@ -122,9 +122,10 @@ const module = {
     }, 5_000)
 
     // -- Re-check every 6 hours -------------------------------------------
-    setInterval(() => {
+    const recheckInterval = setInterval(() => {
       autoUpdater.checkForUpdates().catch(() => { /* silent */ })
     }, 6 * 60 * 60 * 1_000)
+    if (recheckInterval.unref) recheckInterval.unref()
   }
 }
 

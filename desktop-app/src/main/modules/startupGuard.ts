@@ -75,8 +75,9 @@ export function initStartupGuard(onRollback?: () => void): void {
     fs.writeFileSync(file, JSON.stringify({ count: 0, lastAt: Date.now() }), 'utf8')
   }
 
-  // Mark as stable after STABLE_AFTER_MS
-  setTimeout(() => {
+  // Mark as stable after STABLE_AFTER_MS (unref so the timer doesn't prevent exit in tests)
+  const stableTimer = setTimeout(() => {
     try { fs.writeFileSync(file, JSON.stringify({ count: 0, lastAt: Date.now() }), 'utf8') } catch { /* ignore */ }
   }, STABLE_AFTER_MS)
+  if (stableTimer.unref) stableTimer.unref()
 }
