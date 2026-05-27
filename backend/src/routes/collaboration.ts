@@ -8,6 +8,8 @@ import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
 import * as collabService from '../services/collaborationService';
 import type { CollabOp, CollabOpType, CollabEvent, RoomPresence } from '../services/collaborationService';
+// RECENT_OPS_ON_CONNECT matches service constant
+const RECENT_OPS_ON_CONNECT = 50;
 import * as teamService from '../services/teamService';
 import type { TeamRole } from '../services/teamService';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
@@ -134,7 +136,8 @@ router.get('/stream/:projectId', requireAuthSSE, requirePlan('studio'), async (r
   res.setHeader('X-Accel-Buffering', 'no'); // disable nginx buffering
   res.flushHeaders();
 
-  const room = collabService.getOrCreateRoom(projectId);
+  // Use initRoom for persistent state recovery (handles server restart)
+  const room = await collabService.initRoom(projectId);
 
   // Fix 3: Reject connection if room is full
   if (room.connections.size >= collabService.MAX_CONNECTIONS_PER_ROOM) {
@@ -142,6 +145,10 @@ router.get('/stream/:projectId', requireAuthSSE, requirePlan('studio'), async (r
     res.end();
     return;
   }
+
+  // If client provides sinceRev, send delta ops instead of last 50
+  const clientSinceRev = typeof req.query['sinceRev'] === 'string'
+    ? parseInt(req.query['sinceRev'], 10) : undefined;
 
   const presence: RoomPresence = {
     userId,
@@ -152,7 +159,13 @@ router.get('/stream/:projectId', requireAuthSSE, requirePlan('studio'), async (r
 
   // SSE sender function
   const send = (event: CollabEvent): void => {
-    res.write(formatSSE(event));
+    // Override recentOps on connected event to use sinceRev delta if provided
+    if (event.type === 'connected' && clientSinceRev !== undefined && !isNaN(clientSinceRev)) {
+      const deltaOps = collabService.getRoomHistory(room.id, clientSinceRev);
+      res.write(formatSSE({ ...event, recentOps: deltaOps }));
+    } else {
+      res.write(formatSSE(event));
+    }
     // Flush if available (e.g. compression middleware)
     if (typeof (res as unknown as { flush?: () => void }).flush === 'function') {
       (res as unknown as { flush: () => void }).flush();
@@ -495,6 +508,18 @@ router.post('/teams-create', requireAuth, async (req: Request, res: Response) =>
   );
 
   res.status(201).json({ success: true, team });
+});
+
+// ── Snapshot ──────────────────────────────────────────────────
+
+/**
+ * GET /api/collab/snapshot/:projectId
+ * Returns latest snapshot info for a project's collab room.
+ */
+router.get('/snapshot/:projectId', requireAuthSSE, async (req: Request, res: Response) => {
+  const { projectId } = req.params;
+  const room = await collabService.initRoom(projectId);
+  res.json({ success: true, data: { roomId: room.id, rev: room.rev, opsInMemory: room.ops.length } });
 });
 
 // NOTE: Team routes are also exported on this router but mounted under /api/teams

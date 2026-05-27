@@ -5,6 +5,9 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { collabRepository } from '../repositories/collabRepository';
+import { collabOpsRepository } from '../repositories/collabOpsRepository';
+import { presenceRepository } from '../repositories/presenceRepository';
+import { snapshotService } from './snapshotService';
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -71,6 +74,7 @@ const MAX_OPS = 500;
 const EVICT_DELAY_MS = 30 * 60 * 1000; // 30 minutes
 const RECENT_OPS_ON_CONNECT = 50;
 export const MAX_CONNECTIONS_PER_ROOM = 50;
+const SNAPSHOT_INTERVAL_OPS = 100;
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -98,8 +102,10 @@ function scheduleEviction(roomId: string): void {
       rooms.delete(roomId);
       projectRoomMap.delete(room.projectId);
       evictionTimers.delete(roomId);
-      // Remove room record from DB
+      // Remove room record from DB (fire-and-forget)
       collabRepository.deleteRoom(roomId).catch(() => {});
+      collabOpsRepository.deleteByRoom(roomId).catch(() => {});
+      snapshotService.deleteByRoom(roomId).catch(() => {});
     }
   }, EVICT_DELAY_MS).unref(); // unref so test process can exit cleanly
   evictionTimers.set(roomId, timer);
@@ -259,6 +265,14 @@ export function submitOp(op: CollabOp): CommittedOp | null {
   // Touch DB with current rev (fire-and-forget — hot path must stay fast)
   collabRepository.touchRoom(room.id, room.rev).catch(() => {});
 
+  // Persist op to DB (fire-and-forget)
+  collabOpsRepository.append(committed, room.projectId).catch(() => {});
+
+  // Trigger snapshot every SNAPSHOT_INTERVAL_OPS ops
+  if (room.ops.length % SNAPSHOT_INTERVAL_OPS === 0) {
+    snapshotService.create(room.id, room.projectId, room.rev, room.ops).catch(() => {});
+  }
+
   // Broadcast to all connections in the room
   broadcastToRoom(room, { type: 'op', op: committed });
 
@@ -280,6 +294,8 @@ export function updatePresence(
   if (existing) {
     existing.cursor = cursor;
     existing.lastSeen = Date.now();
+    // Persist presence update (fire-and-forget)
+    presenceRepository.upsert(roomId, existing).catch(() => {});
   } else {
     // presence not found; ignore silently
     return;
@@ -311,6 +327,9 @@ export function cleanupConnection(roomId: string, userId: string): void {
   room.connections.delete(userId);
   room.presence.delete(userId);
 
+  // Remove presence from DB (fire-and-forget)
+  presenceRepository.delete(roomId, userId).catch(() => {});
+
   // Broadcast updated presence
   broadcastToRoom(room, { type: 'presence', presence: getPresenceList(room) });
 
@@ -334,4 +353,80 @@ export function getTotalConnections(): number {
     total += room.connections.size
   }
   return total
+}
+
+/**
+ * Async version of getOrCreateRoom that recovers persisted state from DB.
+ * Use this from route handlers instead of getOrCreateRoom() for full persistence.
+ */
+export async function initRoom(projectId: string): Promise<CollabRoom> {
+  // Check in-memory first (fast path)
+  const existingId = projectRoomMap.get(projectId);
+  if (existingId) {
+    const room = rooms.get(existingId);
+    if (room) return room;
+  }
+
+  // Check DB for existing room (server restart recovery)
+  const persisted = await collabRepository.findRoomByProject(projectId).catch(() => null);
+
+  if (persisted) {
+    // Room existed before restart — recover it
+    const room: CollabRoom = {
+      id:          persisted.id,
+      projectId,
+      ops:         [],
+      rev:         persisted.rev,
+      presence:    new Map(),
+      connections: new Map(),
+    };
+    rooms.set(room.id, room);
+    projectRoomMap.set(projectId, room.id);
+
+    // Async recovery: load ops and presence from DB
+    await recoverRoom(room);
+    return room;
+  }
+
+  // No existing room — create fresh
+  return getOrCreateRoom(projectId);
+}
+
+/** Load persisted ops, snapshot, and presence into an in-memory room */
+async function recoverRoom(room: CollabRoom): Promise<void> {
+  try {
+    // Load latest snapshot for fast recovery
+    const snapshot = await snapshotService.loadLatest(room.id);
+    const sinceRev = snapshot?.rev ?? 0;
+
+    // Load ops since snapshot
+    const persistedOps = await collabOpsRepository.loadSinceRev(room.id, sinceRev);
+
+    // Seed from snapshot ops first, then append newer ops
+    const baseOps = snapshot?.ops ?? [];
+    const allOps = [...baseOps, ...persistedOps];
+
+    // Deduplicate by committedRev
+    const seen = new Set<number>();
+    room.ops = allOps.filter(op => {
+      if (seen.has(op.committedRev)) return false;
+      seen.add(op.committedRev);
+      return true;
+    }).sort((a, b) => a.committedRev - b.committedRev);
+
+    // Restore rev from highest committed op
+    if (room.ops.length > 0) {
+      room.rev = room.ops[room.ops.length - 1].committedRev;
+    }
+
+    // Restore presence (users active in last 5 min)
+    const presences = await presenceRepository.loadByRoom(room.id);
+    for (const p of presences) {
+      room.presence.set(p.userId, p);
+    }
+
+    console.log(`[collab] recovered room ${room.id} (rev=${room.rev}, ops=${room.ops.length}, presence=${presences.length})`);
+  } catch (err) {
+    console.error(`[collab] room recovery failed for ${room.id}:`, err);
+  }
 }

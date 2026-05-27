@@ -7,6 +7,7 @@
 import { Router, Request, Response } from 'express'
 import { db }          from '../data/mockDB'
 import { saveService } from '../services/saveService'
+import { syncDedupRepository } from '../repositories/syncDedupRepository'
 
 const router = Router()
 
@@ -30,9 +31,7 @@ interface SyncResult {
   data?:       unknown
 }
 
-// ─── Seen IDs (in-memory dedup cache — resets on server restart) ─────────────
-const seenIds = new Set<string>()
-const SEEN_MAX = 50_000
+// ─── Seen IDs: now delegated to syncDedupRepository (persistent) ─────────────
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
@@ -55,8 +54,8 @@ router.post('/', async (req: Request, res: Response) => {
       continue
     }
 
-    // Idempotency check
-    if (seenIds.has(op.id)) {
+    // Idempotency check (persistent across restarts)
+    if (await syncDedupRepository.hasSeen(op.id)) {
       results.push({ operationId: op.id, success: true, data: { deduplicated: true } })
       continue
     }
@@ -64,12 +63,7 @@ router.post('/', async (req: Request, res: Response) => {
     try {
       const result = await dispatch(op)
       results.push({ operationId: op.id, success: true, data: result })
-      seenIds.add(op.id)
-      if (seenIds.size > SEEN_MAX) {
-        // Evict oldest entries — Set preserves insertion order
-        const first = seenIds.values().next().value
-        if (first) seenIds.delete(first)
-      }
+      await syncDedupRepository.markSeen(op.id)
     } catch (err) {
       results.push({
         operationId: op.id,
@@ -135,7 +129,7 @@ async function dispatch(op: SyncOperation): Promise<unknown> {
 // ─── Health / status endpoint ──────────────────────────────────────────────────
 // GET /api/sync/status — lets clients check what the server considers pending
 router.get('/status', (_req: Request, res: Response) => {
-  res.json({ success: true, data: { seenCount: seenIds.size, ready: true } })
+  res.json({ success: true, data: { seenCount: syncDedupRepository.cacheSize, ready: true } })
 })
 
 export default router

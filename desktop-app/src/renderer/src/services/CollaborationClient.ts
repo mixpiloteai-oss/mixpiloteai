@@ -67,6 +67,8 @@ export class CollaborationClient {
   private es:               EventSource | null   = null
   private roomId:           string | null         = null
   private authToken:        string | null         = null
+  private _projectId:       string | null         = null
+  private lastKnownRev:     number                = 0
 
   private userId:    string
   private userName:  string
@@ -116,8 +118,13 @@ export class CollaborationClient {
     }
 
     this.disconnect()
-    this.roomId   = projectId
+    this.roomId    = projectId
+    this._projectId = projectId
     this._sessionId = Date.now()   // new session ↑
+
+    // Load persisted rev for delta sync on reconnect
+    const storedRev = localStorage.getItem(`collab-rev-${projectId}`)
+    this.lastKnownRev = storedRev ? parseInt(storedRev, 10) : 0
 
     useCollaborationStore.getState().setProjectId(projectId)
 
@@ -129,6 +136,7 @@ export class CollaborationClient {
       userId:    this.userId,
       userName:  this.userName,
       userColor: this.userColor,
+      sinceRev:  String(this.lastKnownRev),
       ...(this.authToken ? { token: this.authToken } : {}),
     })
 
@@ -183,7 +191,13 @@ export class CollaborationClient {
           store.removePendingOp(op.id)
         }
         store.applyOp(op)
-        store.setRoomRev(op.committedRev ?? op.rev)
+        const newRev = op.committedRev ?? op.rev
+        store.setRoomRev(newRev)
+        // Persist rev for delta sync on reconnect
+        this.lastKnownRev = newRev
+        if (this._projectId) {
+          try { localStorage.setItem(`collab-rev-${this._projectId}`, String(newRev)) } catch { /* ignore */ }
+        }
         break
       }
 
@@ -198,6 +212,12 @@ export class CollaborationClient {
         store.setConnected(true)
         store.setRoomRev(payload.rev)
         this._reconnectDelay = 3_000  // reset backoff on success
+
+        // Persist rev to localStorage for delta sync on next reconnect
+        this.lastKnownRev = payload.rev
+        if (this._projectId) {
+          try { localStorage.setItem(`collab-rev-${this._projectId}`, String(payload.rev)) } catch { /* ignore */ }
+        }
 
         if (Array.isArray(payload.recentOps)) {
           for (const op of payload.recentOps) {
