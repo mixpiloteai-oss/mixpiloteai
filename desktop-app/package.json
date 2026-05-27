@@ -84,11 +84,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "assets/icon.ico",
@@ -118,7 +122,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "icon": "assets/icon.png",
@@ -134,7 +141,9 @@
       "target": [
         {
           "target": "AppImage",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "assets/icon.png",
@@ -149,6 +158,16 @@
       "owner": "mixpiloteai-oss",
       "repo": "mixpiloteai",
       "releaseType": "release"
-    }
+    },
+    "extraResources": [
+      {
+        "from": "../native/audio-engine/target/release/",
+        "to": "audio-engine/",
+        "filter": [
+          "audio-engine",
+          "audio-engine.exe"
+        ]
+      }
+    ]
   }
 }

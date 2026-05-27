@@ -63,6 +63,16 @@ export function registerAudioIPCHandlers(ipcMain: IpcMain, getWindow: () => Brow
     } catch { /* already dead */ }
   })
 
+  // Forward engine-mode event (native vs web-audio-fallback) to renderer
+  proc.on('engine-mode', (status) => {
+    try {
+      const win = getWindow()
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('audio-engine-mode', status)
+      }
+    } catch { /* window may not be ready yet */ }
+  })
+
   proc.on('error', (err: Error) => {
     console.error('[audio-ipc] engine error:', err.message)
     logCrash({
@@ -94,6 +104,12 @@ export function registerAudioIPCHandlers(ipcMain: IpcMain, getWindow: () => Brow
   })
 
   safeHandle(ipcMain, 'audio-engine-ready', () => proc.ready)
+
+  /**
+   * Returns the full engine status object — mode, binary path, checked paths, etc.
+   * Used by the renderer's EngineStatusBanner and the Settings > Audio panel.
+   */
+  safeHandle(ipcMain, 'audio-engine-status', () => proc.getStatus())
 
   // ── Transport ─────────────────────────────────────────────────────────────
 

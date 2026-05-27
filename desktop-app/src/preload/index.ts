@@ -21,6 +21,7 @@ const api = {
   scanVSTPlugins:    () => ipcRenderer.invoke('scan-vst-plugins'),
   getVSTPlugins:     () => ipcRenderer.invoke('get-vst-plugins'),
   // Projects
+
   saveProject:       (data: unknown) => ipcRenderer.invoke('save-project', data),
   loadProject:       () => ipcRenderer.invoke('load-project'),
   // Offline store
@@ -65,6 +66,11 @@ const api = {
   audioEngineStart:     (opts?: unknown) => ipcRenderer.invoke('audio-engine-start', opts),
   audioEngineStop:      ()               => ipcRenderer.invoke('audio-engine-stop'),
   audioEngineReady:     ()               => ipcRenderer.invoke('audio-engine-ready'),
+  /** Returns the full engine status: mode, binaryPath, checkedPaths, platform, etc. */
+  audioEngineStatus:    ()               => ipcRenderer.invoke('audio-engine-status'),
+  /** Fires immediately after start() resolves, with the engine mode and binary info. */
+  onAudioEngineMode:    (cb: (status: unknown) => void) =>
+    ipcRenderer.on('audio-engine-mode', (_e, s) => cb(s)),
   audioDetectDrivers:   ()               => ipcRenderer.invoke('audio-detect-drivers'),
   audioDetectDevices:   ()               => ipcRenderer.invoke('audio-detect-devices'),
   audioPreferredDriver: ()               => ipcRenderer.invoke('audio-preferred-driver'),

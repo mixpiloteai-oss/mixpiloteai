@@ -13,14 +13,25 @@
  * The renderer communicates with the main process via IPC (preload API).
  * The main process forwards commands to the native engine and
  * routes events back to the renderer window.
+ *
+ * Binary packaging:
+ *   Production builds package the binary via electron-builder extraResources:
+ *     from: native/audio-engine/target/release/audio-engine[.exe]
+ *     to:   {resources}/audio-engine/audio-engine[.exe]
+ *
+ *   If the binary is not found, the process starts in "Web Audio fallback"
+ *   mode — the renderer uses the Web Audio API instead.  This is NEVER
+ *   silent: a warning is logged and the status is queryable via IPC.
  */
 
-import { ChildProcess, spawn } from 'node:child_process'
-import { createInterface }      from 'node:readline'
-import { join }                 from 'node:path'
-import { existsSync }           from 'node:fs'
-import { EventEmitter }         from 'node:events'
-import { app }                  from 'electron'
+import { ChildProcess, spawn }  from 'node:child_process'
+import { createInterface }       from 'node:readline'
+import { EventEmitter }          from 'node:events'
+import { app }                   from 'electron'
+import {
+  getEngineBinaryCandidates,
+  findEngineBinary,
+} from './enginePaths'
 
 // ─── Protocol types (mirrors Rust protocol.rs) ───────────────────────────────
 
@@ -36,6 +47,25 @@ export interface EngineEvent {
 
 export type EngineEventListener = (evt: EngineEvent) => void
 
+// ─── Engine status (queryable via IPC: audio-engine-status) ──────────────────
+
+export interface EngineStatus {
+  /** Operating mode: 'native' = Rust binary running; 'web-audio-fallback' = binary not found */
+  mode:         'native' | 'web-audio-fallback'
+  /** Whether the native binary was found on disk */
+  binaryFound:  boolean
+  /** Full path to the binary that was found (null if not found) */
+  binaryPath:   string | null
+  /** All candidate paths that were checked during startup */
+  checkedPaths: string[]
+  /** node process.platform value */
+  platform:     string
+  /** Whether the child process is currently running */
+  isRunning:    boolean
+  /** How many times the engine has been restarted in this session */
+  restarts:     number
+}
+
 // ─── AudioEngineProcess ───────────────────────────────────────────────────────
 
 export class AudioEngineProcess extends EventEmitter {
@@ -47,7 +77,27 @@ export class AudioEngineProcess extends EventEmitter {
   private readonly _maxRestarts   = 5
   private readonly _maxQueueSize  = 64       // prevent unbounded queue growth
 
+  // Status tracked from last start() call — set before/after binary search
+  private _status: EngineStatus = {
+    mode:         'web-audio-fallback',
+    binaryFound:  false,
+    binaryPath:   null,
+    checkedPaths: [],
+    platform:     process.platform,
+    isRunning:    false,
+    restarts:     0,
+  }
+
   get ready(): boolean { return this._ready }
+
+  /** Returns the current engine status snapshot. */
+  getStatus(): EngineStatus {
+    return {
+      ...this._status,
+      isRunning: this._proc !== null && !this._proc.killed,
+      restarts:  this._restarts,
+    }
+  }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -58,13 +108,42 @@ export class AudioEngineProcess extends EventEmitter {
     }
     this._stopping = false   // fresh start, clear intentional-stop flag
 
-    const binaryPath = this._findBinary()
+    const { path: binaryPath, checkedPaths } = this._findBinary()
     if (!binaryPath) {
-      console.warn('[AudioEngineProcess] native binary not found — running in Web Audio only mode')
+      this._status = {
+        mode:         'web-audio-fallback',
+        binaryFound:  false,
+        binaryPath:   null,
+        checkedPaths,
+        platform:     process.platform,
+        isRunning:    false,
+        restarts:     this._restarts,
+      }
+      console.warn(
+        '[AudioEngineProcess] ⚠️  Native audio engine binary NOT FOUND.\n' +
+        '  Falling back to Web Audio API — reduced performance, no ASIO/WASAPI/CoreAudio.\n' +
+        '  Searched paths:\n' +
+        checkedPaths.map(p => `    • ${p}`).join('\n') + '\n' +
+        '  To fix: run `cargo build --release` in native/audio-engine/' +
+        '  and restart the app, or rebuild with a release build.'
+      )
       this._ready = true
       this.emit('ready')
+      this.emit('engine-mode', this._status)
       return
     }
+
+    this._status = {
+      mode:         'native',
+      binaryFound:  true,
+      binaryPath,
+      checkedPaths,
+      platform:     process.platform,
+      isRunning:    false,  // will flip to true once 'ready' event arrives
+      restarts:     this._restarts,
+    }
+    console.log(`[AudioEngineProcess] ✓ Native audio engine binary found: ${binaryPath}`)
+    this.emit('engine-mode', this._status)
 
     const args = [
       '--driver',      driver,
@@ -221,6 +300,7 @@ export class AudioEngineProcess extends EventEmitter {
       if (evt.event === 'ready') {
         this._ready = true
         this._restarts = 0  // Reset restart counter on successful startup
+        this._status = { ...this._status, isRunning: true, restarts: 0 }
         // Flush buffered commands
         const cmds = this._cmdQueue.slice()
         this._cmdQueue = []
@@ -291,21 +371,20 @@ export class AudioEngineProcess extends EventEmitter {
     // Don't auto-restart on spawn error — caller should handle
   }
 
-  private _findBinary(): string | null {
-    const candidates = [
-      // Production: packed with app
-      join(app.getAppPath(), '..', 'audio-engine', process.platform === 'win32' ? 'audio-engine.exe' : 'audio-engine'),
-      // Development: Cargo release build
-      join(__dirname, '..', '..', '..', '..', '..', 'native', 'audio-engine', 'target', 'release',
-        process.platform === 'win32' ? 'audio-engine.exe' : 'audio-engine'),
-      // Development: Cargo debug build
-      join(__dirname, '..', '..', '..', '..', '..', 'native', 'audio-engine', 'target', 'debug',
-        process.platform === 'win32' ? 'audio-engine.exe' : 'audio-engine'),
-    ]
-    for (const p of candidates) {
-      if (existsSync(p)) return p
+  private _findBinary(): ReturnType<typeof findEngineBinary> {
+    const candidates = getEngineBinaryCandidates(app.getAppPath(), __dirname, process.platform)
+    const result     = findEngineBinary(candidates)
+
+    // Verbose logging so users/support can diagnose packaging issues
+    for (const p of result.checkedPaths) {
+      if (p === result.path) {
+        console.log(`[AudioEngineProcess] ✓ ${p}`)
+      } else {
+        console.log(`[AudioEngineProcess] ✗ ${p}`)
+      }
     }
-    return null
+
+    return result
   }
 }
 

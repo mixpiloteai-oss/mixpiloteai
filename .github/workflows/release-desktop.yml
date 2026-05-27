@@ -32,7 +32,7 @@ jobs:
           - os: macos-latest
             artifact: 'dmg,zip'
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 90        # increased: Rust compile (~10-20min) + electron-builder
     defaults:
       run:
         working-directory: desktop-app
@@ -47,18 +47,104 @@ jobs:
       # Windows signing
       WIN_CSC_LINK: ${{ secrets.WIN_CERT_PFX_BASE64 }}
       WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
+
     steps:
+      # ── Checkout ────────────────────────────────────────────────────────────
       - uses: actions/checkout@v4
+
+      # ── Rust toolchain ──────────────────────────────────────────────────────
+      - name: Install Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      # macOS only: register both architectures for universal binary creation
+      - name: Add macOS cross-compilation targets
+        if: runner.os == 'macOS'
+        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
+
+      # ── Cargo dependency cache ───────────────────────────────────────────────
+      # Registry cache — keyed on Cargo.lock (invalidated when any dep changes)
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('native/audio-engine/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-registry-
+
+      # Build cache — keyed on both Cargo.lock and source tree
+      - name: Cache Cargo build artifacts
+        uses: actions/cache@v4
+        with:
+          path: native/audio-engine/target
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('native/audio-engine/Cargo.lock', 'native/audio-engine/src/**/*.rs') }}
+          restore-keys: ${{ runner.os }}-cargo-build-
+
+      # ── Build Rust audio engine ──────────────────────────────────────────────
+      # macOS: build for both x86_64 and aarch64, then merge with lipo
+      - name: Build Rust audio engine (macOS universal binary)
+        if: runner.os == 'macOS'
+        working-directory: native/audio-engine
+        run: |
+          cargo build --release --target x86_64-apple-darwin
+          cargo build --release --target aarch64-apple-darwin
+          mkdir -p target/release
+          lipo -create \
+            target/x86_64-apple-darwin/release/audio-engine \
+            target/aarch64-apple-darwin/release/audio-engine \
+            -output target/release/audio-engine
+          echo "✓ Universal binary created:"
+          file target/release/audio-engine
+          ls -lh target/release/audio-engine
+
+      - name: Build Rust audio engine (Windows)
+        if: runner.os == 'Windows'
+        working-directory: native/audio-engine
+        run: cargo build --release
+        shell: bash
+
+      - name: Build Rust audio engine (Linux)
+        if: runner.os == 'Linux'
+        working-directory: native/audio-engine
+        run: cargo build --release
+
+      # ── Verify binary was produced ───────────────────────────────────────────
+      - name: Verify audio engine binary exists
+        shell: bash
+        working-directory: native/audio-engine/target/release
+        run: |
+          BIN="audio-engine"
+          [ "$RUNNER_OS" = "Windows" ] && BIN="audio-engine.exe"
+          if [ ! -f "$BIN" ]; then
+            echo "❌ ERROR: binary not found at $(pwd)/$BIN"
+            exit 1
+          fi
+          echo "✓ Binary verified: $(pwd)/$BIN ($(du -sh $BIN | cut -f1))"
+
+      # ── Node.js + npm ────────────────────────────────────────────────────────
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
           cache-dependency-path: desktop-app/package-lock.json
+
       - run: npm ci
+
+      # ── TypeScript ───────────────────────────────────────────────────────────
       - name: Typecheck
         run: npx tsc --noEmit
+
+      # ── Build renderer ───────────────────────────────────────────────────────
       - name: Build renderer
         run: npm run build
+
+      # ── Package + sign + publish ─────────────────────────────────────────────
+      # electron-builder picks up the Rust binary via extraResources:
+      #   from: ../native/audio-engine/target/release/audio-engine[.exe]
+      #   to:   {resources}/audio-engine/audio-engine[.exe]
       - name: Package + sign + publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -69,21 +155,24 @@ jobs:
             npx electron-builder --publish=always
           fi
         shell: bash
+
+      # ── Upload artifacts ─────────────────────────────────────────────────────
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.os }}-${{ github.sha }}
           path: |
-            desktop-app/dist/*.exe
-            desktop-app/dist/*.dmg
-            desktop-app/dist/*.zip
-            desktop-app/dist/*.AppImage
-            desktop-app/dist/*.deb
-            desktop-app/dist/*.blockmap
-            desktop-app/dist/latest*.yml
+            desktop-app/release/*.exe
+            desktop-app/release/*.dmg
+            desktop-app/release/*.zip
+            desktop-app/release/*.AppImage
+            desktop-app/release/*.deb
+            desktop-app/release/*.blockmap
+            desktop-app/release/latest*.yml
           retention-days: 30
           if-no-files-found: warn
 
+  # ── GitHub Release ────────────────────────────────────────────────────────────
   github-release:
     name: Promote to GitHub Release
     needs: build
