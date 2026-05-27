@@ -159,6 +159,16 @@ const api = {
   onPerfStats:              (cb: (stats: unknown) => void) => ipcRenderer.on('perf-stats', (_e, s) => cb(s)),
   removeAllListeners:       (channel: string) => ipcRenderer.removeAllListeners(channel),
   removeListener:           (channel: string) => ipcRenderer.removeAllListeners(channel),
+  // Stability monitoring (heartbeat + health query + safe mode)
+  stabilityHeartbeat:        (uptime: number) => ipcRenderer.invoke('stability-heartbeat', { uptime }),
+  stabilityTrackOperation:   (opId: string)   => ipcRenderer.invoke('stability-track-operation', { opId }),
+  stabilityCompleteOperation:(opId: string)   => ipcRenderer.invoke('stability-complete-operation', { opId }),
+  stabilityGetHealth:        ()               => ipcRenderer.invoke('stability-get-health'),
+  stabilityGetSafeMode:      ()               => ipcRenderer.invoke('stability-get-safe-mode'),
+  onStabilityWarning:        (cb: (w: { type: string; message: string }) => void) =>
+    ipcRenderer.on('stability-warning', (_e, w) => cb(w)),
+  onSafeModeActive:          (cb: (reason: string) => void) =>
+    ipcRenderer.on('safe-mode-active', (_e, r) => cb(r)),
   // Platform
   platform:    process.platform,
   isElectron:  true as const,
