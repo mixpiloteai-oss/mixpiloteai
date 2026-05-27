@@ -21,6 +21,7 @@ import {
   STRIPE_PRICES,
   createCheckoutSession,
   retrieveCheckoutSession,
+  isStripeConfigured,
 } from '../services/stripeService';
 
 import {
@@ -39,6 +40,7 @@ import {
   cancelSubscription as ppCancelSub,
   refundCapture as ppRefundCapture,
   verifyWebhookEvent,
+  isPayPalConfigured,
 } from '../services/paypalService';
 
 import { calculateVAT } from '../services/vatService';
@@ -57,24 +59,73 @@ import {
   listUserInvoices,
   markPaid,
   markRefunded,
+  findByPaymentIntent,
   getInvoiceAsJSON,
 } from '../services/invoiceService';
 
 import { log, getUserHistory } from '../services/paymentLogService';
 import { recordWebhookEvent } from '../services/stripeAdminService';
 import { recordPayPalWebhookEvent } from '../services/paypalAdminService';
+import { webhookEventRepository, idempotencyRepository } from '../repositories/billingRepository';
 import { logger } from '../utils/logger';
 
 const router = Router();
 
-// Apply strict per-user/IP rate limit to all payment endpoints
-// EXCEPT webhook callbacks, which originate from Stripe / PayPal.
+// Apply strict per-user/IP rate limit to payment-mutating endpoints only.
+// GET requests (history, invoices, subscription status) are read-only — skip.
+// Webhook callbacks originate from Stripe/PayPal — skip.
 router.use((req: Request, res: Response, next: NextFunction) => {
-  if (req.path === '/stripe/webhook' || req.path === '/paypal/webhook') {
-    return next();
-  }
+  const skip = req.method === 'GET'
+    || req.path === '/stripe/webhook'
+    || req.path === '/paypal/webhook';
+  if (skip) return next();
   return paymentsRateLimiter(req, res, next);
 });
+
+// ── Idempotency middleware (anti double-charge) ───────────────
+// POST endpoints that mutate payments support Idempotency-Key header.
+// If a matching key exists and hasn't expired, return the cached response.
+const IDEMPOTENT_PATHS = new Set([
+  '/stripe/session', '/stripe/intent', '/stripe/confirm',
+  '/paypal/create-order', '/paypal/capture',
+  '/subscribe', '/upgrade', '/marketplace/buy', '/credits',
+]);
+
+router.use(asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  if (req.method !== 'POST') return next();
+  const key = req.headers['idempotency-key'] as string | undefined;
+  if (!key || !IDEMPOTENT_PATHS.has(req.path)) return next();
+  const userId = (req as AuthenticatedRequest).user?.id;
+  if (!userId) return next();
+
+  const existing = await idempotencyRepository.get(key, userId);
+  if (existing) {
+    logger.info('[idempotency] replay detected', { key, userId, endpoint: req.path });
+    res.status(existing.response_status).json(existing.response_body);
+    return;
+  }
+
+  // Monkey-patch res.json to capture the response for future replays
+  const origJson = res.json.bind(res);
+  (res as any)._idempotencyKey = key;
+  (res as any)._idempotencyUserId = userId;
+  res.json = function(body: unknown) {
+    const k = (res as any)._idempotencyKey as string;
+    const uid = (res as any)._idempotencyUserId as string;
+    if (k && uid && res.statusCode < 500) {
+      idempotencyRepository.set({
+        key: k,
+        user_id: uid,
+        endpoint: req.path,
+        response_status: res.statusCode,
+        response_body: body as Record<string, unknown>,
+      }).catch(() => {})
+    }
+    return origJson(body);
+  };
+
+  next();
+}));
 
 // ── Helper: get IP address ─────────────────────────────────────
 function getIP(req: Request): string {
@@ -114,6 +165,11 @@ const userSubscriptions = new Map<string, SubRecord>();
 
 // POST /stripe/session — create Stripe Hosted Checkout session
 router.post('/stripe/session', requireAuth, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  if (!isStripeConfigured) {
+    res.status(503).json({ success: false, error: 'Stripe payment processing is not configured', code: 'STRIPE_NOT_CONFIGURED' });
+    return;
+  }
+
   const userId = req.user!.id;
   const userEmail = req.user!.email;
 
@@ -331,7 +387,7 @@ router.post('/stripe/confirm', requireAuth, async (req: AuthenticatedRequest, re
 
     log({ userId, event: 'payment_succeeded', amountCents: intent.amount, currency: intent.currency, paymentMethod: 'stripe', stripeIntentId: intent.id, success: true });
 
-    const invoice = createInvoice({
+    const invoice = await createInvoice({
       userId,
       customerName: req.user!.name,
       customerEmail: req.user!.email,
@@ -389,7 +445,16 @@ router.post('/stripe/webhook', asyncHandler(async (req: Request, res: Response) 
   }
 
   const eventType = event.type as string;
+  const eventId   = event.id ?? `stripe-${Date.now()}`;
   const eventData = event.data?.object as Record<string, unknown>;
+
+  // ── Idempotency: reject already-processed events (replay attack) ──
+  const alreadyProcessed = await webhookEventRepository.isProcessed(eventId);
+  if (alreadyProcessed) {
+    logger.info(`[stripe-webhook] duplicate event skipped: ${eventId}`);
+    res.json({ received: true, skipped: true });
+    return;
+  }
 
   if (eventType === 'checkout.session.completed') {
     const sessionObj = eventData;
@@ -485,6 +550,8 @@ router.post('/stripe/webhook', asyncHandler(async (req: Request, res: Response) 
     }
   }
 
+  // Mark event as processed (idempotency)
+  await webhookEventRepository.markProcessed(eventId, 'stripe', eventType);
   recordWebhookEvent(eventType, 'success', undefined, event.id, event.livemode);
   res.json({ received: true });
 }));
@@ -506,6 +573,11 @@ function resolvePlanIdFromPayPal(paypalPlanId: string): string {
 
 // POST /paypal/create-order
 router.post('/paypal/create-order', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  if (!isPayPalConfigured) {
+    res.status(503).json({ success: false, error: 'PayPal payment processing is not configured', code: 'PAYPAL_NOT_CONFIGURED' });
+    return;
+  }
+
   const userId = req.user!.id;
   const ip = getIP(req);
   const { amountUSD, description = 'NeuroTek AI Purchase', productType = 'marketplace' } = req.body as {
@@ -551,6 +623,11 @@ router.post('/paypal/create-order', requireAuth, async (req: AuthenticatedReques
 
 // POST /paypal/capture
 router.post('/paypal/capture', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  if (!isPayPalConfigured) {
+    res.status(503).json({ success: false, error: 'PayPal payment processing is not configured', code: 'PAYPAL_NOT_CONFIGURED' });
+    return;
+  }
+
   const userId = req.user!.id;
   const { orderId } = req.body as { orderId: string };
 
@@ -578,7 +655,7 @@ router.post('/paypal/capture', requireAuth, async (req: AuthenticatedRequest, re
       metadata: { orderId },
     })
 
-    const invoice = createInvoice({
+    const invoice = await createInvoice({
       userId,
       customerName: req.user!.name,
       customerEmail: req.user!.email,
@@ -633,9 +710,17 @@ router.post('/paypal/webhook', asyncHandler(async (req: Request, res: Response) 
   }
 
   const { event_type, resource } = event
-  const eventId = event.id ?? 'unknown'
+  const eventId = event.id ?? `paypal-${Date.now()}`
 
   logger.info(`[paypal-webhook] event: ${event_type} id: ${eventId}`)
+
+  // ── Idempotency: reject already-processed PayPal events ──
+  const ppAlreadyProcessed = await webhookEventRepository.isProcessed(eventId);
+  if (ppAlreadyProcessed) {
+    logger.info(`[paypal-webhook] duplicate event skipped: ${eventId}`);
+    res.json({ received: true, skipped: true });
+    return;
+  }
 
   try {
     if (event_type === 'PAYMENT.CAPTURE.COMPLETED') {
@@ -777,10 +862,13 @@ router.post('/paypal/webhook', asyncHandler(async (req: Request, res: Response) 
     }
     // Other events (e.g. BILLING.SUBSCRIPTION.CREATED) are informational — no action needed
 
+    // Mark PayPal event as processed (idempotency)
+    await webhookEventRepository.markProcessed(eventId, 'paypal', event_type);
     recordPayPalWebhookEvent(event_type, 'success', undefined, eventId, event.resource_type)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     logger.error('[paypal-webhook] processing error', { error: msg })
+    await webhookEventRepository.markProcessed(eventId, 'paypal', event_type, undefined, 'failed', msg);
     recordPayPalWebhookEvent(event_type, 'failed', msg, eventId, event.resource_type)
     // Do NOT return 500 — PayPal would retry. Return 200 and log the error.
   }
@@ -944,59 +1032,75 @@ router.get('/subscription', requireAuth, asyncHandler(async (req: AuthenticatedR
 }));
 
 // POST /cancel
-router.post('/cancel', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.post('/cancel', requireAuth, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user!.id;
   const { immediately = false } = req.body as { immediately?: boolean };
 
-  const sub = userSubscriptions.get(userId);
-  if (!sub) {
+  // DB-first: fetch real subscription record
+  const dbSub = await getSubscriptionFromDb(userId);
+  const memSub = userSubscriptions.get(userId);
+  const paymentMethod = (dbSub?.payment_method ?? memSub?.paymentMethod) as 'stripe' | 'paypal' | undefined;
+  const subscriptionId = dbSub?.stripe_subscription_id ?? dbSub?.paypal_subscription_id ?? memSub?.subscriptionId;
+  const planId = dbSub?.plan_id ?? memSub?.planId ?? 'free';
+  const renewsAt = dbSub?.current_period_end ?? memSub?.renewsAt ?? null;
+
+  if (!subscriptionId && !dbSub) {
     res.status(404).json({ success: false, error: 'No active subscription found' });
-    return;
-  }
-  // Verify the subscription belongs to this user
-  if (sub.subscriptionId && !sub.subscriptionId.includes(userId) && userSubscriptions.get(userId) !== sub) {
-    res.status(403).json({ success: false, error: 'Forbidden' });
     return;
   }
 
   try {
-    if (sub.paymentMethod === 'stripe') {
-      await stripeCancelSub(sub.subscriptionId, immediately);
-    } else {
-      await ppCancelSub(sub.subscriptionId, 'User requested cancellation');
+    if (paymentMethod === 'stripe' && subscriptionId) {
+      await stripeCancelSub(subscriptionId, immediately);
+      // Sync updated state to DB
       await syncSubscriptionToDb({
         user_id: userId,
-        paypal_subscription_id: sub.subscriptionId,
+        stripe_subscription_id: subscriptionId,
+        plan_id: immediately ? 'free' : planId,
+        status: immediately ? 'canceled' : 'active',
+        cancel_at_period_end: !immediately,
+        payment_method: 'stripe',
+        current_period_end: renewsAt ?? undefined,
+      });
+    } else if (paymentMethod === 'paypal' && subscriptionId) {
+      await ppCancelSub(subscriptionId, 'User requested cancellation');
+      await syncSubscriptionToDb({
+        user_id: userId,
+        paypal_subscription_id: subscriptionId,
         plan_id: 'free',
         status: 'canceled',
         payment_method: 'paypal',
-      })
+      });
       await logPaymentEvent({
         user_id: userId,
         event_type: 'subscription_canceled',
         payment_method: 'paypal',
         success: true,
-      })
+      });
     }
 
-    if (immediately) {
-      sub.status = 'canceled';
-    } else {
-      sub.cancelAt = sub.renewsAt;
-      sub.status = 'active';
+    // Update in-memory record as well (session cache)
+    if (memSub) {
+      if (immediately) {
+        memSub.status = 'canceled';
+      } else {
+        memSub.cancelAt = memSub.renewsAt;
+        memSub.status = 'active';
+      }
     }
 
-    log({ userId, event: 'subscription_cancelled', planId: sub.planId, paymentMethod: sub.paymentMethod, success: true });
+    log({ userId, event: 'subscription_cancelled', planId, paymentMethod: paymentMethod ?? 'stripe', success: true });
 
-    res.json({ success: true, canceledImmediately: immediately, cancelAt: sub.cancelAt });
+    res.json({ success: true, canceledImmediately: immediately, cancelAt: memSub?.cancelAt ?? null });
   } catch (err) {
     logger.error('[payments] cancel', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({ success: false, error: 'Payment processing failed' });
   }
-});
+}));
 
-// POST /upgrade
-router.post('/upgrade', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+// POST /upgrade — direct plan change for users with an existing subscription
+// NOTE: New subscriptions should use POST /stripe/session (Stripe Checkout flow)
+router.post('/upgrade', requireAuth, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user!.id;
   const { planId } = req.body as { planId: string };
 
@@ -1005,20 +1109,37 @@ router.post('/upgrade', requireAuth, async (req: AuthenticatedRequest, res: Resp
     return;
   }
 
-  const sub = userSubscriptions.get(userId);
+  // DB-first: fetch the real Stripe subscription to upgrade
+  const dbSub = await getSubscriptionFromDb(userId);
+  const memSub = userSubscriptions.get(userId);
+  const stripeSubId = dbSub?.stripe_subscription_id ?? (memSub?.paymentMethod === 'stripe' ? memSub.subscriptionId : null);
 
   try {
     const newPriceId = PLAN_TO_STRIPE[planId] ?? STRIPE_PRICES.pro_monthly;
 
-    if (sub?.paymentMethod === 'stripe' && sub.subscriptionId) {
-      await stripeUpgradeSub(sub.subscriptionId, newPriceId);
+    if (stripeSubId && !stripeSubId.startsWith('pending_')) {
+      // Real Stripe subscription — upgrade via API (prorated)
+      await stripeUpgradeSub(stripeSubId, newPriceId);
     }
 
-    if (sub) {
-      sub.planId = planId;
+    // Persist updated plan to DB
+    await syncSubscriptionToDb({
+      user_id: userId,
+      stripe_subscription_id: stripeSubId ?? undefined,
+      plan_id: planId,
+      status: 'active',
+      payment_method: 'stripe',
+      current_period_start: Math.floor(Date.now() / 1000),
+      current_period_end: Math.floor(Date.now() / 1000) + 30 * 86400,
+    });
+
+    // Update in-memory cache
+    if (memSub) {
+      memSub.planId = planId;
     } else {
+      // Temporary pending record — replaced when Stripe webhook fires
       userSubscriptions.set(userId, {
-        subscriptionId: `sub_mock_${userId}`,
+        subscriptionId: stripeSubId ?? `pending_${userId}_${Date.now()}`,
         planId,
         status: 'active',
         renewsAt: Math.floor(Date.now() / 1000) + 30 * 86400,
@@ -1028,13 +1149,14 @@ router.post('/upgrade', requireAuth, async (req: AuthenticatedRequest, res: Resp
     }
 
     log({ userId, event: 'subscription_created', planId, paymentMethod: 'stripe', success: true });
+    await logPaymentEvent({ user_id: userId, event_type: 'subscription_upgraded', plan_id: planId, payment_method: 'stripe', success: true });
 
     res.json({ success: true, planId, upgraded: true });
   } catch (err) {
     logger.error('[payments] upgrade', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({ success: false, error: 'Payment processing failed' });
   }
-});
+}));
 
 // ══════════════════════════════════════════════════════════════
 // ONE-TIME PURCHASE ROUTES
@@ -1213,31 +1335,31 @@ router.post('/coupon/apply', requireAuth, async (req: AuthenticatedRequest, res:
 // HISTORY & INVOICES
 // ══════════════════════════════════════════════════════════════
 
-// GET /history
-router.get('/history', requireAuth, (req: AuthenticatedRequest, res: Response): void => {
+// GET /history — DB-first, real payment events
+router.get('/history', requireAuth, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user!.id;
-  const limit = parseInt(String(req.query['limit'] ?? '20'), 10);
-  const history = getUserHistory(userId, limit);
+  const limit = Math.min(parseInt(String(req.query['limit'] ?? '20'), 10), 200);
+  const history = await getUserHistory(userId, limit);
   res.json({ success: true, data: history, count: history.length });
-});
+}));
 
-// GET /invoices
-router.get('/invoices', requireAuth, (req: AuthenticatedRequest, res: Response): void => {
+// GET /invoices — DB-first, real invoices
+router.get('/invoices', requireAuth, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user!.id;
-  const invoiceList = listUserInvoices(userId);
+  const invoiceList = await listUserInvoices(userId);
   res.json({ success: true, data: invoiceList, count: invoiceList.length });
-});
+}));
 
-// GET /invoices/:id
-router.get('/invoices/:id', (req: Request, res: Response): void => {
+// GET /invoices/:id — real invoice with full JSON
+router.get('/invoices/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const data = getInvoiceAsJSON(id);
-  if (!data) {
+  const invoice = await getInvoice(id as string);
+  if (!invoice) {
     res.status(404).json({ success: false, error: 'Invoice not found' });
     return;
   }
-  res.json({ success: true, data });
-});
+  res.json({ success: true, data: getInvoiceAsJSON(invoice) });
+}));
 
 // POST /refund
 router.post('/refund', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
@@ -1287,10 +1409,9 @@ router.post('/refund', requireAuth, async (req: AuthenticatedRequest, res: Respo
 
     const refund = await stripeCreateRefund(paymentIntentId, amountCents, reason);
 
-    // Find and mark invoice as refunded
-    const allInvoices = listUserInvoices(userId);
-    const inv = allInvoices.find((i) => i.paymentIntentId === paymentIntentId);
-    if (inv) markRefunded(inv.id);
+    // Find and mark invoice as refunded (DB-backed)
+    const inv = await findByPaymentIntent(paymentIntentId);
+    if (inv) await markRefunded(inv.id);
 
     log({ userId, event: 'refund_issued', amountCents: refund.amount, paymentMethod: 'stripe', stripeIntentId: paymentIntentId, success: true });
 
@@ -1308,14 +1429,14 @@ router.post('/refund', requireAuth, async (req: AuthenticatedRequest, res: Respo
 });
 
 // GET /invoice/:id (alias for frontend compatibility)
-router.get('/invoice/:id', (req: Request, res: Response): void => {
+router.get('/invoice/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const inv = getInvoice(id);
+  const inv = await getInvoice(id as string);
   if (!inv) {
     res.status(404).json({ success: false, error: 'Invoice not found' });
     return;
   }
-  res.json({ success: true, data: inv });
-});
+  res.json({ success: true, data: getInvoiceAsJSON(inv) });
+}));
 
 export default router;

@@ -10,6 +10,9 @@ const PAYPAL_BASE =
 const IS_MOCK =
   !process.env.PAYPAL_CLIENT_ID || process.env.PAYPAL_CLIENT_ID === '';
 
+/** Whether PayPal is properly configured with real credentials */
+export const isPayPalConfigured = !IS_MOCK;
+
 // ── Token cache ───────────────────────────────────────────────
 let _cachedToken: string | null = null;
 let _tokenExpiry = 0;

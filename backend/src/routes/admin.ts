@@ -611,10 +611,10 @@ router.post('/tickets/:id/assign', (req: Request, res: Response) => {
 // Payments (legacy mock)
 // ══════════════════════════════════════════════════════════════
 
-router.get('/payments', (_req: Request, res: Response) => {
-  const logs = getUserHistory('all', 100);
+router.get('/payments', asyncHandler(async (_req: Request, res: Response) => {
+  const logs = await getUserHistory('all', 100);
   res.json({ success: true, data: logs, total: logs.length });
-});
+}));
 
 router.get('/payments/stats', (_req: Request, res: Response) => {
   res.json({ success: true, data: getStats() });

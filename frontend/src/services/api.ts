@@ -204,7 +204,91 @@ export const projectsApi = {
 
 // ── Subscriptions API ─────────────────────────────────────────
 export const subscriptionsApi = {
-  plans: () => apiClient.get('/api/subscriptions/plans'),
-  my: () => apiClient.get('/api/subscriptions/my'),
-  upgrade: (plan: string) => apiClient.post('/api/subscriptions/upgrade', { plan }),
+  plans:          ()                              => apiClient.get('/api/subscriptions/plans'),
+  creditPacks:    ()                              => apiClient.get('/api/subscriptions/credit-packs'),
+  my:             ()                              => apiClient.get('/api/subscriptions/my'),
+  status:         ()                              => apiClient.get('/api/subscriptions/status'),
+  upgrade:        (plan: string, annual = false)  => apiClient.post('/api/subscriptions/upgrade', { plan, annual }),
+  cancel:         (immediate = false, reason?: string) => apiClient.post('/api/subscriptions/cancel', { immediate, reason }),
+  reactivate:     ()                              => apiClient.post('/api/subscriptions/reactivate'),
+  validateCoupon: (code: string, amountCents: number, planId?: string) =>
+    apiClient.post('/api/subscriptions/validate-coupon', { code, amountCents, planId }),
+  redeemCoupon:   (code: string, planId?: string) =>
+    apiClient.post('/api/subscriptions/redeem-coupon', { code, planId }),
+};
+
+// ── Billing / Payments API ───────────────────────────────────
+let _idempotencyKey: string | null = null;
+
+/** Generate a one-shot idempotency key for the next payment request */
+export function newPaymentKey(): string {
+  _idempotencyKey = crypto.randomUUID();
+  return _idempotencyKey;
+}
+
+function paymentHeaders(key?: string): Record<string, string> {
+  const k = key ?? _idempotencyKey;
+  _idempotencyKey = null; // consume after use
+  return k ? { 'Idempotency-Key': k } : {};
+}
+
+export const billingApi = {
+  /** Real transaction history from DB */
+  history: (limit = 20) =>
+    apiClient.get(`/api/payments/history?limit=${limit}`),
+
+  /** Real invoices list from DB */
+  invoices: () =>
+    apiClient.get('/api/payments/invoices'),
+
+  /** Get single invoice as JSON (for download) */
+  getInvoice: (id: string) =>
+    apiClient.get(`/api/payments/invoices/${id}`),
+
+  /** Create Stripe Hosted Checkout session */
+  createStripeSession: (params: {
+    type: 'plan' | 'credits' | 'marketplace'
+    planId?: string
+    pkg?: string
+    productId?: string
+    productName?: string
+    amountCents?: number
+    annual?: boolean
+    couponCode?: string
+    successUrl?: string
+    cancelUrl?: string
+  }, idempotencyKey?: string) =>
+    apiClient.post('/api/payments/stripe/session', params, {
+      headers: paymentHeaders(idempotencyKey),
+    }),
+
+  /** Get checkout session status (verify payment) */
+  getStripeSession: (sessionId: string) =>
+    apiClient.get(`/api/payments/stripe/session/${sessionId}`),
+
+  /** Create PayPal order */
+  createPayPalOrder: (amountUSD: string, description?: string, idempotencyKey?: string) =>
+    apiClient.post('/api/payments/paypal/create-order', { amountUSD, description }, {
+      headers: paymentHeaders(idempotencyKey),
+    }),
+
+  /** Capture approved PayPal order */
+  capturePayPalOrder: (orderId: string, idempotencyKey?: string) =>
+    apiClient.post('/api/payments/paypal/capture', { orderId }, {
+      headers: paymentHeaders(idempotencyKey),
+    }),
+
+  /** Request a refund */
+  requestRefund: (params: {
+    paymentMethod: 'stripe' | 'paypal'
+    paymentIntentId?: string
+    captureId?: string
+    amountCents?: number
+    reason?: string
+  }) =>
+    apiClient.post('/api/payments/refund', params),
+
+  /** Validate a coupon code */
+  validateCoupon: (code: string, amountCents: number, planId?: string) =>
+    apiClient.post('/api/payments/coupon/validate', { code, amountCents, planId }),
 };

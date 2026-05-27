@@ -8,6 +8,9 @@ const SECRET_KEY = process.env.STRIPE_SECRET_KEY ?? 'sk_test_placeholder';
 
 const IS_MOCK = !process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY === 'sk_test_placeholder';
 
+/** Whether Stripe is properly configured with a real API key */
+export const isStripeConfigured = !IS_MOCK;
+
 // ── Price IDs ─────────────────────────────────────────────────
 export const STRIPE_PRICES = {
   pro_monthly:    'price_pro_monthly_999',
@@ -81,7 +84,8 @@ export interface StripeRefund {
 async function stripeRequest<T>(
   method: 'GET' | 'POST',
   path: string,
-  body?: Record<string, string>
+  body?: Record<string, string>,
+  idempotencyKey?: string
 ): Promise<T> {
   const url =
     method === 'GET' && body
@@ -92,6 +96,11 @@ async function stripeRequest<T>(
     Authorization: `Bearer ${SECRET_KEY}`,
     'Content-Type': 'application/x-www-form-urlencoded',
   };
+
+  // Idempotency key prevents duplicate charges on retry
+  if (method === 'POST' && idempotencyKey) {
+    headers['Idempotency-Key'] = idempotencyKey;
+  }
 
   const res = await fetch(url, {
     method,
@@ -144,7 +153,8 @@ export async function createPaymentIntent(
   amountCents: number,
   currency: string,
   customerId: string,
-  metadata?: Record<string, string>
+  metadata?: Record<string, string>,
+  idempotencyKey?: string
 ): Promise<StripePaymentIntent> {
   if (IS_MOCK) {
     return {
@@ -170,7 +180,7 @@ export async function createPaymentIntent(
       params[`metadata[${k}]`] = v;
     }
   }
-  return stripeRequest<StripePaymentIntent>('POST', '/payment_intents', params);
+  return stripeRequest<StripePaymentIntent>('POST', '/payment_intents', params, idempotencyKey);
 }
 
 export async function confirmPaymentIntent(
