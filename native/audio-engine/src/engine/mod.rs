@@ -30,6 +30,11 @@ use crate::{
         transport::Transport,
     },
     ipc::protocol::{Command, DeviceInfo, Event, LevelInfo, MasterLevel, PositionPayload},
+    plugin::{
+        manager::PluginManager,
+        midi::{MidiEvent, MidiEventType},
+        processor::{AudioBuffer, ProcessContext},
+    },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -117,6 +122,9 @@ pub struct AudioEngine {
     tracks: Vec<Track>,
     track_buffers: Vec<TrackBuffer>,
 
+    // Plugin system
+    plugin_manager: PluginManager,
+
     // Output buffer
     output_buffer: Vec<f32>,
 
@@ -160,6 +168,7 @@ impl AudioEngine {
             mixer: Mixer::new(sample_rate),
             tracks: Vec::new(),
             track_buffers: Vec::new(),
+            plugin_manager: PluginManager::new(),
             output_buffer: vec![0.0_f32; max_frames * 2],
             sample_rate,
             max_frames,
@@ -370,6 +379,165 @@ impl AudioEngine {
             Command::GetState => {
                 self.emit_state();
             }
+            // ── Plugin commands ────────────────────────────────────────────────
+            Command::LoadPlugin { instance_id, plugin_path, format } => {
+                match self.plugin_manager.load_plugin(&instance_id, &plugin_path, &format) {
+                    Ok(info) => {
+                        let _ = self.event_tx.try_send(Event::PluginLoaded {
+                            instance_id: info.instance_id,
+                            name: info.name,
+                            vendor: info.vendor,
+                            param_count: info.param_count,
+                            latency_samples: info.latency_samples,
+                        });
+                    }
+                    Err(e) => {
+                        warn!("LoadPlugin failed for {}: {}", instance_id, e);
+                        let _ = self.event_tx.try_send(Event::PluginLoadError {
+                            instance_id,
+                            error: e,
+                        });
+                    }
+                }
+            }
+
+            Command::UnloadPlugin { instance_id } => {
+                if let Err(e) = self.plugin_manager.unload_plugin(&instance_id) {
+                    warn!("UnloadPlugin failed: {}", e);
+                } else {
+                    let _ = self.event_tx.try_send(Event::PluginUnloaded { instance_id });
+                }
+            }
+
+            Command::ProcessPlugin { instance_id, input_samples, num_samples, channels } => {
+                let input = AudioBuffer {
+                    data: input_samples,
+                    samples: num_samples,
+                    channels,
+                };
+                let mut output = AudioBuffer {
+                    data: vec![0.0_f32; num_samples as usize * channels as usize],
+                    samples: num_samples,
+                    channels,
+                };
+                let pos = self.transport.position();
+                let ctx = ProcessContext {
+                    sample_rate: self.sample_rate as f64,
+                    bpm: self.transport.bpm,
+                    bar: pos.bar,
+                    beat: pos.beat,
+                    tick: pos.tick,
+                    ticks_per_beat: 960,
+                    is_playing: self.transport.playing,
+                    is_recording: self.transport.recording,
+                    project_time_samples: self.transport.sample_position as u64,
+                    cycle_start_samples: self.transport.sample_position as u64,
+                };
+                match self.plugin_manager.process_plugin(&instance_id, &input, &mut output, &ctx) {
+                    Ok(()) => {
+                        let rms = if output.data.is_empty() { 0.0 } else {
+                            (output.data.iter().map(|s| s * s).sum::<f32>()
+                                / output.data.len() as f32)
+                                .sqrt()
+                        };
+                        let peak = output.data.iter().copied().fold(0.0_f32, f32::max);
+                        let _ = self.event_tx.try_send(Event::PluginAudioOutput {
+                            instance_id,
+                            samples: output.data,
+                            rms,
+                            peak,
+                        });
+                    }
+                    Err(e) => {
+                        warn!("ProcessPlugin failed: {}", e);
+                        let _ = self.event_tx.try_send(Event::PluginCrashed {
+                            instance_id,
+                            error: e,
+                        });
+                    }
+                }
+            }
+
+            Command::SetPluginParameter { instance_id, param_id, value } => {
+                if let Err(e) = self.plugin_manager.set_parameter(&instance_id, param_id, value) {
+                    warn!("SetPluginParameter failed: {}", e);
+                }
+            }
+
+            Command::GetPluginParameter { instance_id, param_id } => {
+                match self.plugin_manager.get_parameter(&instance_id, param_id) {
+                    Ok(value) => {
+                        let _ = self.event_tx.try_send(Event::PluginParameterValue {
+                            instance_id,
+                            param_id,
+                            value,
+                        });
+                    }
+                    Err(e) => warn!("GetPluginParameter failed: {}", e),
+                }
+            }
+
+            Command::SendMidiToPlugin {
+                instance_id, event_type, channel, note, velocity,
+                control, value, pitch_bend, sample_offset,
+            } => {
+                let midi_type = match event_type.to_lowercase().as_str() {
+                    "note_on"        => MidiEventType::NoteOn,
+                    "note_off"       => MidiEventType::NoteOff,
+                    "control_change" => MidiEventType::ControlChange,
+                    "program_change" => MidiEventType::ProgramChange,
+                    "pitch_bend"     => MidiEventType::PitchBend,
+                    "aftertouch"     => MidiEventType::Aftertouch,
+                    other => {
+                        warn!("Unknown MIDI event type: {}", other);
+                        return;
+                    }
+                };
+                self.plugin_manager.send_midi_to_plugin(
+                    &instance_id,
+                    MidiEvent { event_type: midi_type, channel, note, velocity,
+                                control, value, pitch_bend, sample_offset },
+                );
+            }
+
+            Command::AddPluginToChain { track_id, instance_id } => {
+                self.plugin_manager.add_to_chain(&track_id, &instance_id);
+            }
+
+            Command::RemovePluginFromChain { track_id, instance_id } => {
+                self.plugin_manager.remove_from_chain(&track_id, &instance_id);
+            }
+
+            Command::AddAutomationPoint {
+                instance_id, param_id, bar, beat, tick, value, curve,
+            } => {
+                if let Err(e) = self.plugin_manager.add_automation_point(
+                    &instance_id, param_id, bar, beat, tick, value, curve,
+                ) {
+                    warn!("AddAutomationPoint failed: {}", e);
+                }
+            }
+
+            Command::GetPluginInstances => {
+                let ids = self.plugin_manager.get_all_instances();
+                // Rebuild lightweight info from IDs only (no locking needed).
+                let instances = ids.into_iter().filter_map(|id| {
+                    // Re-use the same representation as the UI expects.
+                    Some(crate::plugin::manager::PluginInstanceInfo {
+                        instance_id: id.clone(),
+                        plugin_path: String::new(),
+                        format: String::new(),
+                        name: String::new(),
+                        vendor: String::new(),
+                        param_count: 0,
+                        version: String::new(),
+                        latency_samples: 0,
+                        is_active: true,
+                    })
+                }).collect();
+                let _ = self.event_tx.try_send(Event::PluginInstances { instances });
+            }
+
             // Driver/device commands are handled by the IPC thread, not here.
             Command::SetDriver { .. }
             | Command::QueryDevices

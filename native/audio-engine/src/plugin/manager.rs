@@ -123,9 +123,22 @@ impl PluginManager {
 
     // ── Load / unload ────────────────────────────────────────────────────────
 
-    pub fn load_plugin(&mut self, path: &str, format: &str) -> Result<PluginInstanceInfo, String> {
+    /// Load a plugin and register it under `instance_id`.
+    ///
+    /// `instance_id` is supplied by the UI so both sides share the same key.
+    /// Pass an empty string to have the engine generate one automatically.
+    pub fn load_plugin(
+        &mut self,
+        instance_id: &str,
+        path: &str,
+        format: &str,
+    ) -> Result<PluginInstanceInfo, String> {
         let p = Path::new(path);
-        let instance_id = Uuid::new_v4().to_string();
+        let instance_id = if instance_id.is_empty() {
+            Uuid::new_v4().to_string()
+        } else {
+            instance_id.to_string()
+        };
 
         let handle = match format.to_uppercase().as_str() {
             "VST3" => {
