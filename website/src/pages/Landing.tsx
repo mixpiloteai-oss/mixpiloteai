@@ -185,13 +185,13 @@ function Landing() {
       (apiGet as (p: string) => Promise<{ success: boolean; data: Record<string, unknown> }>)('/api/cms/landing')
         .then(res => { if (res.data) setCms(res.data) })
         .catch(() => {})
-    })
+    }).catch(() => {})
     const id = setInterval(() => {
       import('../lib/api').then(({ apiGet }) => {
         (apiGet as (p: string) => Promise<{ success: boolean; data: Record<string, unknown> }>)('/api/cms/landing')
           .then(res => { if (res.data) setCms(res.data) })
           .catch(() => {})
-      })
+      }).catch(() => {})
     }, 5 * 60 * 1000)
     return () => clearInterval(id)
   }, [])

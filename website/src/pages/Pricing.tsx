@@ -135,7 +135,7 @@ function Pricing() {
           })
           .catch(() => {}),
       ]).finally(() => setPlansLoading(false))
-    })
+    }).catch(() => setPlansLoading(false))
 
     const intervalId = setInterval(() => {
       import('../lib/api').then(({ apiGet }) => {
@@ -152,7 +152,7 @@ function Pricing() {
             if (Array.isArray(data)) setCreditPacks(data)
           })
           .catch(() => {})
-      })
+      }).catch(() => {})
     }, 5 * 60 * 1000) // poll every 5 minutes
     return () => clearInterval(intervalId)
   }, [])

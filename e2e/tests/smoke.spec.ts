@@ -7,12 +7,12 @@ const PUBLIC_ROUTES = ['/', '/pricing', '/download', '/changelog', '/support', '
 test.describe('@smoke public site shell', () => {
   for (const route of PUBLIC_ROUTES) {
     test(`renders ${route}`, async ({ page }) => {
+      // Register before navigation so errors during initial load are captured
+      const errors: string[] = []
+      page.on('pageerror', (e) => errors.push(e.message))
       const res = await page.goto(`/#${route}`)
       expect(res?.status() ?? 0, `HTTP for ${route}`).toBeLessThan(400)
       await expect(page.locator('body')).toBeVisible()
-      // No render-blocking JS errors during initial paint
-      const errors: string[] = []
-      page.on('pageerror', (e) => errors.push(e.message))
       await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => undefined)
       expect(errors, `console errors on ${route}: ${errors.join(' | ')}`).toHaveLength(0)
     })

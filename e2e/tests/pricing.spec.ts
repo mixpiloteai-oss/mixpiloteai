@@ -11,7 +11,7 @@ test.describe('@smoke pricing page', () => {
   test('plan card has a price + CTA', async ({ page }) => {
     await page.goto('/#/pricing')
     await expect(page.locator('text=/\\$\\s?\\d+|€\\s?\\d+/').first()).toBeVisible({ timeout: 15_000 })
-    await expect(page.locator('a, button').filter({ hasText: /upgrade|get started|choose|select/i }).first()).toBeVisible()
+    await expect(page.locator('a, button').filter({ hasText: /start pro|start studio|download free|contact sales|get started/i }).first()).toBeVisible()
   })
 
   test('public plans endpoint returns active plans', async ({ request }) => {

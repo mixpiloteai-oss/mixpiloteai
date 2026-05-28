@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-const BACKEND = 'https://mixpiloteai-production.up.railway.app/health'
+const BACKEND = `${import.meta.env.VITE_API_URL ?? 'https://mixpiloteai-production.up.railway.app'}/health`
 const PROBE_INTERVAL = 30_000
 const PROBE_TIMEOUT  = 5_000
 

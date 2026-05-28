@@ -91,7 +91,7 @@ export function SiteConfigProvider({ children }: { children: ReactNode }) {
       (apiGet as (p: string) => Promise<{ success: boolean; data: Record<string, unknown> }>)('/api/cms/landing')
         .then(res => { if (res.data) setConfig(merge(res.data)) })
         .catch(() => {})
-    })
+    }).catch(() => {})
   }
 
   useEffect(() => {

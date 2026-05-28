@@ -37,17 +37,39 @@ jobs:
         working-directory: e2e
     env:
       CI: 'true'
-      E2E_WEBSITE_URL: ${{ vars.E2E_WEBSITE_URL || 'https://app.staging.neurotek.ai' }}
-      E2E_BACKEND_URL: ${{ vars.E2E_BACKEND_URL || 'https://api.staging.neurotek.ai' }}
+      # Always use local servers for the smoke job so it is self-contained and
+      # never depends on an external staging deployment being available.
+      E2E_WEBSITE_URL: 'http://localhost:5173'
+      E2E_BACKEND_URL: 'http://localhost:3000'
+      E2E_WEB_SERVER: '1'
+      # Minimal backend secrets — dev mode accepts any non-empty value
+      NODE_ENV: development
+      PORT: '3000'
+      JWT_SECRET: ci-smoke-jwt-secret-not-for-production
+      JWT_REFRESH_SECRET: ci-smoke-refresh-secret-not-for-prod
+      ADMIN_KEY: ci-smoke-admin-key
+      VITE_API_URL: 'http://localhost:3000'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: e2e/package-lock.json
-      - name: Install dependencies
+          cache-dependency-path: |
+            e2e/package-lock.json
+            backend/package-lock.json
+            website/package-lock.json
+      - name: Install e2e dependencies
         run: npm ci
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend
+      - name: Install website dependencies
+        run: npm ci
+        working-directory: website
+      - name: Create website env (point browser API calls at local backend)
+        run: echo "VITE_API_URL=http://localhost:3000" > .env.local
+        working-directory: website
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
       - name: Run smoke + pricing
