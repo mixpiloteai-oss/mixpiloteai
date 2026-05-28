@@ -242,9 +242,10 @@ export class TrackManager {
         const gainNode = node instanceof AudioTrackNode ? node.gainNode
           : node instanceof MidiTrackNode ? node.gainNode
           : (node as BusTrackNode).gainNode
-        const targetLinear = dbToGain(value)
+        const targetLinear   = dbToGain(value)
+        const currentGain    = gainNode.gain.value   // read before cancel
         gainNode.gain.cancelScheduledValues(now)
-        gainNode.gain.setValueAtTime(gainNode.gain.value, now)
+        gainNode.gain.setValueAtTime(currentGain, now)
         gainNode.gain.linearRampToValueAtTime(targetLinear, now + 0.016)
         break
       }
@@ -252,8 +253,9 @@ export class TrackManager {
         const panParam = node instanceof AudioTrackNode ? node.panNode.pan
           : node instanceof MidiTrackNode ? node.panNode.pan
           : (node as BusTrackNode).panNode.pan
+        const currentPan = panParam.value               // read before cancel
         panParam.cancelScheduledValues(now)
-        panParam.setValueAtTime(panParam.value, now)
+        panParam.setValueAtTime(currentPan, now)
         panParam.linearRampToValueAtTime(value, now + 0.016)
         break
       }

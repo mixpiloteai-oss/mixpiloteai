@@ -159,10 +159,11 @@ let _mixerUnsub: (() => void) | null = null
 function _wireMixerStoreToEq(): void {
   if (_mixerUnsub) return  // already subscribed
 
-  _mixerUnsub = useMixerStore.subscribe((state) => {
+  // Only re-run when the channels object reference changes (EQ/FX edits)
+  _mixerUnsub = useMixerStore.subscribe((state, prev) => {
+    if (state.channels === prev.channels) return
     const tm = _trackMgr
     if (!tm) return
-    // For each channel, update the EQ chain on the corresponding AudioTrackNode
     for (const [trackId, ch] of Object.entries(state.channels)) {
       const node = tm.getTrack(trackId)
       if (!(node instanceof AudioTrackNode)) continue
@@ -170,6 +171,12 @@ function _wireMixerStoreToEq(): void {
       node.eq.setEnabled(ch.eqEnabled)
     }
   })
+}
+
+/** Tear down the mixer-store→EQ subscription (call on engine reset). */
+export function disposeEqSubscription(): void {
+  _mixerUnsub?.()
+  _mixerUnsub = null
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
