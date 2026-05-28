@@ -17,6 +17,14 @@ import { DEFAULT_BPM } from './types'
 import { AudioEngine } from './AudioEngine'
 import { Clock } from './Clock'
 
+// Coordinator interface — avoids circular import from ClipPlaybackCoordinator
+interface ICoordinator {
+  start(): void
+  stop(): void
+  seek(bar: number): void
+  setSwing(amount: number): void
+}
+
 export class Transport {
   readonly clock: Clock
 
@@ -31,7 +39,14 @@ export class Transport {
   private _barCallbacks:   Set<BarCallback>   = new Set()
   private _stateCallbacks: Set<StateCallback> = new Set()
 
+  private _coordinator: ICoordinator | null = null
+
   private _clockUnsub: Unsubscribe
+
+  /** Register the ClipPlaybackCoordinator (called from audio/index.ts after init). */
+  setCoordinator(c: ICoordinator): void {
+    this._coordinator = c
+  }
 
   constructor(engine: AudioEngine) {
     this.clock  = new Clock(engine)
@@ -54,15 +69,39 @@ export class Transport {
     if (this._playing) return
     this._playing = true
     this.clock.start(this._positionBeat())
+    this._coordinator?.start()
     this._emitState()
   }
 
   stop(): void {
     if (!this._playing && !this._recording) return
+    this._coordinator?.stop()
     this._playing   = false
     this._recording = false
     this.clock.stop()
     this._emitState()
+  }
+
+  seekToBar(bar: number): void {
+    const wasPlaying = this._playing
+    if (wasPlaying) {
+      this._coordinator?.stop()
+      this.clock.stop()
+    }
+    this.clock.seekToBar(bar)
+    if (wasPlaying) {
+      this.clock.start(this._absoluteBeat())
+      this._coordinator?.seek(bar)
+      this._coordinator?.start()
+    } else {
+      this._coordinator?.seek(bar)
+    }
+    this._emitState()
+  }
+
+  setSwing(amount: number): void {
+    this.clock.setSwing(amount)
+    this._coordinator?.setSwing(amount)
   }
 
   /** Pause: freeze position without resetting to bar 1. */

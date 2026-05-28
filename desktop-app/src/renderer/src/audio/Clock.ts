@@ -54,6 +54,9 @@ export class Clock {
 
   private _beatCallbacks    = new Set<BeatCallback>()
 
+  // Swing amount 0.0 = none, 0.5 = full triplet swing
+  private _swing            = 0
+
   constructor(engine: AudioEngine) {
     this.engine = engine
   }
@@ -137,6 +140,22 @@ export class Clock {
     this._originTime = 0
   }
 
+  /**
+   * Set swing amount.
+   * amount = 0.0: straight timing (no swing)
+   * amount = 0.33: light swing (~light triplet feel)
+   * amount = 0.5: full triplet swing (beat delayed by half a beat-subdivision)
+   *
+   * Off-beats (beat indices where beatIndex % 2 !== 0) are shifted forward
+   * by `amount * secondsPerBeat / 2`. This creates the classic "long-short"
+   * swing feel.
+   */
+  setSwing(amount: number): void {
+    this._swing = Math.max(0, Math.min(1, amount))
+  }
+
+  get swing(): number { return this._swing }
+
   setLoop(enabled: boolean, startBar: number, endBar: number): void {
     this._loopEnabled   = enabled
     this._loopStartBeat = (startBar - 1) * this._timeSigTop
@@ -204,8 +223,13 @@ export class Clock {
     const beatInBar = beatIndex % this._timeSigTop
     const pos: BeatPosition = { bar: bar + 1, beat: beatInBar + 1, tick: 0 }
 
+    // Apply swing: delay off-beats (odd beat index) by swingAmount * halfBeat
+    const isOffBeat    = beatIndex % 2 !== 0
+    const swingOffset  = isOffBeat ? this._swing * this.secondsPerBeat * 0.5 : 0
+    const swungTime    = scheduledTime + swingOffset
+
     for (const cb of this._beatCallbacks) {
-      try { cb(beatIndex, scheduledTime, pos) }
+      try { cb(beatIndex, swungTime, pos) }
       catch (err) { console.error('[Clock] beat callback threw:', err) }
     }
   }
