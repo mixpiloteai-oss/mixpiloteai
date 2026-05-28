@@ -131,3 +131,8 @@ export function getStats(): { totalRevenue: number; successRate: number; todayRe
     todayRevenue,
   }
 }
+
+/** Expose in-memory log for analytics aggregation. */
+export function getLogs(): PaymentLogEntry[] {
+  return [..._logs]
+}

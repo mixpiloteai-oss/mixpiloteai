@@ -1,7 +1,9 @@
 // ============================================================
 // NEUROTEK AI — Admin Routes (production)
 // ============================================================
+import os from 'node:os';
 import { Router, Request, Response } from 'express';
+import { metrics as requestMetrics } from '../middleware/requestMetrics';
 import {
   requireAdmin,
   requireSuperAdmin,
@@ -293,26 +295,52 @@ router.get('/live', async (req: Request, res: Response): Promise<void> => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
-  function randBetween(min: number, max: number): number {
-    return min + Math.random() * (max - min);
-  }
-
   function send(eventType: string, data: unknown): void {
     res.write(`event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`);
   }
 
-  // Emit metrics every 5 seconds
-  const metricsInterval = setInterval(() => {
-    send('metrics', {
-      cpu: Math.round(randBetween(15, 75) * 10) / 10,
-      ram: {
-        used: Math.round(randBetween(2.1, 3.5) * 100) / 100,
-        total: 8,
-      },
-      activeConnections: Math.floor(randBetween(40, 120)),
-      requestsPerMinute: Math.floor(randBetween(80, 400)),
+  /** Sample real CPU usage over a 100ms window. */
+  async function sampleCpu(): Promise<number> {
+    const s1 = os.cpus();
+    await new Promise<void>(r => setTimeout(r, 100));
+    const s2 = os.cpus();
+    let idle = 0, total = 0;
+    for (let i = 0; i < s1.length; i++) {
+      const t1 = s1[i]!.times, t2 = s2[i]!.times;
+      idle  += t2.idle - t1.idle;
+      total += (Object.values(t2).reduce((a, b) => a + b, 0) -
+                Object.values(t1).reduce((a, b) => a + b, 0));
+    }
+    return total === 0 ? 0 : Math.round((1 - idle / total) * 1000) / 10;
+  }
+
+  /** Build the real-time metrics snapshot. */
+  async function buildMetrics(): Promise<object> {
+    const cpu       = await sampleCpu();
+    const totalMem  = os.totalmem();
+    const freeMem   = os.freemem();
+    const usedMemGb = Math.round((totalMem - freeMem) / 1024 / 1024 / 1024 * 100) / 100;
+    const totalMemGb = Math.round(totalMem / 1024 / 1024 / 1024 * 100) / 100;
+    const uptimeMs  = process.uptime() * 1000;
+    const rpm       = uptimeMs > 0
+      ? Math.round((requestMetrics.totalRequests / uptimeMs) * 60_000)
+      : 0;
+
+    return {
+      cpu,
+      ram: { used: usedMemGb, total: totalMemGb },
+      activeConnections: requestMetrics.totalRequests,
+      requestsPerMinute: rpm,
       timestamp: Date.now(),
-    });
+    };
+  }
+
+  // Send initial metrics immediately
+  buildMetrics().then(m => send('metrics', m)).catch(() => {});
+
+  // Emit real metrics every 5 seconds
+  const metricsInterval = setInterval(() => {
+    buildMetrics().then(m => send('metrics', m)).catch(() => {});
   }, 5000);
 
   // Emit platform stats every 30 seconds
@@ -321,7 +349,7 @@ router.get('/live', async (req: Request, res: Response): Promise<void> => {
       const stats = await getRealPlatformStats();
       send('stats', stats);
     } catch {
-      send('stats', getPlatformStats());
+      send('stats', await getPlatformStats());
     }
   }, 30000);
 
@@ -329,15 +357,6 @@ router.get('/live', async (req: Request, res: Response): Promise<void> => {
   const keepaliveInterval = setInterval(() => {
     res.write(': keepalive\n\n');
   }, 25000);
-
-  // Send initial metrics right away
-  send('metrics', {
-    cpu: Math.round(randBetween(15, 75) * 10) / 10,
-    ram: { used: Math.round(randBetween(2.1, 3.5) * 100) / 100, total: 8 },
-    activeConnections: Math.floor(randBetween(40, 120)),
-    requestsPerMinute: Math.floor(randBetween(80, 400)),
-    timestamp: Date.now(),
-  });
 
   req.on('close', () => {
     clearInterval(metricsInterval);
