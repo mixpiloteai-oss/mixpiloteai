@@ -9,18 +9,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "framer-motion": "^10.16.4",
-    "zustand": "^4.4.7",
     "axios": "^1.6.0",
+    "clsx": "^2.0.0",
+    "framer-motion": "^10.16.4",
+    "i18next": "^23.7.6",
+    "i18next-browser-languagedetector": "^7.2.0",
+    "lucide-react": "^0.292.0",
+    "react": "^18.2.0",
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
-    "lucide-react": "^0.292.0",
-    "clsx": "^2.0.0",
-    "i18next": "^23.7.6",
+    "react-dom": "^18.2.0",
     "react-i18next": "^14.0.0",
-    "i18next-browser-languagedetector": "^7.2.0"
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",
@@ -29,6 +29,7 @@
     "autoprefixer": "^10.4.16",
     "postcss": "^8.4.31",
     "tailwindcss": "^3.3.5",
+    "terser": "^5.48.0",
     "typescript": "^5.2.2",
     "vite": "^5.0.0"
   }

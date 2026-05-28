@@ -9,6 +9,7 @@
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
+import compression from 'compression';
 
 import { validateEnv } from './utils/validateEnv';
 import { requestId } from './middleware/requestId';
@@ -59,6 +60,14 @@ const app = express();
 app.disable('x-powered-by');
 
 // ── Middleware ───────────────────────────────────────────────
+// Gzip/deflate all JSON and text responses (skip SSE streams)
+app.use(compression({
+  filter: (req, res) => {
+    if (req.headers['accept'] === 'text/event-stream') return false;
+    return compression.filter(req, res);
+  },
+  level: 6, // balanced speed vs compression ratio
+}));
 app.use(requestId);
 app.use(securityHeaders);
 
