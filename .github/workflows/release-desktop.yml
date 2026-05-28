@@ -1,5 +1,10 @@
 name: Release Desktop App
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Triggers
+#   • push desktop-v* tag   → full build + publish real GitHub Release
+#   • workflow_dispatch      → manual run, publishes a draft by default
+# ─────────────────────────────────────────────────────────────────────────────
 on:
   push:
     tags:
@@ -7,10 +12,11 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Override version (otherwise read from desktop-app/package.json)'
+        description: 'Override version (leave empty = read from package.json)'
         required: false
+        default: ''
       draft:
-        description: 'Publish as a draft release'
+        description: 'Publish as draft release'
         required: false
         type: boolean
         default: true
@@ -19,52 +25,86 @@ permissions:
   contents: write
 
 jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  # 1. Resolve version once so all matrix jobs share the same string
+  # ───────────────────────────────────────────────────────────────────────────
+  version:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      tag:     ${{ steps.ver.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: ver
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VER="${{ inputs.version }}"
+          elif [[ "$GITHUB_REF" == refs/tags/desktop-v* ]]; then
+            VER="${GITHUB_REF#refs/tags/desktop-v}"
+          else
+            VER=$(node -p "require('./desktop-app/package.json').version")
+          fi
+          echo "version=$VER"   >> "$GITHUB_OUTPUT"
+          echo "tag=desktop-v$VER" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $VER"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # 2. Per-platform build
+  # ───────────────────────────────────────────────────────────────────────────
   build:
-    name: Build ${{ matrix.os }}
+    name: Build — ${{ matrix.label }}
+    needs: version
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            artifact: 'AppImage,deb'
-          - os: windows-latest
-            artifact: 'nsis,portable'
-          - os: macos-latest
-            artifact: 'dmg,zip'
+          - label:    Linux
+            os:       ubuntu-latest
+            targets:  AppImage,deb
+
+          - label:    Windows
+            os:       windows-latest
+            targets:  nsis,portable
+
+          - label:    macOS
+            os:       macos-latest
+            targets:  dmg
+
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90        # increased: Rust compile (~10-20min) + electron-builder
+    timeout-minutes: 90
     defaults:
       run:
         working-directory: desktop-app
+
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # Mac signing
-      CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
-      CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
-      APPLE_ID: ${{ secrets.APPLE_ID }}
-      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      # Windows signing
-      WIN_CSC_LINK: ${{ secrets.WIN_CERT_PFX_BASE64 }}
-      WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
+      GH_TOKEN:                       ${{ secrets.GITHUB_TOKEN }}
+      # macOS code-signing (optional — build proceeds unsigned if absent)
+      CSC_LINK:                       ${{ secrets.MAC_CERT_P12_BASE64 }}
+      CSC_KEY_PASSWORD:               ${{ secrets.MAC_CERT_PASSWORD }}
+      APPLE_ID:                       ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD:    ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID:                  ${{ secrets.APPLE_TEAM_ID }}
+      # Windows code-signing (optional)
+      WIN_CSC_LINK:                   ${{ secrets.WIN_CERT_PFX_BASE64 }}
+      WIN_CSC_KEY_PASSWORD:           ${{ secrets.WIN_CERT_PASSWORD }}
 
     steps:
-      # ── Checkout ────────────────────────────────────────────────────────────
+      # ── Checkout ─────────────────────────────────────────────────────────────
       - uses: actions/checkout@v4
 
-      # ── Rust toolchain ──────────────────────────────────────────────────────
-      - name: Install Rust stable toolchain
+      # ── Rust toolchain ────────────────────────────────────────────────────────
+      - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
 
-      # macOS only: register both architectures for universal binary creation
-      - name: Add macOS cross-compilation targets
+      - name: Add macOS cross-compile targets
         if: runner.os == 'macOS'
         run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
-      # ── Cargo dependency cache ───────────────────────────────────────────────
-      # Registry cache — keyed on Cargo.lock (invalidated when any dep changes)
+      # ── Cargo cache ───────────────────────────────────────────────────────────
       - name: Cache Cargo registry
         uses: actions/cache@v4
         with:
@@ -75,17 +115,15 @@ jobs:
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('native/audio-engine/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-registry-
 
-      # Build cache — keyed on both Cargo.lock and source tree
-      - name: Cache Cargo build artifacts
+      - name: Cache Cargo build
         uses: actions/cache@v4
         with:
           path: native/audio-engine/target
           key: ${{ runner.os }}-cargo-build-${{ hashFiles('native/audio-engine/Cargo.lock', 'native/audio-engine/src/**/*.rs') }}
           restore-keys: ${{ runner.os }}-cargo-build-
 
-      # ── Build Rust audio engine ──────────────────────────────────────────────
-      # macOS: build for both x86_64 and aarch64, then merge with lipo
-      - name: Build Rust audio engine (macOS universal binary)
+      # ── Build Rust audio engine ───────────────────────────────────────────────
+      - name: Build Rust audio engine (macOS universal)
         if: runner.os == 'macOS'
         working-directory: native/audio-engine
         run: |
@@ -96,35 +134,26 @@ jobs:
             target/x86_64-apple-darwin/release/audio-engine \
             target/aarch64-apple-darwin/release/audio-engine \
             -output target/release/audio-engine
-          echo "✓ Universal binary created:"
+          echo "Universal binary:"
           file target/release/audio-engine
           ls -lh target/release/audio-engine
 
-      - name: Build Rust audio engine (Windows)
-        if: runner.os == 'Windows'
+      - name: Build Rust audio engine (Linux / Windows)
+        if: runner.os != 'macOS'
         working-directory: native/audio-engine
-        run: cargo build --release
         shell: bash
-
-      - name: Build Rust audio engine (Linux)
-        if: runner.os == 'Linux'
-        working-directory: native/audio-engine
         run: cargo build --release
 
-      # ── Verify binary was produced ───────────────────────────────────────────
-      - name: Verify audio engine binary exists
+      - name: Verify audio engine binary
         shell: bash
         working-directory: native/audio-engine/target/release
         run: |
           BIN="audio-engine"
           [ "$RUNNER_OS" = "Windows" ] && BIN="audio-engine.exe"
-          if [ ! -f "$BIN" ]; then
-            echo "❌ ERROR: binary not found at $(pwd)/$BIN"
-            exit 1
-          fi
-          echo "✓ Binary verified: $(pwd)/$BIN ($(du -sh $BIN | cut -f1))"
+          [ -f "$BIN" ] || { echo "❌ binary not found: $BIN"; exit 1; }
+          echo "✓ $(pwd)/$BIN  $(du -sh $BIN | cut -f1)"
 
-      # ── Node.js + npm ────────────────────────────────────────────────────────
+      # ── Node.js ───────────────────────────────────────────────────────────────
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -133,61 +162,149 @@ jobs:
 
       - run: npm ci
 
-      # ── TypeScript ───────────────────────────────────────────────────────────
-      - name: Typecheck
-        run: npx tsc --noEmit
+      # ── Set version in package.json if overridden ─────────────────────────────
+      - name: Sync version
+        if: needs.version.outputs.version != ''
+        shell: bash
+        run: node scripts/version.js set "${{ needs.version.outputs.version }}"
 
-      # ── Build renderer ───────────────────────────────────────────────────────
-      - name: Build renderer
+      # ── TypeScript check ──────────────────────────────────────────────────────
+      - name: Typecheck
+        run: npm run typecheck
+
+      # ── Compile sources ───────────────────────────────────────────────────────
+      - name: Build (electron-vite)
         run: npm run build
 
-      # ── Package + sign + publish ─────────────────────────────────────────────
-      # electron-builder picks up the Rust binary via extraResources:
-      #   from: ../native/audio-engine/target/release/audio-engine[.exe]
-      #   to:   {resources}/audio-engine/audio-engine[.exe]
-      - name: Package + sign + publish
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [ "${{ inputs.draft }}" = "true" ]; then
-            npx electron-builder --publish=never
-          else
-            npx electron-builder --publish=always
-          fi
+      # ── Package (never publish directly — release job handles that) ───────────
+      - name: Package with electron-builder
         shell: bash
+        run: npx electron-builder --publish=never
 
-      # ── Upload artifacts ─────────────────────────────────────────────────────
+      # ── SHA256 checksums ──────────────────────────────────────────────────────
+      - name: Generate SHA256 checksums
+        shell: bash
+        run: |
+          OUT="release/${{ needs.version.outputs.version }}"
+          SUMS="$OUT/SHA256SUMS.txt"
+          # cross-platform: macOS uses shasum, Linux/Windows use sha256sum/certutil via git-bash
+          if command -v sha256sum &>/dev/null; then
+            CMD="sha256sum"
+          else
+            CMD="shasum -a 256"
+          fi
+          find "$OUT" -maxdepth 1 -type f \
+            \( -name "*.exe" -o -name "*.dmg" -o -name "*.zip" \
+               -o -name "*.AppImage" -o -name "*.deb" \) \
+            | sort | while read -r f; do
+              $CMD "$f" | sed "s|$OUT/||" >> "$SUMS"
+            done
+          echo "── SHA256SUMS ──────────────────────────────"
+          cat "$SUMS" || echo "(empty)"
+
+      # ── Upload artifacts to Actions ────────────────────────────────────────────
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-${{ matrix.os }}-${{ github.sha }}
+          name: desktop-${{ matrix.label }}-${{ needs.version.outputs.version }}
           path: |
-            desktop-app/release/*.exe
-            desktop-app/release/*.dmg
-            desktop-app/release/*.zip
-            desktop-app/release/*.AppImage
-            desktop-app/release/*.deb
-            desktop-app/release/*.blockmap
-            desktop-app/release/latest*.yml
-          retention-days: 30
+            desktop-app/release/${{ needs.version.outputs.version }}/*.exe
+            desktop-app/release/${{ needs.version.outputs.version }}/*.dmg
+            desktop-app/release/${{ needs.version.outputs.version }}/*.zip
+            desktop-app/release/${{ needs.version.outputs.version }}/*.AppImage
+            desktop-app/release/${{ needs.version.outputs.version }}/*.deb
+            desktop-app/release/${{ needs.version.outputs.version }}/SHA256SUMS.txt
+            desktop-app/release/${{ needs.version.outputs.version }}/latest*.yml
+          retention-days: 90
           if-no-files-found: warn
 
-  # ── GitHub Release ────────────────────────────────────────────────────────────
+  # ───────────────────────────────────────────────────────────────────────────
+  # 3. Merge checksums and create GitHub Release
+  # ───────────────────────────────────────────────────────────────────────────
   github-release:
-    name: Promote to GitHub Release
-    needs: build
+    name: GitHub Release
+    needs: [version, build]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/desktop-v')
+    # Run on tag push OR manual dispatch (creates draft by default)
+    if: always() && (needs.build.result == 'success')
+
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Download all platform artifacts into separate directories
       - uses: actions/download-artifact@v4
         with:
-          path: artifacts
-      - name: Create or update GitHub Release
+          pattern: desktop-*-${{ needs.version.outputs.version }}
+          path: release-artifacts
+          merge-multiple: false
+
+      # Merge all SHA256SUMS.txt into one master file
+      - name: Merge checksums
+        run: |
+          mkdir -p release-flat
+          find release-artifacts -name "SHA256SUMS.txt" -exec cat {} >> release-flat/SHA256SUMS.txt \;
+          find release-artifacts -type f ! -name "SHA256SUMS.txt" -exec cp {} release-flat/ \;
+          echo "── Final artifacts ─────────────────────────────"
+          ls -lh release-flat/
+          echo ""
+          echo "── SHA256SUMS ──────────────────────────────────"
+          cat release-flat/SHA256SUMS.txt || echo "(no checksums)"
+
+      # Auto-generate release notes from commits since last desktop-v* tag
+      - name: Build release notes
+        id: notes
+        run: |
+          PREV_TAG=$(git tag --list 'desktop-v*' --sort=-version:refname | sed -n '2p')
+          if [ -z "$PREV_TAG" ]; then
+            RANGE="HEAD"
+          else
+            RANGE="${PREV_TAG}..HEAD"
+          fi
+          NOTES=$(git log "$RANGE" --pretty=format:"- %s" --no-merges \
+            -- desktop-app/ native/audio-engine/ \
+            | head -40)
+          {
+            echo 'notes<<NOTES_EOF'
+            echo "## Neurotek Studio ${{ needs.version.outputs.version }}"
+            echo ""
+            echo "### Changes"
+            echo "$NOTES"
+            echo ""
+            echo "### Downloads"
+            echo "| File | Platform | SHA256 |"
+            echo "|------|----------|--------|"
+            while IFS=' ' read -r hash file; do
+              case "$file" in
+                *.exe)      PLAT="Windows" ;;
+                *.AppImage) PLAT="Linux (AppImage)" ;;
+                *.deb)      PLAT="Linux (deb)" ;;
+                *.dmg)      PLAT="macOS" ;;
+                *)          PLAT="—" ;;
+              esac
+              echo "| \`$file\` | $PLAT | \`${hash:0:16}…\` |"
+            done < release-flat/SHA256SUMS.txt
+            echo 'NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create / update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          draft: ${{ inputs.draft || true }}
-          generate_release_notes: true
-          files: artifacts/**/*
+          tag_name:              ${{ needs.version.outputs.tag }}
+          name:                  "Neurotek Studio ${{ needs.version.outputs.version }}"
+          draft:                 ${{ github.event_name == 'workflow_dispatch' && inputs.draft == true }}
+          prerelease:            false
+          generate_release_notes: false
+          body:                  ${{ steps.notes.outputs.notes }}
+          files: |
+            release-flat/*.exe
+            release-flat/*.dmg
+            release-flat/*.zip
+            release-flat/*.AppImage
+            release-flat/*.deb
+            release-flat/SHA256SUMS.txt
+            release-flat/latest*.yml
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
