@@ -104,6 +104,17 @@ jobs:
         if: runner.os == 'macOS'
         run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
+      # ── Linux system deps (ALSA required by alsa-sys crate) ──────────────────
+      - name: Install Linux audio build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config \
+            libasound2-dev \
+            build-essential \
+            libudev-dev
+
       # ── Cargo cache ───────────────────────────────────────────────────────────
       - name: Cache Cargo registry
         uses: actions/cache@v4
