@@ -2,14 +2,35 @@
   "name": "neurotek-studio",
   "version": "0.2.0",
   "description": "Neurotek Studio — AI-Powered Desktop DAW",
+  "homepage": "https://mixpiloteai.vercel.app",
+  "author": {
+    "name": "NeuroTek AI",
+    "email": "support@neurotek.ai"
+  },
   "private": true,
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "build:win": "npm run build && electron-builder --win --x64",
-    "build:mac": "npm run build && electron-builder --mac",
-    "build:linux": "npm run build && electron-builder --linux",
+
+    "build:win":           "npm run build && electron-builder --win --x64",
+    "build:win:installer": "npm run build && electron-builder --win nsis --x64",
+    "build:win:portable":  "npm run build && electron-builder --win portable --x64",
+
+    "build:mac":           "npm run build && electron-builder --mac",
+    "build:mac:dmg":       "npm run build && electron-builder --mac dmg",
+
+    "build:linux":         "npm run build && electron-builder --linux",
+    "build:linux:appimage":"npm run build && electron-builder --linux AppImage --x64",
+    "build:linux:deb":     "npm run build && electron-builder --linux deb --x64",
+
+    "build:all":           "npm run build && electron-builder --win --mac --linux",
+
+    "icons":      "node scripts/generate-icons.js",
+    "version:set":"node scripts/version.js set",
+    "version:bump":"node scripts/version.js bump",
+    "release":    "node scripts/build-release.js",
+
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "node --experimental-strip-types --no-warnings --test --import ./tests/setup/register.mjs tests/unit/*.test.ts tests/integration/*.test.ts",
     "test:unit": "node --experimental-strip-types --no-warnings --test --import ./tests/setup/register.mjs tests/unit/*.test.ts",
@@ -57,12 +78,16 @@
     "productName": "Neurotek Studio",
     "copyright": "Copyright © 2025 NeuroTek AI. All rights reserved.",
     "asar": true,
+    "asarUnpack": [
+      "resources/audio-engine/**"
+    ],
     "directories": {
-      "output": "release",
+      "output": "release/${version}",
       "buildResources": "assets"
     },
     "files": [
-      "out/**/*"
+      "out/**/*",
+      "!out/**/*.map"
     ],
     "fileAssociations": [
       {
@@ -84,15 +109,11 @@
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64"
-          ]
+          "arch": ["x64"]
         },
         {
           "target": "portable",
-          "arch": [
-            "x64"
-          ]
+          "arch": ["x64"]
         }
       ],
       "icon": "assets/icon.ico",
@@ -113,42 +134,71 @@
       "artifactName": "Neurotek-Studio-Setup-${version}.${ext}",
       "include": "build/installer.nsh",
       "runAfterFinish": true,
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "displayLanguageSelector": false,
+      "multiLanguageInstaller": false
     },
     "portable": {
-      "artifactName": "Neurotek-Studio-Portable-${version}.${ext}"
+      "artifactName": "Neurotek-Studio-Portable-${version}.${ext}",
+      "requestExecutionLevel": "user"
     },
     "mac": {
       "target": [
         {
           "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
+          "arch": ["x64", "arm64"]
         }
       ],
       "icon": "assets/icon.png",
       "category": "public.app-category.music",
       "darkModeSupport": true,
-      "artifactName": "Neurotek-Studio-${version}.${ext}",
+      "artifactName": "Neurotek-Studio-${version}-${arch}.${ext}",
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.inherit.plist",
       "hardenedRuntime": true,
-      "gatekeeperAssess": false
+      "gatekeeperAssess": false,
+      "minimumSystemVersion": "10.15"
+    },
+    "dmg": {
+      "title": "Neurotek Studio ${version}",
+      "background": null,
+      "iconSize": 80,
+      "window": { "width": 540, "height": 380 },
+      "contents": [
+        { "x": 140, "y": 150, "type": "file" },
+        { "x": 400, "y": 150, "type": "link", "path": "/Applications" }
+      ]
     },
     "linux": {
       "target": [
         {
           "target": "AppImage",
-          "arch": [
-            "x64"
-          ]
+          "arch": ["x64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64"]
         }
       ],
       "icon": "assets/icon.png",
       "category": "Audio",
-      "artifactName": "Neurotek-Studio-${version}.${ext}"
+      "artifactName": "Neurotek-Studio-${version}-${arch}.${ext}",
+      "description": "AI-Powered Music Production Studio",
+      "synopsis": "Professional DAW with AI-powered music generation",
+      "desktop": {
+        "Name": "Neurotek Studio",
+        "Comment": "AI-Powered Music Production Studio",
+        "Keywords": "daw;music;audio;production;ai"
+      },
+      "mimeTypes": ["application/x-neurotek-studio"]
+    },
+    "deb": {
+      "maintainer": "NeuroTek AI <support@neurotek.ai>",
+      "packageCategory": "sound",
+      "priority": "optional",
+      "depends": ["libgtk-3-0", "libnotify4", "libnss3", "libxss1", "libxtst6", "xdg-utils", "libatspi2.0-0", "libuuid1", "libasound2"],
+      "afterInstall": "scripts/postinst.sh",
+      "afterRemove": "scripts/postrm.sh"
     },
     "compression": "maximum",
     "generateUpdatesFilesForAllChannels": true,

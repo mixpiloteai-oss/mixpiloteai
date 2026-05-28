@@ -25,6 +25,7 @@ import {
 }                                 from 'node:fs'
 import { app }                    from 'electron'
 import type { AudioEngineProcess } from './AudioEngineProcess'
+import { getAudioEngineProcess } from './AudioEngineProcess'
 
 const execAsync = promisify(execFile)
 
@@ -372,7 +373,6 @@ let _instance: AudioEngineWatchdog | null = null
 
 export function getAudioEngineWatchdog(): AudioEngineWatchdog {
   if (!_instance) {
-    const { getAudioEngineProcess } = require('./AudioEngineProcess') as typeof import('./AudioEngineProcess')
     _instance = new AudioEngineWatchdog(getAudioEngineProcess())
   }
   return _instance
