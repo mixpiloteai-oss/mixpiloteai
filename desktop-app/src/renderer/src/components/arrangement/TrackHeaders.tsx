@@ -1,10 +1,13 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
 import { useProjectStore }          from '../../store/projectStore'
 import { useArrangementViewStore }  from './useArrangementViewStore'
+import { useAutomationStore }       from './useAutomationStore'
 import { freezeEngine }             from '../../audio/FreezeEngine'
 import { getMonitorEngine, getTrackManager } from '../../audio'
 import { MidiTrackNode }            from '../../audio/tracks/MidiTrackNode'
 import { AudioTrackNode }           from '../../audio/tracks/AudioTrackNode'
+import { AUTOMATION_LANE_H }        from './arrangementUtils'
+import { AutomationLaneHeader }     from './AutomationLaneView'
 import type { Track }               from '../../types/project'
 
 export const HEADER_W = 192
@@ -24,22 +27,26 @@ function TrackHeader({
   track,
   isSelected,
   isFrozen,
+  automationExpanded,
   onSelect,
   onMute,
   onSolo,
   onArm,
   onFreeze,
+  onToggleAutomation,
   onHeightDrag,
 }: {
-  track:         Track
-  isSelected:    boolean
-  isFrozen:      boolean
-  onSelect:      () => void
-  onMute:        () => void
-  onSolo:        () => void
-  onArm:         () => void
-  onFreeze:      () => void
-  onHeightDrag:  (newH: number) => void
+  track:               Track
+  isSelected:          boolean
+  isFrozen:            boolean
+  automationExpanded:  boolean
+  onSelect:            () => void
+  onMute:              () => void
+  onSolo:              () => void
+  onArm:               () => void
+  onFreeze:            () => void
+  onToggleAutomation:  () => void
+  onHeightDrag:        (newH: number) => void
 }) {
   const dragRef = useRef<{ y0: number; h0: number } | null>(null)
 
@@ -154,6 +161,13 @@ function TrackHeader({
             onClick={e => { e.stopPropagation(); onFreeze() }}
           />
         )}
+        <TBtn
+          label="A"
+          title={automationExpanded ? 'Hide automation lane' : 'Show automation lane'}
+          active={automationExpanded}
+          activeColor="#8b5cf6"
+          onClick={e => { e.stopPropagation(); onToggleAutomation() }}
+        />
       </div>
 
       {/* Height resize handle */}
@@ -212,6 +226,52 @@ function TBtn({
   )
 }
 
+// ─── TrackSlot — track header + optional automation lane header ───────────────
+
+function TrackSlot({
+  track, isSelected, isFrozen, automationExpanded,
+  onSelect, onMute, onSolo, onArm, onFreeze, onToggleAutomation, onHeightDrag,
+}: {
+  track: Track; isSelected: boolean; isFrozen: boolean; automationExpanded: boolean
+  onSelect: () => void; onMute: () => void; onSolo: () => void; onArm: () => void
+  onFreeze: () => void; onToggleAutomation: () => void; onHeightDrag: (h: number) => void
+}) {
+  const lanes = useAutomationStore(s => s.lanes.filter(l => l.trackId === track.id))
+  const activeLane = lanes.find(l => l.enabled) ?? lanes[0]
+
+  return (
+    <div>
+      <TrackHeader
+        track={track}
+        isSelected={isSelected}
+        isFrozen={isFrozen}
+        automationExpanded={automationExpanded}
+        onSelect={onSelect}
+        onMute={onMute}
+        onSolo={onSolo}
+        onArm={onArm}
+        onFreeze={onFreeze}
+        onToggleAutomation={onToggleAutomation}
+        onHeightDrag={onHeightDrag}
+      />
+      {automationExpanded && activeLane && (
+        <AutomationLaneHeader lane={activeLane} height={AUTOMATION_LANE_H} />
+      )}
+      {automationExpanded && !activeLane && (
+        <div style={{
+          height: AUTOMATION_LANE_H,
+          background: `${track.color}08`,
+          borderBottom: '1px solid rgba(255,255,255,0.05)',
+          borderLeft: `2px solid ${track.color}20`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <span style={{ fontSize: 9, color: '#334155' }}>No automation lane</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main TrackHeaders panel ──────────────────────────────────────────────────
 
 interface Props {
@@ -220,17 +280,36 @@ interface Props {
 }
 
 export default function TrackHeaders({ scrollY, rulerHeight }: Props) {
-  const tracks          = useProjectStore(s => s.project.tracks)
-  const selectedTrackId = useProjectStore(s => s.selectedTrackId)
-  const selectTrack     = useProjectStore(s => s.selectTrack)
-  const toggleMute      = useProjectStore(s => s.toggleMute)
-  const toggleSolo      = useProjectStore(s => s.toggleSolo)
-  const toggleArm       = useProjectStore(s => s.toggleArm)
-  const setTrackHeight  = useProjectStore(s => s.setTrackHeight)
-  const addTrack        = useProjectStore(s => s.addTrack)
-  const containerRef    = useRef<HTMLDivElement>(null)
-  // Track frozen state locally (FreezeEngine is the source of truth)
+  const tracks               = useProjectStore(s => s.project.tracks)
+  const selectedTrackId      = useProjectStore(s => s.selectedTrackId)
+  const selectTrack          = useProjectStore(s => s.selectTrack)
+  const toggleMute           = useProjectStore(s => s.toggleMute)
+  const toggleSolo           = useProjectStore(s => s.toggleSolo)
+  const toggleArm            = useProjectStore(s => s.toggleArm)
+  const setTrackHeight       = useProjectStore(s => s.setTrackHeight)
+  const addTrack             = useProjectStore(s => s.addTrack)
+  const { expandedAutomationTracks, toggleAutomationTrack } = useArrangementViewStore()
+  const containerRef         = useRef<HTMLDivElement>(null)
   const [frozenIds, setFrozenIds] = useState<Set<string>>(() => new Set(freezeEngine.getFrozenList()))
+
+  const handleToggleAutomation = useCallback((track: Track) => {
+    toggleAutomationTrack(track.id)
+    // Seed a lane if none exist yet for this track
+    const { lanes, addLane } = useAutomationStore.getState()
+    const hasLane = lanes.some(l => l.trackId === track.id)
+    if (!hasLane) {
+      addLane({
+        id: `auto-${track.id}-gainDb-${Date.now()}`,
+        trackId: track.id,
+        paramName: 'gainDb',
+        minValue: -60,
+        maxValue: 12,
+        defaultValue: 0,
+        enabled: true,
+        color: track.color,
+      })
+    }
+  }, [toggleAutomationTrack])
 
   // Sync vertical scroll
   useEffect(() => {
@@ -317,16 +396,18 @@ export default function TrackHeaders({ scrollY, rulerHeight }: Props) {
         style={{ flex: 1, overflowY: 'hidden', overflowX: 'hidden' }}
       >
         {tracks.map(track => (
-          <TrackHeader
+          <TrackSlot
             key={track.id}
             track={track}
             isSelected={selectedTrackId === track.id}
             isFrozen={frozenIds.has(track.id)}
+            automationExpanded={expandedAutomationTracks.has(track.id)}
             onSelect={() => selectTrack(track.id)}
             onMute={() => toggleMute(track.id)}
             onSolo={() => toggleSolo(track.id)}
             onArm={() => handleArm(track.id, track.armed)}
             onFreeze={() => handleFreeze(track.id)}
+            onToggleAutomation={() => handleToggleAutomation(track)}
             onHeightDrag={h => setTrackHeight(track.id, h)}
           />
         ))}

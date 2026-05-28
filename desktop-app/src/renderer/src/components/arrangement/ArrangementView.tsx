@@ -4,7 +4,9 @@ import { useProjectStore }            from '../../store/projectStore'
 import TrackHeaders, { HEADER_W }     from './TrackHeaders'
 import TimeRuler                      from './TimeRuler'
 import ArrangementCanvas              from './ArrangementCanvas'
+import ArrangementMiniMap             from './ArrangementMiniMap'
 import type { ARTool, ARSnap }        from './useArrangementViewStore'
+import type { AutomationMode }        from '../../audio/AutomationEngine'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -53,11 +55,19 @@ function Sep() {
 
 // ─── ArrangementView ─────────────────────────────────────────────────────────
 
+const AUTO_MODE_LABELS: Record<AutomationMode, string> = {
+  read: 'Read', write: 'Write', touch: 'Touch', latch: 'Latch',
+}
+const AUTO_MODE_COLORS: Record<AutomationMode, string> = {
+  read: '#06b6d4', write: '#ef4444', touch: '#f59e0b', latch: '#8b5cf6',
+}
+
 export default function ArrangementView() {
   const { tool, snap, zoomX, scrollY, setTool, setSnap, setZoom, setScroll, selectedClipIds, deselectAll,
-          followPlayhead, toggleFollowPlayhead } =
+          followPlayhead, toggleFollowPlayhead, rippleEdit, toggleRippleEdit,
+          automationMode, setAutomationMode } =
     useArrangementViewStore()
-  const { project, deleteClips, duplicateClips } = useProjectStore()
+  const { project, deleteClips, duplicateClips, consolidateClips } = useProjectStore()
 
   // ── Toolbar actions ───────────────────────────────────────────────────────
 
@@ -91,6 +101,11 @@ export default function ArrangementView() {
     const ids = [...useArrangementViewStore.getState().selectedClipIds]
     if (ids.length) duplicateClips(ids)
   }, [duplicateClips])
+
+  const handleConsolidateSelected = useCallback(() => {
+    const ids = [...useArrangementViewStore.getState().selectedClipIds]
+    if (ids.length >= 2) { consolidateClips(ids); deselectAll() }
+  }, [consolidateClips, deselectAll])
 
   const selCount = selectedClipIds.size
 
@@ -182,6 +197,14 @@ export default function ArrangementView() {
           Dup {selCount > 0 ? `(${selCount})` : ''}
         </button>
         <button
+          onClick={handleConsolidateSelected}
+          disabled={selCount < 2}
+          title="Consolidate selected clips [Ctrl+J]"
+          style={{ ...actionBtnStyle, opacity: selCount >= 2 ? 1 : 0.35 }}
+        >
+          Merge
+        </button>
+        <button
           onClick={handleDeleteSelected}
           disabled={selCount === 0}
           title="Delete selected [Delete]"
@@ -189,6 +212,52 @@ export default function ArrangementView() {
         >
           Del
         </button>
+
+        <Sep />
+
+        {/* Ripple editing */}
+        <button
+          onClick={toggleRippleEdit}
+          title="Ripple editing — shift later clips when moving [R]"
+          style={{
+            padding:      '2px 8px',
+            borderRadius: 4,
+            fontSize:     10,
+            fontWeight:   rippleEdit ? 600 : 400,
+            background:   rippleEdit ? 'rgba(6,182,212,0.22)' : 'transparent',
+            color:        rippleEdit ? '#06b6d4' : '#475569',
+            border:       `1px solid ${rippleEdit ? 'rgba(6,182,212,0.4)' : 'transparent'}`,
+            cursor:       'pointer',
+            transition:   'all 0.12s',
+          }}
+        >
+          Ripple
+        </button>
+
+        <Sep />
+
+        {/* Automation mode */}
+        <span style={{ fontSize: 9, color: '#334155' }}>AUTO</span>
+        {(['read', 'write', 'touch', 'latch'] as AutomationMode[]).map(mode => (
+          <button
+            key={mode}
+            onClick={() => setAutomationMode(mode)}
+            title={`Automation: ${AUTO_MODE_LABELS[mode]}`}
+            style={{
+              padding:      '1px 6px',
+              borderRadius: 3,
+              fontSize:     9,
+              fontWeight:   automationMode === mode ? 700 : 400,
+              background:   automationMode === mode ? `${AUTO_MODE_COLORS[mode]}22` : 'transparent',
+              color:        automationMode === mode ? AUTO_MODE_COLORS[mode] : '#334155',
+              border:       `1px solid ${automationMode === mode ? AUTO_MODE_COLORS[mode] + '60' : 'transparent'}`,
+              cursor:       'pointer',
+              transition:   'all 0.1s',
+            }}
+          >
+            {AUTO_MODE_LABELS[mode]}
+          </button>
+        ))}
 
         <Sep />
 
@@ -221,23 +290,37 @@ export default function ArrangementView() {
       </div>
 
       {/* ── Body ────────────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', flexDirection: 'column' }}>
 
-        {/* Track headers (fixed left) */}
-        <TrackHeaders scrollY={scrollY} rulerHeight={RULER_H} />
+        {/* Main timeline row */}
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-        {/* Timeline area (right of headers) */}
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+          {/* Track headers (fixed left) */}
+          <TrackHeaders scrollY={scrollY} rulerHeight={RULER_H} />
 
-          {/* Time ruler (fixed top) */}
-          <div style={{ height: RULER_H, flexShrink: 0, overflow: 'hidden' }}>
-            <TimeRuler height={RULER_H} />
+          {/* Timeline area (right of headers) */}
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+
+            {/* Time ruler (fixed top) */}
+            <div style={{ height: RULER_H, flexShrink: 0, overflow: 'hidden' }}>
+              <TimeRuler height={RULER_H} />
+            </div>
+
+            {/* Main canvas (fills remaining space) */}
+            <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+              <ArrangementCanvas headerWidth={HEADER_W} rulerHeight={RULER_H} />
+            </div>
           </div>
+        </div>
 
-          {/* Main canvas (fills remaining space) */}
-          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-            <ArrangementCanvas headerWidth={HEADER_W} rulerHeight={RULER_H} />
-          </div>
+        {/* Mini-map (full width, below timeline) */}
+        <div style={{
+          flexShrink:  0,
+          borderTop:   '1px solid rgba(255,255,255,0.05)',
+          background:  '#05050b',
+          overflow:    'hidden',
+        }}>
+          <ArrangementMiniMap />
         </div>
       </div>
     </div>

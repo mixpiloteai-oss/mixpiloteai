@@ -97,9 +97,33 @@ export default function TimeRuler({ height }: Props) {
       const bar0    = Math.floor(beat0 / tsTop)
       const bar1    = Math.ceil(beat1 / tsTop) + 1
 
-      // Adaptive detail: show beats when bars are wide enough
-      const barPx   = tsTop * zoomX
+      const barPx     = tsTop * zoomX
       const showBeats = barPx >= 60
+      const showSubs  = barPx >= 120  // show 1/8-note ticks at high zoom
+
+      // Section background tints every 4 bars
+      const sectionColors = ['rgba(124,58,237,0.04)', 'rgba(6,182,212,0.03)', 'rgba(16,185,129,0.03)', 'rgba(239,68,68,0.03)']
+      for (let bar = bar0 - (bar0 % 4); bar <= bar1; bar += 4) {
+        const bx0 = Math.max(0, bar * tsTop * zoomX - scrollX)
+        const bx1 = Math.min(W, (bar + 4) * tsTop * zoomX - scrollX)
+        if (bx1 <= 0 || bx0 >= W) continue
+        const si = Math.floor(bar / 4) % sectionColors.length
+        ctx.fillStyle = sectionColors[Math.abs(si)]
+        ctx.fillRect(bx0, 0, bx1 - bx0, H)
+      }
+
+      // Sub-beat (1/8-note) ticks
+      if (showSubs) {
+        ctx.fillStyle = 'rgba(255,255,255,0.08)'
+        for (let bar = bar0; bar <= bar1; bar++) {
+          for (let sub = 0.5; sub < tsTop; sub += 0.5) {
+            if (sub % 1 === 0) continue  // skip beat lines (drawn below)
+            const bx = Math.round((bar * tsTop + sub) * zoomX - scrollX)
+            if (bx < 0 || bx > W) continue
+            ctx.fillRect(bx, Math.round(H * 0.72), 1, Math.round(H * 0.28))
+          }
+        }
+      }
 
       // Beat lines
       if (showBeats) {
@@ -108,27 +132,55 @@ export default function TimeRuler({ height }: Props) {
           for (let beat = 1; beat < tsTop; beat++) {
             const bx = Math.round((bar * tsTop + beat) * zoomX - scrollX)
             if (bx < 0 || bx > W) continue
-            ctx.fillRect(bx, H * 0.65, 1, H * 0.35)
+            ctx.fillRect(bx, Math.round(H * 0.55), 1, Math.round(H * 0.45))
           }
         }
       }
 
       // Bar lines + labels
+      const markerSectionColors = ['#f59e0b', '#06b6d4', '#10b981', '#ef4444', '#8b5cf6', '#ec4899']
       ctx.font      = '600 9px system-ui'
       ctx.textAlign = 'left'
       for (let bar = bar0; bar <= bar1; bar++) {
         const bx = Math.round(bar * tsTop * zoomX - scrollX)
         if (bx < -40 || bx > W + 10) continue
 
-        const isSection = bar % 4 === 0
-        ctx.strokeStyle = isSection ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.10)'
+        const isSection4 = bar % 4 === 0  // every 4 bars = section boundary
+        const isSection8 = bar % 8 === 0  // every 8 bars = major section
+
+        ctx.strokeStyle = isSection4 ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.10)'
         ctx.lineWidth   = 1
         ctx.beginPath(); ctx.moveTo(bx, 0); ctx.lineTo(bx, H); ctx.stroke()
 
+        // Colored tick for section boundaries
+        if (isSection4 && bx >= 0) {
+          const sIdx = Math.floor(bar / 4) % markerSectionColors.length
+          ctx.fillStyle = markerSectionColors[Math.abs(sIdx)] + '60'
+          ctx.fillRect(bx, 0, 2, isSection8 ? H : H * 0.4)
+        }
+
         // Bar label
         if (bx >= 0) {
-          ctx.fillStyle = isSection ? 'rgba(255,255,255,0.50)' : 'rgba(255,255,255,0.28)'
+          if (isSection4) {
+            const sIdx = Math.floor(bar / 4) % markerSectionColors.length
+            ctx.fillStyle = markerSectionColors[Math.abs(sIdx)] + 'cc'
+          } else {
+            ctx.fillStyle = 'rgba(255,255,255,0.28)'
+          }
           ctx.fillText(String(bar + 1), bx + 3, H - 4)
+        }
+
+        // Beat number labels at high zoom
+        if (showBeats && bx >= 0) {
+          ctx.fillStyle = 'rgba(255,255,255,0.18)'
+          ctx.font = '500 8px system-ui'
+          for (let b = 1; b < tsTop; b++) {
+            const beatX = Math.round((bar * tsTop + b) * zoomX - scrollX)
+            if (beatX >= 0 && beatX < W) {
+              ctx.fillText(String(b + 1), beatX + 2, H - 4)
+            }
+          }
+          ctx.font = '600 9px system-ui'
         }
       }
 

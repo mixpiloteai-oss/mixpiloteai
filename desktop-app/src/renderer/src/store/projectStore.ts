@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Project, Clip, Track } from '../types/project'
+import type { Project, Clip, Track, MidiNote } from '../types/project'
 
 const TRACK_COLORS = ['#7c3aed','#06b6d4','#f59e0b','#10b981','#ef4444','#8b5cf6','#ec4899','#14b8a6']
 
@@ -97,6 +97,9 @@ interface ProjectStore {
   addTrack: (track: Track) => void
   setTrackHeight: (trackId: string, height: number) => void
   setLoopRegion: (startBar: number, endBar: number) => void
+  consolidateClips: (clipIds: string[]) => void
+  stretchClip: (clipId: string, playbackRate: number) => void
+  rippleShiftClips: (trackId: string, pivotBar: number, barDelta: number, excludeClipIds: string[]) => void
 }
 
 export const useProjectStore = create<ProjectStore>((set) => ({
@@ -241,5 +244,84 @@ export const useProjectStore = create<ProjectStore>((set) => ({
 
   setLoopRegion: (startBar, endBar) => set(s => ({
     project: { ...s.project, loopStart: startBar, loopEnd: endBar },
+  })),
+
+  consolidateClips: (clipIds) => set(s => {
+    if (clipIds.length < 2) return {}
+    const tsTop = s.project.timeSignatureNumerator
+
+    // Group selected clips by track
+    const byTrack = new Map<string, Clip[]>()
+    s.project.tracks.forEach(t => {
+      const sel = t.clips.filter(c => clipIds.includes(c.id))
+      if (sel.length > 0) byTrack.set(t.id, sel)
+    })
+
+    const merged: Clip[] = []
+    byTrack.forEach((clips, trackId) => {
+      if (clips.length < 2) return
+      const track = s.project.tracks.find(t => t.id === trackId)
+      if (!track) return
+      const startBar = Math.min(...clips.map(c => c.startBar))
+      const endBar = Math.max(...clips.map(c => c.startBar + c.lengthBars))
+      const notes: MidiNote[] = []
+      clips.forEach(clip => {
+        const offsetBeats = (clip.startBar - startBar) * tsTop
+        clip.notes.forEach(n => notes.push({ ...n, id: `${n.id}-m${Date.now()}`, startBeat: n.startBeat + offsetBeats }))
+      })
+      merged.push({
+        id: `clip-consolidated-${Date.now()}-${trackId}`,
+        trackId,
+        name: clips[0].name,
+        startBar,
+        lengthBars: endBar - startBar,
+        color: track.color,
+        muted: false,
+        notes,
+      })
+    })
+
+    const toDelete = new Set(clipIds)
+    const mergedByTrack = new Map(merged.map(c => [c.trackId, c]))
+
+    return {
+      project: {
+        ...s.project,
+        tracks: s.project.tracks.map(t => ({
+          ...t,
+          clips: [
+            ...t.clips.filter(c => !toDelete.has(c.id)),
+            ...(mergedByTrack.has(t.id) ? [mergedByTrack.get(t.id)!] : []),
+          ],
+        })),
+      },
+    }
+  }),
+
+  stretchClip: (clipId, playbackRate) => set(s => ({
+    project: {
+      ...s.project,
+      tracks: s.project.tracks.map(t => ({
+        ...t,
+        clips: t.clips.map(c => c.id === clipId ? { ...c, playbackRate } : c),
+      })),
+    },
+  })),
+
+  rippleShiftClips: (trackId, pivotBar, barDelta, excludeClipIds) => set(s => ({
+    project: {
+      ...s.project,
+      tracks: s.project.tracks.map(t => {
+        if (t.id !== trackId) return t
+        return {
+          ...t,
+          clips: t.clips.map(c => {
+            if (excludeClipIds.includes(c.id)) return c
+            if (c.startBar >= pivotBar) return { ...c, startBar: Math.max(1, c.startBar + barDelta) }
+            return c
+          }),
+        }
+      }),
+    },
   })),
 }))

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { StoreApi, UseBoundStore } from 'zustand'
+import type { AutomationMode } from '../../audio/AutomationEngine'
 
 export type ARTool = 'pointer' | 'pencil' | 'split' | 'erase'
 export type ARSnap = 'off' | '1/32' | '1/16' | '1/8' | '1/4' | '1/2' | '1/1' | '2/1' | '4/1'
@@ -13,6 +14,10 @@ export interface ARViewState {
   selectedClipIds: Set<string>
   markers: Array<{ id: string; bar: number; label: string; color: string }>
   followPlayhead: boolean
+  rippleEdit: boolean
+  automationMode: AutomationMode
+  showAutomation: boolean
+  expandedAutomationTracks: Set<string>
 }
 
 export interface ARViewActions {
@@ -28,6 +33,10 @@ export interface ARViewActions {
   removeMarker(id: string): void
   moveMarker(id: string, bar: number): void
   toggleFollowPlayhead(): void
+  toggleRippleEdit(): void
+  setAutomationMode(mode: AutomationMode): void
+  toggleShowAutomation(): void
+  toggleAutomationTrack(trackId: string): void
 }
 
 export const useArrangementViewStore: UseBoundStore<StoreApi<ARViewState & ARViewActions>> =
@@ -39,6 +48,10 @@ export const useArrangementViewStore: UseBoundStore<StoreApi<ARViewState & ARVie
     scrollY: 0,
     selectedClipIds: new Set<string>(),
     followPlayhead: false,
+    rippleEdit: false,
+    automationMode: 'read',
+    showAutomation: false,
+    expandedAutomationTracks: new Set<string>(),
     markers: [
       { id: 'm1', bar:  1, label: 'Intro',  color: '#f59e0b' },
       { id: 'm2', bar:  9, label: 'Drop',   color: '#06b6d4' },
@@ -78,4 +91,13 @@ export const useArrangementViewStore: UseBoundStore<StoreApi<ARViewState & ARVie
       markers: s.markers.map(m => m.id === id ? { ...m, bar } : m).sort((a, b) => a.bar - b.bar),
     })),
     toggleFollowPlayhead: () => set(s => ({ followPlayhead: !s.followPlayhead })),
+    toggleRippleEdit: () => set(s => ({ rippleEdit: !s.rippleEdit })),
+    setAutomationMode: (mode) => set({ automationMode: mode }),
+    toggleShowAutomation: () => set(s => ({ showAutomation: !s.showAutomation })),
+    toggleAutomationTrack: (trackId) => set(s => {
+      const next = new Set(s.expandedAutomationTracks)
+      if (next.has(trackId)) next.delete(trackId)
+      else next.add(trackId)
+      return { expandedAutomationTracks: next }
+    }),
   }))

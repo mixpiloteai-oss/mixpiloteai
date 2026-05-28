@@ -17,6 +17,7 @@ export interface Clip {
   color: string
   muted: boolean
   notes: MidiNote[]
+  playbackRate?: number  // 1.0 = normal; stretch factor for timestretch
 }
 
 export interface TrackSend {
