@@ -73,7 +73,7 @@ function optNumber(val: unknown, fallback: number, min?: number, max?: number): 
 // ─── Handler wrapper ──────────────────────────────────────────────────────────
 
 function safeHandle<T extends unknown[], R>(
-  ipc:       typeof ipcMain,
+  ipc:       IpcMain,
   channel:   string,
   fn:        (...args: T) => Promise<R> | R,
   timeoutMs: number = DEFAULT_TIMEOUT_MS,

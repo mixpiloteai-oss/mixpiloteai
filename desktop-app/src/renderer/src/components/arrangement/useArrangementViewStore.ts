@@ -1,9 +1,12 @@
 import { create } from 'zustand'
 import type { StoreApi, UseBoundStore } from 'zustand'
 
+export type ARTool = 'pointer' | 'pencil' | 'split' | 'erase'
+export type ARSnap = 'off' | '1/32' | '1/16' | '1/8' | '1/4' | '1/2' | '1/1' | '2/1' | '4/1'
+
 export interface ARViewState {
-  tool: 'pointer' | 'pencil' | 'split' | 'erase'
-  snap: 'off' | '1/32' | '1/16' | '1/8' | '1/4' | '1/2' | '1/1' | '2/1' | '4/1'
+  tool: ARTool
+  snap: ARSnap
   zoomX: number       // px per beat (default 24)
   scrollX: number     // px from beat 0
   scrollY: number     // px from top

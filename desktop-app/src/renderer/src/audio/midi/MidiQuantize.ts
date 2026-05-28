@@ -72,12 +72,12 @@ export class MidiQuantize {
     return notes.map(note => {
       if (opts.selectedOnly && !note.selected) return note
 
-      let newStart    = note.start
-      let newDuration = note.duration
+      let newStart    = note.startBeat
+      let newDuration = note.lengthBeats
 
       if (opts.quantizeStart) {
         // Find nearest grid position
-        const gridIndex = Math.round(note.start / tickGrid)
+        const gridIndex = Math.round(note.startBeat / tickGrid)
         let snapped = gridIndex * tickGrid
 
         // Apply swing: delay every other (odd) grid position
@@ -86,11 +86,11 @@ export class MidiQuantize {
         }
 
         // Apply strength (interpolate between original and snapped)
-        newStart = note.start + (snapped - note.start) * opts.strength
+        newStart = note.startBeat + (snapped - note.startBeat) * opts.strength
       }
 
       if (opts.quantizeEnd) {
-        const noteEnd = note.start + note.duration
+        const noteEnd = note.startBeat + note.lengthBeats
         const endGrid = Math.round(noteEnd / tickGrid) * tickGrid
         const snappedEnd = noteEnd + (endGrid - noteEnd) * opts.strength
         newDuration = Math.max(1, snappedEnd - newStart)
@@ -98,8 +98,8 @@ export class MidiQuantize {
 
       return {
         ...note,
-        start:    Math.max(0, newStart),
-        duration: newDuration,
+        startBeat:   Math.max(0, newStart),
+        lengthBeats: newDuration,
       }
     })
   }
@@ -116,11 +116,11 @@ export class MidiQuantize {
     for (let i = 0; i < slots; i++) {
       const targetTick = i * gridTicks
       const closest = notes.reduce((best, n) => {
-        const distBest = Math.abs(best.start - targetTick)
-        const distN    = Math.abs(n.start    - targetTick)
+        const distBest = Math.abs(best.startBeat - targetTick)
+        const distN    = Math.abs(n.startBeat    - targetTick)
         return distN < distBest ? n : best
-      }, notes[0] ?? { start: targetTick, pitch: 0, velocity: 0, duration: 0 })
-      offsets.push(closest.start - targetTick)
+      }, notes[0] ?? { startBeat: targetTick, pitch: 0, velocity: 0, lengthBeats: 0, id: '', selected: false, muted: false })
+      offsets.push(closest.startBeat - targetTick)
     }
 
     return offsets
@@ -139,11 +139,11 @@ export class MidiQuantize {
     const gridTicks = gridToTicks(gridDiv, ppqn)
 
     return notes.map(note => {
-      const slotIndex = Math.round(note.start / gridTicks) % groove.length
+      const slotIndex = Math.round(note.startBeat / gridTicks) % groove.length
       const offset = groove[slotIndex] ?? 0
       return {
         ...note,
-        start: Math.max(0, note.start + offset * strength),
+        startBeat: Math.max(0, note.startBeat + offset * strength),
       }
     })
   }

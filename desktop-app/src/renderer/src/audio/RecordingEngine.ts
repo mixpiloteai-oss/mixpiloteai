@@ -76,8 +76,10 @@ export class RecordingEngine {
   private _recordStartBeat  = 0
   private _currentTrackId   = ''
   private _currentClipId    = ''
-  private _punchInBeat      = -Infinity
-  private _punchOutBeat     = Infinity
+  private _punchInBeat:  number = -Infinity
+  private _punchOutBeat: number = Infinity
+  get punchInBeat():  number { return this._punchInBeat }
+  get punchOutBeat(): number { return this._punchOutBeat }
 
   // Level metering (for recording VU)
   private _analyserNode:    AnalyserNode | null   = null
@@ -192,6 +194,7 @@ export class RecordingEngine {
     if (!this._midiInput) { console.warn('[RecordingEngine] no MIDI input'); return }
 
     this._midiInput.onmidimessage = (e: MIDIMessageEvent) => {
+      if (!e.data) return
       const [status, pitch, velocity] = Array.from(e.data)
       const bpm     = bpmRef()
       const tSig    = timeSigRef()

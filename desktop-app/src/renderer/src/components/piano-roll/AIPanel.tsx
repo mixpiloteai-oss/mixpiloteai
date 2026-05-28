@@ -64,7 +64,7 @@ export default function AIPanel() {
     scaleRoot, scaleMode,
     generateChord, generateProgression, generateMelodyAI,
     quantize, humanize, randomize,
-    snap, timeSigTop,
+    snap, timeSigTop: _timeSigTop,
   } = usePianoRollStore()
 
   const [chordType,    setChordType]    = useState<ChordType>('min')

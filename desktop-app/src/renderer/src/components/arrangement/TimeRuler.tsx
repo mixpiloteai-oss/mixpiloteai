@@ -251,7 +251,6 @@ export default function TimeRuler({ height }: Props) {
         useArrangementViewStore.getState().addMarker(bar)
       } else {
         dragRef.current = { type: 'seek' }
-        const bar = Math.max(1, pxToBar(px))
         // Just update transport position display (no actual seek yet, transport controls that)
       }
     }
@@ -263,7 +262,7 @@ export default function TimeRuler({ height }: Props) {
     const rect = canvasRef.current!.getBoundingClientRect()
     const px   = e.clientX - rect.left
     const { project }  = projRef.current
-    const { zoomX, scrollX } = viewRef.current
+    const { zoomX } = viewRef.current
     const tsTop        = project.timeSignatureNumerator
 
     if (drag.type === 'loop-start' || drag.type === 'loop-end') {

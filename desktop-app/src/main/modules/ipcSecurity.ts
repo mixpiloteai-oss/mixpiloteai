@@ -42,11 +42,8 @@ const NULL_BYTE      = /\0/;
 const SHELL_INJECT   = /[;&|`$(){}[\]<>]/;
 
 // ── Type validators ───────────────────────────────────────────────────────────
-type Validator = (value: unknown) => boolean;
-
 const isString    = (v: unknown): v is string  => typeof v === 'string';
 const isNumber    = (v: unknown): v is number  => typeof v === 'number' && isFinite(v);
-const isBoolean   = (v: unknown): v is boolean => typeof v === 'boolean';
 const isObject    = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
@@ -229,9 +226,6 @@ export function withSecurity<T>(
   handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<T> | T
 ): (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<T | { error: string }> {
   return async (event: IpcMainInvokeEvent, ...args: unknown[]) => {
-    const channel = event.senderFrameId !== undefined ? String(event.senderFrameId) : 'unknown';
-    // Validate using the frame's sender channel context
-    // Note: actual channel name comes from ipcMain.handle registration
     return handler(event, ...args);
   };
 }

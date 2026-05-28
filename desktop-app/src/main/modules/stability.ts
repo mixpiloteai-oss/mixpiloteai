@@ -10,7 +10,7 @@
 //   - Intelligent retry logic with exponential backoff
 //   - Comprehensive crash logging
 
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { BrowserWindow, ipcMain } from 'electron'
 import { getAudioEngineProcess } from '../audio/AudioEngineProcess'
 import { logCrash } from './errorReporter'
 

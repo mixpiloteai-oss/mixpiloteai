@@ -44,7 +44,6 @@ function interpolate(t: number, curve: CurveType): number {
 export class MidiAutomation {
   private lanes: Map<string, AutomationLane> = new Map()
   private recording = false
-  private recordStartTick = 0
   private recordingLane: string | null = null
 
   /**
@@ -138,9 +137,8 @@ export class MidiAutomation {
   /**
    * Start recording CC events into a lane.
    */
-  startRecording(laneId: string, currentTick: number): void {
+  startRecording(laneId: string, _currentTick: number): void {
     this.recording = true
-    this.recordStartTick = currentTick
     this.recordingLane = laneId
   }
 

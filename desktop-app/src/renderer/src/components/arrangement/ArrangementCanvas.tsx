@@ -100,7 +100,7 @@ function isTrackVisible(
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 
-export default function ArrangementCanvas({ headerWidth, rulerHeight }: Props) {
+export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeight: _rulerHeight }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const sizeRef = useRef({ w: 1, h: 1 })
   const rafRef = useRef(0)
@@ -159,7 +159,6 @@ export default function ArrangementCanvas({ headerWidth, rulerHeight }: Props) {
       const tsTop = project.timeSignatureNumerator
       const barToBeat = (bar: number) => (bar - 1) * tsTop
       const beatToPx = (beat: number) => beat * zoomX - scrollX
-      const pxToBeat = (px: number) => (px + scrollX) / zoomX
       const beatToBar = (beat: number) => beat / tsTop + 1
 
       const trackLayout = computeTrackLayout(project.tracks, scrollY)
@@ -700,9 +699,9 @@ export default function ArrangementCanvas({ headerWidth, rulerHeight }: Props) {
         ?.clips.find(c => c.id === d.clipId)
       if (origClip) {
         const endBeat = pxToBeat(px)
-        const origEndBeat = barToBeat(origClip.startBar) + origClip.lengthBars * tsTop
+        const origEndBeat = barToBeat(origClip.startBar, tsTop) + origClip.lengthBars * tsTop
         const rawDeltaBeat = endBeat - (origEndBeat - (pxToBeat(d.x0) - origEndBeat + origEndBeat - origEndBeat))
-        const rawLen = (pxToBeat(px) - barToBeat(d.origStart)) / tsTop * tsTop
+        const rawLen = (pxToBeat(px) - barToBeat(d.origStart, tsTop)) / tsTop * tsTop
         const snapG = SNAP_BEATS_MAP[snap] ?? 0
         const snappedLen = snapG > 0
           ? Math.max(snapG / tsTop, Math.round(rawLen / (snapG / tsTop)) * (snapG / tsTop))
@@ -768,10 +767,9 @@ export default function ArrangementCanvas({ headerWidth, rulerHeight }: Props) {
   const onPointerUp = useCallback((_e: React.PointerEvent<HTMLCanvasElement>) => {
     const d = dragRef.current
     const { project } = projectStoreRef.current
-    const { snap, scrollX, scrollY, zoomX } = viewStoreRef.current
+    const { snap } = viewStoreRef.current
     const { selectClips } = useArrangementViewStore.getState()
     const tsTop = project.timeSignatureNumerator
-    const pxToBeat = (x: number) => (x + scrollX) / zoomX
     const beatToBar = (beat: number) => beat / tsTop + 1
 
     if (d.type === 'move') {
@@ -842,7 +840,7 @@ export default function ArrangementCanvas({ headerWidth, rulerHeight }: Props) {
   const onWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault()
     const { zoomX, scrollX, scrollY, setZoom, setScroll } = viewStoreRef.current
-    const { scrollX: sx, scrollY: sy, zoomX: zx } = viewStoreRef.current
+    const { scrollX: sx, zoomX: zx } = viewStoreRef.current
 
     if (e.ctrlKey || e.metaKey) {
       const pxToBeat = (px: number) => (px + sx) / zx

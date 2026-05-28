@@ -20,12 +20,10 @@ const NS_COEFF = [
 export class Ditherer {
   private nsHistory:  Float64Array = new Float64Array(NS_COEFF.length)
   private nsIdx = 0
-  private prevTPDF = 0
 
   reset(): void {
     this.nsHistory.fill(0)
     this.nsIdx = 0
-    this.prevTPDF = 0
   }
 
   /** Apply dithering to a float sample before truncation to integer PCM. */

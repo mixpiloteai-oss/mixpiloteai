@@ -67,8 +67,6 @@ export class AutomationEngine {
   private recordBuffer: Map<string, AutomationPoint[]>  = new Map()
   private applicator:   ParamApplicator | null          = null
 
-  private _recordingBeats = 0
-
   /** Wire up the callback that writes values to actual audio params. */
   setApplicator(fn: ParamApplicator): void { this.applicator = fn }
 

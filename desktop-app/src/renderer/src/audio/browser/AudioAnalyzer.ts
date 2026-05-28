@@ -20,7 +20,6 @@ export class AudioAnalyzer {
   private classifier = new StyleClassifier()
   private cache      = getAudioCache()
   private queue:     SampleEntry[] = []
-  private running    = false
   private concurrency = 2 // max parallel analyses
   private active      = 0
 

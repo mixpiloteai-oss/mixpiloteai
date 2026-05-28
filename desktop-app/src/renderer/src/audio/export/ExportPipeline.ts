@@ -8,7 +8,6 @@
 //   'cd'           — 16-bit 44.1 kHz WAV, LUFS-14, TPDF dither
 //   'archive'      — 24-bit FLAC, LUFS-normalised, no dither
 
-import { AudioEngine } from '../AudioEngine'
 import { normalize, measureLUFS, measureTruePeak, type NormMode } from './Normalizer'
 import { ditherBuffer, type DitherType } from './Dithering'
 import { encodeWav, type WavOptions, type WavMetadata } from './encoders/WavEncoder'
@@ -170,7 +169,7 @@ export async function runExportPipeline(
   } else if (cfg.format === 'mp3') {
     const { encodeMp3 } = await import('./encoders/Mp3Encoder')
     const mp3 = await encodeMp3(rendered, { bitrate: cfg.mp3Bitrate ?? 320 })
-    blob = new Blob([mp3.data], { type: 'audio/mpeg' })
+    blob = new Blob([mp3.data.buffer as ArrayBuffer], { type: 'audio/mpeg' })
   } else {
     const wavOpts: WavOptions = {
       bitDepth:    cfg.bitDepth,

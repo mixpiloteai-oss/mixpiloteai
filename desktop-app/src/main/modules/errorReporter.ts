@@ -9,7 +9,7 @@ import { app, type IpcMain } from 'electron'
 import { promises as fs } from 'fs'
 import { join, dirname } from 'path'
 
-export type CrashSource = 'main' | 'renderer' | 'plugin' | 'audio'
+export type CrashSource = 'main' | 'renderer' | 'plugin' | 'audio' | 'stability'
 
 export interface CrashEntry {
   timestamp:  string
@@ -133,7 +133,7 @@ interface CrashReportPayload {
 
 export function registerCrashIPC(ipcMain: IpcMain): void {
   ipcMain.handle('crash:report', async (_e, payload: CrashReportPayload) => {
-    const src: CrashSource = (payload?.source && ['main','renderer','plugin','audio'].includes(payload.source))
+    const src: CrashSource = (payload?.source && ['main','renderer','plugin','audio','stability'].includes(payload.source))
       ? payload.source as CrashSource
       : 'renderer'
     await logCrash({

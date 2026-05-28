@@ -19,7 +19,7 @@ const SNAP_OPTIONS: ARSnap[] = ['off', '1/32', '1/16', '1/8', '1/4', '1/2', '1/1
 
 // ─── Toolbar button ───────────────────────────────────────────────────────────
 
-function ToolBtn({ id, label, shortcut, active, onClick }: {
+function ToolBtn({ id: _id, label, shortcut, active, onClick }: {
   id:        ARTool
   label:     string
   shortcut:  string
@@ -54,7 +54,7 @@ function Sep() {
 // ─── ArrangementView ─────────────────────────────────────────────────────────
 
 export default function ArrangementView() {
-  const { tool, snap, zoomX, scrollX, scrollY, setTool, setSnap, setZoom, setScroll, selectedClipIds, deselectAll } =
+  const { tool, snap, zoomX, scrollY, setTool, setSnap, setZoom, setScroll, selectedClipIds, deselectAll } =
     useArrangementViewStore()
   const { project, deleteClips, duplicateClips } = useProjectStore()
 

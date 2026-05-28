@@ -73,17 +73,17 @@ export class MidiHumanize {
 
       // Timing: shift with bias
       const timingDelta = (rng.gaussian() * 2 + opts.timingBias) * opts.timingRange
-      const newStart = Math.max(0, note.start + timingDelta)
+      const newStart = Math.max(0, note.startBeat + timingDelta)
 
       // Duration: variations
       const durationFactor = 1 + rng.gaussian() * 2 * opts.durationRange
-      const newDuration = Math.max(1, note.duration * durationFactor)
+      const newDuration = Math.max(1, note.lengthBeats * durationFactor)
 
       return {
         ...note,
-        velocity: newVelocity,
-        start:    newStart,
-        duration: newDuration,
+        velocity:    newVelocity,
+        startBeat:   newStart,
+        lengthBeats: newDuration,
       }
     })
   }

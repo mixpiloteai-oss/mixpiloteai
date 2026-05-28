@@ -2,7 +2,6 @@
 // Renders individual track stems via isolated OfflineAudioContext passes.
 // Each stem = one track rendered solo, other tracks muted.
 
-import { AudioEngine } from '../AudioEngine'
 import { normalize, type NormMode } from './Normalizer'
 import { ditherBuffer, type DitherType } from './Dithering'
 import { encodeWav } from './encoders/WavEncoder'
@@ -44,7 +43,7 @@ export interface StemsOptions {
 }
 
 async function renderStem(
-  trackId:    string,
+  _trackId:   string,
   options:    StemsOptions,
   onProgress: (pct: number) => void,
 ): Promise<{ buffer: AudioBuffer; peakdBFS: number }> {
@@ -105,7 +104,7 @@ export async function exportStems(
     } else if (options.format === 'mp3') {
       const { encodeMp3 } = await import('./encoders/Mp3Encoder')
       const mp3 = await encodeMp3(buffer, { bitrate: 320 })
-      blob = new Blob([mp3.data], { type: 'audio/mpeg' })
+      blob = new Blob([mp3.data.buffer as ArrayBuffer], { type: 'audio/mpeg' })
     } else {
       const ab = encodeWav(buffer, { bitDepth: options.bitDepth, floatFormat: options.bitDepth === 32, metadata: { title: stem.trackName } })
       blob = new Blob([ab], { type: 'audio/wav' })

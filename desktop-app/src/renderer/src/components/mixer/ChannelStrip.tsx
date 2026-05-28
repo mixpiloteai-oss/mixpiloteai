@@ -341,7 +341,7 @@ function InsertsSection({ trackId }: { trackId: string }) {
 
 // ─── Strip section header ──────────────────────────────────────────────────────
 
-function SectionLabel({ label, color }: { label: string; color: string }) {
+function SectionLabel({ label, color: _color }: { label: string; color: string }) {
   return (
     <div style={{
       fontSize: 7, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase',
@@ -363,7 +363,7 @@ interface TrackStripProps {
 
 const TrackChannelStrip = memo(function TrackChannelStrip({ track, channelNum, levelFn }: TrackStripProps) {
   const { toggleMute, toggleSolo, toggleArm, setTrackGain, setTrackPan } = useProjectStore()
-  const { buses, getOrCreate, setEQEnabled, toggleSection }              = useMixerStore()
+  const { buses, getOrCreate, setEQEnabled, toggleSection: _toggleSection } = useMixerStore()
   const ch = getOrCreate(track.id)
 
   const handleGain    = useCallback((db: number) => setTrackGain(track.id, db), [track.id, setTrackGain])

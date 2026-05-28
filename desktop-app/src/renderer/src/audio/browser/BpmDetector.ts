@@ -1,16 +1,4 @@
 export class BpmDetector {
-  private audioCtx: AudioContext | null = null
-
-  private getCtx(): AudioContext {
-    if (!this.audioCtx) this.audioCtx = new AudioContext({ sampleRate: 44100 })
-    return this.audioCtx
-  }
-
-  // Unused but kept for potential future use
-  private _ensureCtx(): AudioContext {
-    return this.getCtx()
-  }
-
   detect(buffer: AudioBuffer): number | null {
     if (buffer.length === 0) return null
     const mono = this._mixToMono(buffer)

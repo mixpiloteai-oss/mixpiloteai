@@ -88,7 +88,6 @@ export function registerPluginIPC(
   ipcMain.handle('plugin-load', async (_e, pluginPath: string, format: string) => {
     const instance = await pluginHostManager.load(pluginPath, format)
     // Register with health monitor
-    // @ts-expect-error access proc from manager
     const proc = pluginHostManager['procs'].get(instance.instanceId)?.proc
     if (proc) {
       pluginHealthMonitor.register(instance.instanceId, pluginPath, instance.name, proc)

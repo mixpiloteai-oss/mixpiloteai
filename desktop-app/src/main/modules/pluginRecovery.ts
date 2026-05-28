@@ -8,7 +8,7 @@
 // - Crash escalation: auto-blacklist after repeated failures
 
 import { EventEmitter } from 'events'
-import { pluginHostManager, type PluginInstance } from './pluginHost'
+import { pluginHostManager } from './pluginHost'
 import { recordCrash, isBlacklisted } from './pluginBlacklist'
 import { pluginHealthMonitor } from './pluginHealth'
 import { logCrash } from './errorReporter'
@@ -188,7 +188,6 @@ export class PluginRecovery extends EventEmitter {
       const newInstance = await pluginHostManager.load(state.pluginPath, state.format)
 
       // Register with health monitor
-      // @ts-expect-error access proc from manager
       const proc = pluginHostManager['procs'].get(newInstance.instanceId)?.proc
       if (proc) {
         pluginHealthMonitor.register(newInstance.instanceId, state.pluginPath, newInstance.name, proc)
