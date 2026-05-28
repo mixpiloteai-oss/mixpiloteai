@@ -87,7 +87,7 @@ jobs:
   full-suite:
     name: E2E — full suite (sandbox creds required)
     needs: smoke
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'run-e2e-full')
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') || contains(github.event.pull_request.labels.*.name, 'run-e2e-full')
     runs-on: ${{ vars.E2E_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 45
     defaults:
