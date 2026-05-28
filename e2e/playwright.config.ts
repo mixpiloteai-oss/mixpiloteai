@@ -22,7 +22,6 @@ export default defineConfig({
   outputDir: 'test-results',
   use: {
     baseURL: WEBSITE_URL,
-    extraHTTPHeaders: { 'x-e2e-backend': BACKEND_URL },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
