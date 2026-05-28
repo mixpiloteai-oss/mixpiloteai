@@ -79,16 +79,7 @@ jobs:
         working-directory: desktop-app
 
     env:
-      GH_TOKEN:                       ${{ secrets.GITHUB_TOKEN }}
-      # macOS code-signing (optional — build proceeds unsigned if absent)
-      CSC_LINK:                       ${{ secrets.MAC_CERT_P12_BASE64 }}
-      CSC_KEY_PASSWORD:               ${{ secrets.MAC_CERT_PASSWORD }}
-      APPLE_ID:                       ${{ secrets.APPLE_ID }}
-      APPLE_APP_SPECIFIC_PASSWORD:    ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-      APPLE_TEAM_ID:                  ${{ secrets.APPLE_TEAM_ID }}
-      # Windows code-signing (optional)
-      WIN_CSC_LINK:                   ${{ secrets.WIN_CERT_PFX_BASE64 }}
-      WIN_CSC_KEY_PASSWORD:           ${{ secrets.WIN_CERT_PASSWORD }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       # ── Checkout ─────────────────────────────────────────────────────────────
@@ -186,6 +177,42 @@ jobs:
       # ── Compile sources ───────────────────────────────────────────────────────
       - name: Build (electron-vite)
         run: npm run build
+
+      # ── Code signing: only enable when secrets are actually present ─────────────
+      # Passing WIN_CSC_LINK / CSC_LINK as empty strings causes electron-builder to
+      # validate them even when sign=null — so we only export them when non-empty.
+      - name: Configure code signing
+        shell: bash
+        env:
+          _WIN_CERT:   ${{ secrets.WIN_CERT_PFX_BASE64 }}
+          _WIN_PASS:   ${{ secrets.WIN_CERT_PASSWORD }}
+          _MAC_CERT:   ${{ secrets.MAC_CERT_P12_BASE64 }}
+          _MAC_PASS:   ${{ secrets.MAC_CERT_PASSWORD }}
+          _APPLE_ID:   ${{ secrets.APPLE_ID }}
+          _APPLE_PASS: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          _APPLE_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Windows
+          if [ -n "$_WIN_CERT" ]; then
+            printf 'WIN_CSC_LINK=%s\n'         "$_WIN_CERT" >> "$GITHUB_ENV"
+            printf 'WIN_CSC_KEY_PASSWORD=%s\n' "$_WIN_PASS" >> "$GITHUB_ENV"
+            echo "✓ Windows signing enabled"
+          else
+            echo "→ Windows signing skipped (WIN_CERT_PFX_BASE64 not set)"
+          fi
+          # macOS
+          if [ -n "$_MAC_CERT" ]; then
+            printf 'CSC_LINK=%s\n'                    "$_MAC_CERT"    >> "$GITHUB_ENV"
+            printf 'CSC_KEY_PASSWORD=%s\n'            "$_MAC_PASS"    >> "$GITHUB_ENV"
+            printf 'APPLE_ID=%s\n'                    "$_APPLE_ID"    >> "$GITHUB_ENV"
+            printf 'APPLE_APP_SPECIFIC_PASSWORD=%s\n' "$_APPLE_PASS"  >> "$GITHUB_ENV"
+            printf 'APPLE_TEAM_ID=%s\n'               "$_APPLE_TEAM"  >> "$GITHUB_ENV"
+            echo "✓ macOS signing + notarization enabled"
+          else
+            # Prevent electron-builder from searching the runner keychain
+            echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "$GITHUB_ENV"
+            echo "→ macOS signing skipped (MAC_CERT_P12_BASE64 not set)"
+          fi
 
       # ── Package (never publish directly — release job handles that) ───────────
       - name: Package with electron-builder

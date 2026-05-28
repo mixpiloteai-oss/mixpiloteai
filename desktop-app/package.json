@@ -202,6 +202,7 @@
     },
     "compression": "maximum",
     "generateUpdatesFilesForAllChannels": true,
+    "forceCodeSigning": false,
     "afterSign": "scripts/notarize.js",
     "publish": {
       "provider": "github",
