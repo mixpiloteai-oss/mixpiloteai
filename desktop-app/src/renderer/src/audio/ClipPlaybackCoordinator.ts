@@ -43,6 +43,9 @@ export class ClipPlaybackCoordinator {
   // playback session to avoid duplicates in the lookahead window
   private _scheduled: Set<string> = new Set()
 
+  // Last absolute beat index seen — used to detect loop wraps
+  private _lastBeatIdx = -1
+
   // Notes currently sounding (for allNotesOff on flush)
   private _activeNoteIds: Map<string, { trackId: string; pitch: number }> = new Map()
 
@@ -63,6 +66,7 @@ export class ClipPlaybackCoordinator {
   start(): void {
     if (this._clockUnsub) return  // already running
     this._scheduled.clear()
+    this._lastBeatIdx = -1
     this._clockUnsub = this.transport.onBeat((beatIdx, scheduledTime, _pos) => {
       this._onBeat(beatIdx, scheduledTime)
     })
@@ -81,6 +85,7 @@ export class ClipPlaybackCoordinator {
   seek(_bar: number): void {
     this._flush()
     this._scheduled.clear()
+    this._lastBeatIdx = -1
   }
 
   /** Set swing amount (0.0–1.0, where 0.5 = full triplet swing). */
@@ -101,6 +106,12 @@ export class ClipPlaybackCoordinator {
    * all notes in that window across all active clips.
    */
   private _onBeat(beatIdx: number, scheduledTime: number): void {
+    // Detect loop wrap: beatIdx regressed → clear dedup so notes replay
+    if (beatIdx <= this._lastBeatIdx) {
+      this._scheduled.clear()
+    }
+    this._lastBeatIdx = beatIdx
+
     const project  = useProjectStore.getState().project
     const bpm      = this.transport.bpm
     const tsTop    = this.transport.timeSigTop

@@ -10,35 +10,36 @@ import { getTrackManager, getTransport } from '../../audio'
 let _uid = 1
 const uid = () => `pr${_uid++}`
 
-// Module-level preview scheduler (lazy-init on first use)
+// Module-level preview scheduler (lazy-init on first use, re-created when track changes)
 let _previewScheduler: PreviewScheduler | null = null
-
-function getPreviewScheduler(): PreviewScheduler | null {
-  if (_previewScheduler) return _previewScheduler
-  // Find first MIDI track node to use for preview
-  const trackMgr = getTrackManager()
-  const ids = trackMgr.getTrackIds()
-  for (const id of ids) {
-    const node = trackMgr.getTrack(id)
-    if (node instanceof MidiTrackNode) {
-      _previewScheduler = new PreviewScheduler(node)
-      return _previewScheduler
-    }
-  }
-  return null
-}
+let _previewSchedulerNode: MidiTrackNode | null = null
 
 function getPreviewSchedulerForTrack(trackId: string): PreviewScheduler | null {
   const trackMgr = getTrackManager()
   const node = trackMgr.getTrack(trackId)
   if (node instanceof MidiTrackNode) {
-    // Create a new scheduler if needed or if track changed
-    if (!_previewScheduler) {
+    // Re-create scheduler if the node changed (different track selected)
+    if (node !== _previewSchedulerNode || !_previewScheduler) {
+      _previewScheduler?.stop()
       _previewScheduler = new PreviewScheduler(node)
+      _previewSchedulerNode = node
     }
     return _previewScheduler
   }
-  return getPreviewScheduler()
+  // Fallback: find any available MIDI node
+  const ids = trackMgr.getTrackIds()
+  for (const id of ids) {
+    const n = trackMgr.getTrack(id)
+    if (n instanceof MidiTrackNode) {
+      if (n !== _previewSchedulerNode || !_previewScheduler) {
+        _previewScheduler?.stop()
+        _previewScheduler = new PreviewScheduler(n)
+        _previewSchedulerNode = n
+      }
+      return _previewScheduler
+    }
+  }
+  return null
 }
 
 const mk = (pitch: number, start: number, len: number, vel: number): PRNote => ({
@@ -196,8 +197,8 @@ export const usePianoRollStore = create<PianoRollState>((set, get) => ({
     set(s => ({
       notes: s.notes.map(n => ({
         ...n,
-        selected: n.startBeat >= beatA && n.startBeat + n.lengthBeats <= beatB
-               && n.pitch >= pitchLo   && n.pitch <= pitchHi,
+        selected: n.startBeat < beatB && n.startBeat + n.lengthBeats > beatA
+               && n.pitch >= pitchLo  && n.pitch <= pitchHi,
       })),
     }))
   },
