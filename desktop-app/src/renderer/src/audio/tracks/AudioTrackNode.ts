@@ -2,21 +2,36 @@
  * AudioTrackNode — single audio track DSP chain
  *
  * Signal chain:
- *   AudioBufferSource(s) ──→ preFaderGain ──→ gainNode (fader) ──→ panNode ──→ analyser ──→ master/bus
- *                                  ↓ (pre-fader sends)
- *                             BusRouter sends
+ *   AudioBufferSource(s) ──→ input ──→ EqChain ──→ FxInsertChain ──→ preFaderGain ──→ gainNode (fader) ──→ panNode ──→ analyser ──→ master/bus
+ *                                                                            ↓ (pre-fader sends)
+ *                                                                       BusRouter sends
  *
  * Supports clip playback, punch-in/out, and plugin chain insertion points.
  */
 
 import { AudioEngine, dbToGain, gainToDb, clamp } from '../AudioEngine'
+import { EqChain }       from '../EqChain'
+import { FxInsertChain } from '../FxInsertChain'
+import { getWorkerPool } from '../WorkerPool'
 import type { ChannelLevel } from '../types'
+import type { EQBand }   from '../EqChain'
 
 export interface AudioClipSchedule {
   buffer:       AudioBuffer
   startContextTime: number  // AudioContext.currentTime to start playback
   offsetSec:    number      // offset into the buffer
   durationSec?: number      // optional clip length limit
+}
+
+// Default flat EQ bands (all gain=0, disabled)
+function defaultEqBands(): EQBand[] {
+  return [
+    { id: 'eq0', type: 'highpass',  freq: 80,   gain: 0, q: 0.7, enabled: false },
+    { id: 'eq1', type: 'lowshelf',  freq: 200,  gain: 0, q: 1.0, enabled: false },
+    { id: 'eq2', type: 'peaking',   freq: 1000, gain: 0, q: 1.0, enabled: false },
+    { id: 'eq3', type: 'peaking',   freq: 4000, gain: 0, q: 1.0, enabled: false },
+    { id: 'eq4', type: 'highshelf', freq: 8000, gain: 0, q: 0.7, enabled: false },
+  ]
 }
 
 export class AudioTrackNode {
@@ -30,6 +45,10 @@ export class AudioTrackNode {
   readonly analyserNode:   AnalyserNode
   /** Connect sources (AudioBufferSources, plugin chains) here. */
   readonly input:          GainNode
+
+  // DSP insert chains
+  readonly eq:  EqChain
+  readonly fx:  FxInsertChain
 
   private readonly engine: AudioEngine
   private _gainDb          = 0
@@ -59,8 +78,14 @@ export class AudioTrackNode {
     this.analyserNode.fftSize               = 256
     this.analyserNode.smoothingTimeConstant = 0
 
-    // Chain
-    this.input.connect(this.preFaderNode)    // tap pre-fader
+    // Create EQ and FX insert chains
+    this.eq = new EqChain(ctx, defaultEqBands())
+    this.fx = new FxInsertChain(ctx)
+
+    // Chain: input → EQ → FX → preFaderNode → gainNode → panNode → analyser → destination
+    this.input.connect(this.eq.input)
+    this.eq.output.connect(this.fx.input)
+    this.fx.output.connect(this.preFaderNode)
     this.preFaderNode.connect(this.gainNode) // fader
     this.gainNode.connect(this.panNode)
     this.panNode.connect(this.analyserNode)
@@ -94,16 +119,63 @@ export class AudioTrackNode {
 
   // ── Clip scheduling ───────────────────────────────────────────────────────
 
-  scheduleClip(sched: AudioClipSchedule): AudioBufferSourceNode {
-    const src = this.engine.ctx.createBufferSource()
-    src.buffer = sched.buffer
-    src.connect(this.input)
+  async scheduleClip(sched: AudioClipSchedule): Promise<AudioBufferSourceNode> {
+    const ctx = this.engine.ctx
+    let buffer = sched.buffer
 
-    const startTime = Math.max(this.engine.ctx.currentTime, sched.startContextTime)
+    // Resample if the buffer's sample rate doesn't match the AudioContext rate
+    if (buffer.sampleRate !== ctx.sampleRate) {
+      const numChannels = buffer.numberOfChannels
+      const targetLen   = Math.round(buffer.length * ctx.sampleRate / buffer.sampleRate)
+      const pool        = getWorkerPool()
+
+      const channelPromises = Array.from({ length: numChannels }, (_, ch) => {
+        const samples = buffer.getChannelData(ch)
+        // Copy to transfer without detaching original (slice makes a new ArrayBuffer)
+        const copy = samples.slice(0)
+        return pool.dispatch(
+          { id: `resample-${this.id}-${ch}-${Date.now()}`, type: 'resample', payload: { samples: copy, targetLen } },
+          [copy.buffer],
+        )
+      })
+
+      const results = await Promise.all(channelPromises)
+      const resampled = ctx.createBuffer(numChannels, targetLen, ctx.sampleRate)
+      for (let ch = 0; ch < numChannels; ch++) {
+        const r = results[ch]!
+        if (r.type === 'resample') {
+          resampled.copyToChannel(r.samples, ch)
+        }
+      }
+      buffer = resampled
+    }
+
+    const src       = ctx.createBufferSource()
+    src.buffer      = buffer
+    const startTime = Math.max(ctx.currentTime, sched.startContextTime)
+
+    // Anti-crackle ramp gain node
+    const rampGain  = ctx.createGain()
+    rampGain.gain.setValueAtTime(0, startTime)
+    rampGain.gain.linearRampToValueAtTime(1, startTime + 0.002)
+
+    if (sched.durationSec !== undefined) {
+      const endTime = startTime + sched.durationSec
+      rampGain.gain.setValueAtTime(1, endTime - 0.002)
+      rampGain.gain.linearRampToValueAtTime(0, endTime)
+    }
+
+    src.connect(rampGain)
+    rampGain.connect(this.input)
+
     src.start(startTime, sched.offsetSec, sched.durationSec)
 
     this._activeSources.add(src)
-    src.onended = () => { src.disconnect(); this._activeSources.delete(src) }
+    src.onended = () => {
+      src.disconnect()
+      rampGain.disconnect()
+      this._activeSources.delete(src)
+    }
 
     return src
   }
@@ -144,6 +216,8 @@ export class AudioTrackNode {
   dispose(): void {
     this.stopAllClips(0)
     this.input.disconnect()
+    this.eq.dispose()
+    this.fx.dispose()
     this.preFaderNode.disconnect()
     this.gainNode.disconnect()
     this.panNode.disconnect()

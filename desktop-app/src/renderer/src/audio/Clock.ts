@@ -195,6 +195,7 @@ export class Clock {
 
     // Worklet ready — clear the setInterval fallback
     this._workletReady = true
+    console.info('[Clock] AudioWorklet scheduler active — setInterval fallback disabled')
     if (this._intervalId !== null) {
       clearInterval(this._intervalId)
       this._intervalId = null

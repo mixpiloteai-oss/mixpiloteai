@@ -2,7 +2,7 @@ import { useMemo, useCallback }    from 'react'
 import { useProjectStore }          from '../../store/projectStore'
 import { useMixerStore }            from './useMixerStore'
 import SpectrumCanvas               from './SpectrumCanvas'
-import { TrackChannelStrip, BusChannelStrip, makeTrackLevelFn, makeBusLevelFn } from './ChannelStrip'
+import { TrackChannelStrip, BusChannelStrip } from './ChannelStrip'
 import type { TrackSpectrum }       from './SpectrumCanvas'
 
 // ─── Toolbar ──────────────────────────────────────────────────────────────────
@@ -71,33 +71,27 @@ export default function MixerView() {
   const setMonitoring   = useMixerStore(s => s.setMonitoring)
   const toggleSpectrum  = useMixerStore(s => s.toggleSpectrum)
 
-  // Build level functions once per track (stable across re-renders)
-  const trackIdKey = tracks.map((t: { id: string }) => t.id).join(',')
-  const busIdKey   = buses.map((b: { id: string }) => b.id).join(',')
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const trackLevelFns = useMemo(() => Object.fromEntries(tracks.map(t => [t.id, makeTrackLevelFn(t)])), [trackIdKey])
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const busLevelFns   = useMemo(() => Object.fromEntries(buses.map(b => [b.id, makeBusLevelFn(b)])),           [busIdKey])
-
-  // Spectrum data — use stable string deps instead of object references to avoid spurious recomputes
+  // Spectrum data — level functions use real audio data via closures over track IDs
+  // (SpectrumCanvas calls getLevel() each rAF frame; we provide zero-level fallbacks
+  //  since actual metering is now in the strip components via useTrackLevel/useBusLevel)
   const trackIdColorKey = tracks.map((t: { id: string; color: string }) => `${t.id}:${t.color}`).join(',')
   const busIdColorKey   = buses.map((b: { id: string; color: string; type: string }) => `${b.id}:${b.color}:${b.type}`).join(',')
+  const noLevel = (): { rmsL: number; rmsR: number; peakL: number; peakR: number } => ({ rmsL: 0, rmsR: 0, peakL: 0, peakR: 0 })
   const spectrumTracks = useMemo<TrackSpectrum[]>(() => [
     ...tracks.map(t => ({
       trackId:  t.id,
       type:     t.type as TrackSpectrum['type'],
       color:    t.color,
-      getLevel: trackLevelFns[t.id] ?? (() => ({ rmsL: 0, rmsR: 0, peakL: 0, peakR: 0 })),
+      getLevel: noLevel,
     })),
     ...buses.map(b => ({
       trackId:  b.id,
       type:     (b.type === 'master' ? 'master' : 'bus') as TrackSpectrum['type'],
       color:    b.color,
-      getLevel: busLevelFns[b.id] ?? (() => ({ rmsL: 0, rmsR: 0, peakL: 0, peakR: 0 })),
+      getLevel: noLevel,
     })),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [trackIdColorKey, busIdColorKey, trackLevelFns, busLevelFns])
+  ], [trackIdColorKey, busIdColorKey])
 
   const groupBuses = buses.filter(b => b.type === 'group')
   const fxBuses    = buses.filter(b => b.type === 'fx-return')
@@ -105,8 +99,6 @@ export default function MixerView() {
 
   const handleLimiter = useCallback(() => setMasterLimiter(!masterLimiter), [masterLimiter, setMasterLimiter])
   const handleMonitor = useCallback(() => setMonitoring(!monitoring),       [monitoring, setMonitoring])
-
-  const noLevel = () => ({ rmsL: 0, rmsR: 0, peakL: 0, peakR: 0 })
 
   return (
     <div style={{
@@ -175,7 +167,6 @@ export default function MixerView() {
               key={track.id}
               track={track}
               channelNum={i + 1}
-              levelFn={trackLevelFns[track.id] ?? noLevel}
             />
           ))}
 
@@ -185,7 +176,6 @@ export default function MixerView() {
             <BusChannelStrip
               key={bus.id}
               bus={bus}
-              levelFn={busLevelFns[bus.id] ?? noLevel}
               isMaster={false}
             />
           ))}
@@ -196,7 +186,6 @@ export default function MixerView() {
             <BusChannelStrip
               key={bus.id}
               bus={bus}
-              levelFn={busLevelFns[bus.id] ?? noLevel}
               isMaster={false}
             />
           ))}
@@ -207,7 +196,6 @@ export default function MixerView() {
               <StripDivider label="Master" />
               <BusChannelStrip
                 bus={masterBus}
-                levelFn={busLevelFns[masterBus.id] ?? noLevel}
                 isMaster
               />
             </>

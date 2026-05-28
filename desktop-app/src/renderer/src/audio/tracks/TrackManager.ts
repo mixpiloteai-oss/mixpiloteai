@@ -11,7 +11,7 @@
  * One TrackManager per project session.
  */
 
-import { AudioEngine }              from '../AudioEngine'
+import { AudioEngine, dbToGain }    from '../AudioEngine'
 import { BusRouter }                from '../BusRouter'
 import { LatencyCompensator }       from '../LatencyCompensator'
 import { AutomationEngine }         from '../AutomationEngine'
@@ -226,14 +226,37 @@ export class TrackManager {
 
   // ── Automation ────────────────────────────────────────────────────────────
 
-  /** Apply an automation value to a track param (called by AutomationEngine). */
+  /** Apply an automation value to a track param (called by AutomationEngine).
+   *  Uses linearRampToValueAtTime for smooth 16ms transitions between automation points.
+   */
   applyParam(trackId: string, paramName: string, value: number): void {
     const node = this._tracks.get(trackId)?.node
     if (!node) return
 
+    const ctx = this.engine.ctx
+    const now = ctx.currentTime
+
     switch (paramName) {
-      case 'gainDb': this._applyGain(node, value); break
-      case 'pan':    this._applyPan(node, value);  break
+      case 'gainDb': {
+        // Apply directly to the gainNode AudioParam for smooth automation
+        const gainNode = node instanceof AudioTrackNode ? node.gainNode
+          : node instanceof MidiTrackNode ? node.gainNode
+          : (node as BusTrackNode).gainNode
+        const targetLinear = dbToGain(value)
+        gainNode.gain.cancelScheduledValues(now)
+        gainNode.gain.setValueAtTime(gainNode.gain.value, now)
+        gainNode.gain.linearRampToValueAtTime(targetLinear, now + 0.016)
+        break
+      }
+      case 'pan': {
+        const panParam = node instanceof AudioTrackNode ? node.panNode.pan
+          : node instanceof MidiTrackNode ? node.panNode.pan
+          : (node as BusTrackNode).panNode.pan
+        panParam.cancelScheduledValues(now)
+        panParam.setValueAtTime(panParam.value, now)
+        panParam.linearRampToValueAtTime(value, now + 0.016)
+        break
+      }
       default:
         if (paramName.startsWith('send:')) {
           const busId = paramName.slice(5)

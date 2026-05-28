@@ -31,7 +31,11 @@ import { AutomationEngine }           from './AutomationEngine'
 import { LatencyCompensator }         from './LatencyCompensator'
 import { MonitorEngine }              from './MonitorEngine'
 import { TrackManager }               from './tracks/TrackManager'
+import { AudioTrackNode }             from './tracks/AudioTrackNode'
 import { ClipPlaybackCoordinator }    from './ClipPlaybackCoordinator'
+import { useMixerStore }              from '../components/mixer/useMixerStore'
+import type { EQBand as StoreEQBand } from '../components/mixer/useMixerStore'
+import type { EQBand as DspEQBand }   from './EqChain'
 
 // ─── Singletons ───────────────────────────────────────────────────────────────
 
@@ -123,6 +127,51 @@ export function getClipPlaybackCoordinator(): ClipPlaybackCoordinator {
   return _coordinator
 }
 
+// ─── EQ band type conversion ──────────────────────────────────────────────────
+
+/** Map mixer store EQ band type strings to Web Audio BiquadFilterType. */
+function toWebAudioFilterType(type: StoreEQBand['type']): BiquadFilterType {
+  switch (type) {
+    case 'peak':      return 'peaking'
+    case 'lowshelf':  return 'lowshelf'
+    case 'highshelf': return 'highshelf'
+    case 'highpass':  return 'highpass'
+    case 'lowpass':   return 'lowpass'
+    default:          return 'peaking'
+  }
+}
+
+function storeToEqBands(storeBands: StoreEQBand[]): DspEQBand[] {
+  return storeBands.map((b, i) => ({
+    id:      `eq${i}`,
+    type:    toWebAudioFilterType(b.type),
+    freq:    b.freq,
+    gain:    b.gain,
+    q:       b.q,
+    enabled: b.enabled,
+  }))
+}
+
+// ─── Mixer store → EQ subscription ───────────────────────────────────────────
+
+let _mixerUnsub: (() => void) | null = null
+
+function _wireMixerStoreToEq(): void {
+  if (_mixerUnsub) return  // already subscribed
+
+  _mixerUnsub = useMixerStore.subscribe((state) => {
+    const tm = _trackMgr
+    if (!tm) return
+    // For each channel, update the EQ chain on the corresponding AudioTrackNode
+    for (const [trackId, ch] of Object.entries(state.channels)) {
+      const node = tm.getTrack(trackId)
+      if (!(node instanceof AudioTrackNode)) continue
+      node.eq.update(storeToEqBands(ch.eqBands))
+      node.eq.setEnabled(ch.eqEnabled)
+    }
+  })
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 /** Pre-warm all singletons. Call once after first user gesture. */
@@ -139,6 +188,9 @@ export function initAudioEngine(): void {
   getMonitorEngine()
   getTrackManager()
   getClipPlaybackCoordinator()
+
+  // Wire mixer store EQ state to AudioTrackNode EQ chains
+  _wireMixerStoreToEq()
 }
 
 // ─── Re-exports ───────────────────────────────────────────────────────────────

@@ -1,9 +1,11 @@
 import { useRef, useEffect } from 'react'
+import type { ChannelLevel } from '../../audio/types'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
-  getLevel: () => { rmsL: number; rmsR: number; peakL: number; peakR: number }
+  /** Live ChannelLevel from useTrackLevel / useBusLevel hook. */
+  level: ChannelLevel
   color: string      // track color hex (reserved for future tinting)
   height: number     // CSS height in px (canvas fills this)
   showLufs?: boolean
@@ -77,7 +79,7 @@ const SCALE_RIGHT_PAD  = 22  // px reserved for scale labels on the right
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function MeterCanvas({ getLevel, color: _color, height, showLufs = false }: Props) {
+export default function MeterCanvas({ level, color: _color, height, showLufs = false }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const sizeRef   = useRef({ w: 1, h: height })
   const rafRef    = useRef(0)
@@ -103,8 +105,9 @@ export default function MeterCanvas({ getLevel, color: _color, height, showLufs 
   const showLufsRef = useRef(showLufs)
   showLufsRef.current = showLufs
 
-  const getLevelRef = useRef(getLevel)
-  getLevelRef.current = getLevel
+  // Mirror level into a ref so the RAF closure always reads the latest value
+  const levelRef = useRef(level)
+  levelRef.current = level
 
   // ── Stable RAF draw loop ──────────────────────────────────────────────────
   useEffect(() => {
@@ -121,7 +124,9 @@ export default function MeterCanvas({ getLevel, color: _color, height, showLufs 
       ctx.clearRect(0, 0, W, H)
 
       // ── Update ballistics ─────────────────────────────────────────────
-      const { rmsL, rmsR, peakL, peakR } = getLevelRef.current()
+      // Convert mono ChannelLevel to stereo (rms used for both L and R)
+      const { rms, peak } = levelRef.current
+      const rmsL = rms, rmsR = rms, peakL = peak, peakR = peak
 
       // RMS smoothing: fast attack (0.5), slow release (0.94)
       rmsLRef.current = rmsL > rmsLRef.current

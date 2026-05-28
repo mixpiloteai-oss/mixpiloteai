@@ -3,59 +3,10 @@ import { useProjectStore }             from '../../store/projectStore'
 import { useMixerStore }               from './useMixerStore'
 import MeterCanvas                     from './MeterCanvas'
 import EQCurveCanvas                   from './EQCurveCanvas'
+import { useTrackLevel }               from '../../hooks/useTrackLevel'
+import { useBusLevel }                 from '../../hooks/useBusLevel'
 import type { Track }                  from '../../types/project'
 import type { MixerBus }               from './useMixerStore'
-
-// ─── Level simulation ─────────────────────────────────────────────────────────
-
-function trackHash(id: string): number {
-  let h = 0
-  for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0
-  return Math.abs(h)
-}
-
-type LevelFn = () => { rmsL: number; rmsR: number; peakL: number; peakR: number }
-
-function makeTrackLevelFn(track: Track): LevelFn {
-  const hash  = trackHash(track.id)
-  const f1    = 1 + (hash & 0xFF) / 256 * 3
-  const f2    = 4 + ((hash >> 8) & 0xFF) / 256 * 7
-  const phase = ((hash >> 16) & 0xFF) / 256 * Math.PI * 2
-  // Different phase for R channel for stereo illusion
-  const phaseR = phase + 0.3
-
-  return () => {
-    if (track.muted) return { rmsL: 0, rmsR: 0, peakL: 0, peakR: 0 }
-    const gainLin = track.gainDb <= -60 ? 0 : Math.pow(10, track.gainDb / 20)
-    const t  = performance.now() / 1000
-    const v1 = Math.abs(Math.sin(t * f1 + phase))
-    const v2 = Math.abs(Math.sin(t * f2 + phase * 1.3)) * 0.5
-    const v1r = Math.abs(Math.sin(t * f1 + phaseR))
-    const v2r = Math.abs(Math.sin(t * f2 + phaseR * 1.3)) * 0.5
-    // Pan law
-    const panL = Math.cos((track.panCenter + 1) * Math.PI / 4)
-    const panR = Math.sin((track.panCenter + 1) * Math.PI / 4)
-    const baseL = (v1 + v2)  * 0.67 * gainLin * 0.45 * panL
-    const baseR = (v1r + v2r)* 0.67 * gainLin * 0.45 * panR
-    const peakL = Math.min(1, baseL * (1 + Math.sin(t * 13.7 + phase) * 0.15))
-    const peakR = Math.min(1, baseR * (1 + Math.sin(t * 13.7 + phaseR) * 0.15))
-    return { rmsL: Math.min(1, baseL), rmsR: Math.min(1, baseR), peakL, peakR }
-  }
-}
-
-function makeBusLevelFn(bus: MixerBus): LevelFn {
-  const hash  = trackHash(bus.id)
-  const f1    = 0.8 + (hash & 0xFF) / 256 * 1.5
-  const phase = ((hash >> 16) & 0xFF) / 256 * Math.PI * 2
-  return () => {
-    if (bus.muted) return { rmsL: 0, rmsR: 0, peakL: 0, peakR: 0 }
-    const gainLin = bus.gainDb <= -60 ? 0 : Math.pow(10, bus.gainDb / 20)
-    const t   = performance.now() / 1000
-    const v   = (Math.abs(Math.sin(t * f1 + phase)) * 0.6 + 0.3) * gainLin * 0.55
-    const peak = Math.min(1, v * 1.15)
-    return { rmsL: Math.min(1, v), rmsR: Math.min(1, v * 0.97), peakL: peak, peakR: Math.min(1, peak * 0.97) }
-  }
-}
 
 // ─── Fader helpers ────────────────────────────────────────────────────────────
 
@@ -358,10 +309,10 @@ function SectionLabel({ label, color: _color }: { label: string; color: string }
 interface TrackStripProps {
   track:      Track
   channelNum: number
-  levelFn:   LevelFn
 }
 
-const TrackChannelStrip = memo(function TrackChannelStrip({ track, channelNum, levelFn }: TrackStripProps) {
+const TrackChannelStrip = memo(function TrackChannelStrip({ track, channelNum }: TrackStripProps) {
+  const level = useTrackLevel(track.id)
   const { toggleMute, toggleSolo, toggleArm, setTrackGain, setTrackPan } = useProjectStore()
   const { buses, getOrCreate, setEQEnabled, toggleSection: _toggleSection } = useMixerStore()
   const ch = getOrCreate(track.id)
@@ -451,7 +402,7 @@ const TrackChannelStrip = memo(function TrackChannelStrip({ track, channelNum, l
 
       {/* Meter */}
       <div style={{ background: '#050509', flexShrink: 0, padding: '2px 0' }}>
-        <MeterCanvas getLevel={levelFn} color={track.color} height={148} showLufs />
+        <MeterCanvas level={level} color={track.color} height={148} showLufs />
       </div>
 
       {/* Fader */}
@@ -473,11 +424,11 @@ const TrackChannelStrip = memo(function TrackChannelStrip({ track, channelNum, l
 
 interface BusStripProps {
   bus:       MixerBus
-  levelFn:  LevelFn
   isMaster: boolean
 }
 
-const BusChannelStrip = memo(function BusChannelStrip({ bus, levelFn, isMaster }: BusStripProps) {
+const BusChannelStrip = memo(function BusChannelStrip({ bus, isMaster }: BusStripProps) {
+  const level = useBusLevel(bus.id)
   const { setBusGain, setBusPan, toggleBusMute, toggleBusSolo } = useMixerStore()
   const width = isMaster ? 88 : 68
 
@@ -525,7 +476,7 @@ const BusChannelStrip = memo(function BusChannelStrip({ bus, levelFn, isMaster }
 
       {/* Meter (taller for master) */}
       <div style={{ background: '#050509', flexShrink: 0, padding: '2px 0' }}>
-        <MeterCanvas getLevel={levelFn} color={bus.color} height={isMaster ? 180 : 148} showLufs />
+        <MeterCanvas level={level} color={bus.color} height={isMaster ? 180 : 148} showLufs />
       </div>
 
       {/* Fader */}
@@ -545,5 +496,4 @@ const BusChannelStrip = memo(function BusChannelStrip({ bus, levelFn, isMaster }
 
 // ─── Exports ──────────────────────────────────────────────────────────────────
 
-export { TrackChannelStrip, BusChannelStrip, makeTrackLevelFn, makeBusLevelFn }
-export type { LevelFn }
+export { TrackChannelStrip, BusChannelStrip }
