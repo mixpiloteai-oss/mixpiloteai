@@ -9,11 +9,13 @@ import { callClaude, getDemoResponse, isConfigured, type AIRequest } from '../se
 import { logger } from '../utils/logger';
 import { incrementUsage, getTodayUsage, getDailyLimit, type Plan } from '../data/mockDB';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { promptInjectionGuard } from '../middleware/promptInjectionGuard';
 
 const router = Router();
 router.use(requireAuth);
 router.use(aiRateLimiter);
 router.use(checkQuota);
+router.use(promptInjectionGuard);
 
 async function executeAI(req: AuthenticatedRequest, res: Response, aiReq: AIRequest, demoType: string) {
   try {

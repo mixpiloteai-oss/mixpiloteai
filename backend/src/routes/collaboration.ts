@@ -20,6 +20,16 @@ import rateLimit from 'express-rate-limit';
 
 const router = Router();
 
+// Rate limiter for SSE stream connections: max 10 connects/min per IP (flood protection)
+const sseConnectRateLimiter = rateLimit({
+  windowMs: 60_000,
+  max: process.env.NODE_ENV === 'test' ? 1000 : 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip ?? 'unknown',
+  message: { success: false, error: 'Too many stream connection attempts.', code: 'SSE_RATE_LIMITED' },
+});
+
 // Rate limiter for collaboration ops: max 120 ops/min per user
 const collabOpsRateLimiter = rateLimit({
   windowMs: 60_000,
@@ -98,7 +108,7 @@ function formatSSE(event: CollabEvent): string {
  * GET /api/collab/stream/:projectId
  * Query: ?userId=&userName=&userColor=
  */
-router.get('/stream/:projectId', requireAuthSSE, requirePlan('studio'), async (req: Request, res: Response) => {
+router.get('/stream/:projectId', sseConnectRateLimiter, requireAuthSSE, requirePlan('studio'), async (req: Request, res: Response) => {
   const { projectId } = req.params;
 
   // Fix 1: Verify the authenticated user has access to this project
@@ -199,7 +209,9 @@ router.get('/stream/:projectId', requireAuthSSE, requirePlan('studio'), async (r
  * POST /api/collab/ops
  * Body: { projectId, userId, userName, userColor, type, payload, rev }
  */
-router.post('/ops', requireAuth, requirePlan('studio'), collabOpsRateLimiter, async (req: Request, res: Response) => {
+// Inline validation middleware for /ops — runs before plan check so callers
+// get descriptive 400s regardless of subscription tier.
+function validateOpsBody(req: Request, res: Response, next: NextFunction): void {
   const body: unknown = req.body;
   if (!isRecord(body)) {
     res.status(400).json({ success: false, error: 'Invalid request body' });
@@ -207,13 +219,13 @@ router.post('/ops', requireAuth, requirePlan('studio'), collabOpsRateLimiter, as
   }
 
   // Fix 4: Payload size validation
-  const payloadStr = JSON.stringify(req.body);
+  const payloadStr = JSON.stringify(body);
   if (payloadStr.length > 10_000) {
     res.status(413).json({ success: false, error: 'Payload too large' });
     return;
   }
 
-  const { projectId, userId, userName, userColor, type, payload, rev } = body;
+  const { projectId, userName, userColor, type, payload, rev } = body;
 
   if (typeof projectId !== 'string' || !projectId) {
     res.status(400).json({ success: false, error: 'projectId required' });
@@ -242,6 +254,20 @@ router.post('/ops', requireAuth, requirePlan('studio'), collabOpsRateLimiter, as
     res.status(400).json({ success: false, error: 'payload must be an object' });
     return;
   }
+
+  next();
+}
+
+router.post('/ops', requireAuth, collabOpsRateLimiter, validateOpsBody, requirePlan('studio'), async (req: Request, res: Response) => {
+  const body = req.body as Record<string, unknown>;
+  // projectId, type, payload already validated by validateOpsBody — safe to cast
+  const projectId = body['projectId'] as string;
+  const userId = body['userId'];
+  const userName = body['userName'];
+  const userColor = body['userColor'];
+  const type = body['type'] as CollabOpType;
+  const payload = body['payload'] as Record<string, unknown>;
+  const rev = body['rev'];
 
   // Fix 1: Verify the authenticated user has access to this project
   const authedUser = (req as AuthenticatedRequest).user;
