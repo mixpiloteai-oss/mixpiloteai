@@ -11,6 +11,14 @@
  *   - For each active clip, schedules notes via MidiTrackNode using absolute AudioContext times
  *   - Handles loop boundary truncation, note-off at clip end, flush on stop/seek
  *
+ * Critical formulas (matching spec exactly):
+ *   absoluteBeat      = (clip.startBar - 1) * timeSigNumerator + note.startBeat
+ *   noteAudioTime     = audioCtx.currentTime + (absoluteBeat - currentAbsoluteBeat) / (bpm / 60)
+ *   currentAbsoluteBeat = beatIdx (absolute beat counter from Clock)
+ *   clipEndBeat       = (clip.startBar - 1) * timeSigNumerator + clip.lengthBars * timeSigNumerator
+ *   effectiveDuration = min(note.lengthBeats, clipEndBeat - absoluteBeat)
+ *   noteOffTime       = noteAudioTime + effectiveDuration / (bpm / 60)
+ *
  * The coordinator uses a deduplication set so notes are only scheduled once per
  * note-ID even if beats overlap with the lookahead window multiple times.
  */
@@ -37,6 +45,9 @@ export class ClipPlaybackCoordinator {
 
   // Notes currently sounding (for allNotesOff on flush)
   private _activeNoteIds: Map<string, { trackId: string; pitch: number }> = new Map()
+
+  // Pending timeouts for cancellation
+  private _pendingTimeouts: Set<ReturnType<typeof setTimeout>> = new Set()
 
   // Swing amount (0.0 = none, 0.5 = full triplet)
   private _swingAmount = 0
@@ -83,8 +94,8 @@ export class ClipPlaybackCoordinator {
   /**
    * Called on every beat tick from the Clock.
    *
-   * beatIdx        — absolute beat index since playback started
-   * scheduledTime  — exact AudioContext time when this beat fires
+   * beatIdx        — absolute beat index since playback started (0-based)
+   * scheduledTime  — exact AudioContext time when this beat fires (may be slightly ahead)
    *
    * We look ahead SCHEDULER_AHEAD seconds from scheduledTime and schedule
    * all notes in that window across all active clips.
@@ -93,9 +104,11 @@ export class ClipPlaybackCoordinator {
     const project  = useProjectStore.getState().project
     const bpm      = this.transport.bpm
     const tsTop    = this.transport.timeSigTop
-    const audioCtx = this.transport.clock['engine']['ctx'] as AudioContext
+    // Access AudioContext via clock engine (private field access — safe internal coupling)
+    const engine   = (this.transport.clock as unknown as { engine: { ctx: AudioContext } }).engine
+    const audioCtx = engine.ctx
 
-    // Current absolute beat position (what beat "scheduledTime" corresponds to)
+    // Current absolute beat position corresponds to beatIdx
     const currentAbsoluteBeat = beatIdx
 
     // Convert the lookahead window from seconds to beats
@@ -116,6 +129,7 @@ export class ClipPlaybackCoordinator {
         if (clip.muted) continue
 
         // Clip time range in absolute beats (bars are 1-indexed)
+        // absoluteBeat = (clip.startBar - 1) * timeSigNumerator + note.startBeat
         const clipStartBeat = (clip.startBar - 1) * tsTop
         const clipEndBeat   = clipStartBeat + clip.lengthBars * tsTop
 
@@ -131,21 +145,21 @@ export class ClipPlaybackCoordinator {
           // Skip notes outside the lookahead window
           if (absoluteBeat < windowStart || absoluteBeat >= windowEnd) continue
 
-          // Dedup: only schedule each (track+note) once per playback session
+          // Dedup: only schedule each note once per playback session
           const dedupKey = `${track.id}:${clip.id}:${note.id}:${Math.floor(absoluteBeat * 1000)}`
           if (this._scheduled.has(dedupKey)) continue
           this._scheduled.add(dedupKey)
 
           // Calculate exact AudioContext time for this note
+          // noteAudioTime = audioCtx.currentTime + (absoluteBeat - currentAbsoluteBeat) / (bpm / 60)
           const beatOffset  = absoluteBeat - currentAbsoluteBeat
           const noteOnTime  = scheduledTime + beatOffset * secPerBeat
 
           // Clamp note-off to clip boundary
-          const clipEndAbsolute    = clipEndBeat
-          const noteEndAbsolute    = absoluteBeat + note.lengthBeats
-          const effectiveEndBeat   = Math.min(noteEndAbsolute, clipEndAbsolute)
-          const effectiveDuration  = Math.max(0.01, effectiveEndBeat - absoluteBeat)
-          const noteOffTime        = noteOnTime + effectiveDuration * secPerBeat
+          // effectiveDuration = min(note.lengthBeats, clipEndBeat - absoluteBeat)
+          const effectiveDuration = Math.min(note.lengthBeats, clipEndBeat - absoluteBeat)
+          if (effectiveDuration <= 0) continue
+          const noteOffTime = noteOnTime + effectiveDuration * secPerBeat
 
           // Skip if note is already past (safety check)
           const now = audioCtx.currentTime
@@ -177,20 +191,19 @@ export class ClipPlaybackCoordinator {
     const tOn = setTimeout(() => {
       node.noteOn(pitch, velocity)
       this._activeNoteIds.set(activeKey, { trackId, pitch })
+      this._pendingTimeouts.delete(tOn)
     }, onDelayMs)
 
     const tOff = setTimeout(() => {
       node.noteOff(pitch)
       this._activeNoteIds.delete(activeKey)
+      this._pendingTimeouts.delete(tOff)
     }, offDelayMs)
 
     // Store timeout IDs so we can cancel them on flush
     this._pendingTimeouts.add(tOn)
     this._pendingTimeouts.add(tOff)
   }
-
-  // Track pending timeouts for cancellation
-  private _pendingTimeouts: Set<ReturnType<typeof setTimeout>> = new Set()
 
   /** Cancel all pending note events and send note-off to all active voices. */
   private _flush(): void {

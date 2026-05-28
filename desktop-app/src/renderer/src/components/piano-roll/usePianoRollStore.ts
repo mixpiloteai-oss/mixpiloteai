@@ -3,9 +3,43 @@ import type { PRNote, PRTool, SnapGrid, AutomationParam, ScaleMode, ScaleRoot } 
 import { DEFAULT_AUTO_PARAMS, SNAP_BEATS } from './types'
 import { getScalePitches, snapPitchToScale, buildChord, getDiatonicChords, generateMelody } from '../../lib/musicTheory'
 import type { ChordType } from '../../lib/musicTheory'
+import { PreviewScheduler } from '../../audio/ClipPlaybackCoordinator'
+import { MidiTrackNode } from '../../audio/tracks/MidiTrackNode'
+import { getTrackManager, getTransport } from '../../audio'
 
 let _uid = 1
 const uid = () => `pr${_uid++}`
+
+// Module-level preview scheduler (lazy-init on first use)
+let _previewScheduler: PreviewScheduler | null = null
+
+function getPreviewScheduler(): PreviewScheduler | null {
+  if (_previewScheduler) return _previewScheduler
+  // Find first MIDI track node to use for preview
+  const trackMgr = getTrackManager()
+  const ids = trackMgr.getTrackIds()
+  for (const id of ids) {
+    const node = trackMgr.getTrack(id)
+    if (node instanceof MidiTrackNode) {
+      _previewScheduler = new PreviewScheduler(node)
+      return _previewScheduler
+    }
+  }
+  return null
+}
+
+function getPreviewSchedulerForTrack(trackId: string): PreviewScheduler | null {
+  const trackMgr = getTrackManager()
+  const node = trackMgr.getTrack(trackId)
+  if (node instanceof MidiTrackNode) {
+    // Create a new scheduler if needed or if track changed
+    if (!_previewScheduler) {
+      _previewScheduler = new PreviewScheduler(node)
+    }
+    return _previewScheduler
+  }
+  return getPreviewScheduler()
+}
 
 const mk = (pitch: number, start: number, len: number, vel: number): PRNote => ({
   id: uid(), pitch, startBeat: start, lengthBeats: len,
@@ -82,6 +116,11 @@ export interface PianoRollState {
   generateChord(rootMidi: number, type: ChordType, startBeat: number): void
   generateProgression(degrees: number[], beatsPerChord: number, octave: number): void
   generateMelodyAI(bars: number, density: 'sparse' | 'medium' | 'dense', octave: number): void
+  // Preview playback
+  isPreviewPlaying: boolean
+  previewTrackId: string | null
+  startPreview(trackId: string): void
+  stopPreview(): void
 }
 
 export const usePianoRollStore = create<PianoRollState>((set, get) => ({
@@ -102,6 +141,8 @@ export const usePianoRollStore = create<PianoRollState>((set, get) => ({
   scaleMode:       'minor',
   aiPanelOpen:     false,
   scalePanelOpen:  false,
+  isPreviewPlaying: false,
+  previewTrackId:  null,
 
   addNote(data) {
     const note: PRNote = { ...data, id: uid(), selected: false, muted: false }
@@ -339,5 +380,25 @@ export const usePianoRollStore = create<PianoRollState>((set, get) => ({
       selected: true, muted: false,
     }))
     set(s => ({ notes: [...s.notes.map(n => ({ ...n, selected: false })), ...newNotes] }))
+  },
+
+  // ── Preview playback ─────────────────────────────────────────────────────
+  startPreview(trackId: string) {
+    const { notes } = get()
+    const scheduler = getPreviewSchedulerForTrack(trackId)
+    if (!scheduler) return
+    const bpm = getTransport().bpm
+    scheduler.play(notes.map(n => ({
+      pitch:      n.pitch,
+      velocity:   n.velocity,
+      startBeat:  n.startBeat,
+      lengthBeats: n.lengthBeats,
+    })), bpm)
+    set({ isPreviewPlaying: true, previewTrackId: trackId })
+  },
+
+  stopPreview() {
+    if (_previewScheduler) _previewScheduler.stop()
+    set({ isPreviewPlaying: false, previewTrackId: null })
   },
 }))

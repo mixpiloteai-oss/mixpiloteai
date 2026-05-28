@@ -110,6 +110,7 @@ export class Transport {
     // Save beat position so resume starts from here
     const beat      = this._absoluteBeat()
     this._playing   = false
+    this._coordinator?.stop()
     this.clock.stop()
     // Rewind clock state to paused position
     this.clock.seekToBar(Math.floor(beat / this.clock.timeSigTop) + 1)

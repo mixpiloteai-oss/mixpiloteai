@@ -1,6 +1,10 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { useProjectStore }          from '../../store/projectStore'
 import { useArrangementViewStore }  from './useArrangementViewStore'
+import { freezeEngine }             from '../../audio/FreezeEngine'
+import { getMonitorEngine, getTrackManager } from '../../audio'
+import { MidiTrackNode }            from '../../audio/tracks/MidiTrackNode'
+import { AudioTrackNode }           from '../../audio/tracks/AudioTrackNode'
 import type { Track }               from '../../types/project'
 
 export const HEADER_W = 192
@@ -19,18 +23,22 @@ const TYPE_LABEL: Record<string, string> = {
 function TrackHeader({
   track,
   isSelected,
+  isFrozen,
   onSelect,
   onMute,
   onSolo,
   onArm,
+  onFreeze,
   onHeightDrag,
 }: {
   track:         Track
   isSelected:    boolean
+  isFrozen:      boolean
   onSelect:      () => void
   onMute:        () => void
   onSolo:        () => void
   onArm:         () => void
+  onFreeze:      () => void
   onHeightDrag:  (newH: number) => void
 }) {
   const dragRef = useRef<{ y0: number; h0: number } | null>(null)
@@ -137,6 +145,15 @@ function TrackHeader({
           activeColor="#ef4444"
           onClick={e => { e.stopPropagation(); onArm() }}
         />
+        {(track.type === 'midi' || track.type === 'audio') && (
+          <TBtn
+            label="F"
+            title={isFrozen ? 'Unfreeze track' : 'Freeze track'}
+            active={isFrozen}
+            activeColor="#60a5fa"
+            onClick={e => { e.stopPropagation(); onFreeze() }}
+          />
+        )}
       </div>
 
       {/* Height resize handle */}
@@ -211,12 +228,59 @@ export default function TrackHeaders({ scrollY, rulerHeight }: Props) {
   const toggleArm       = useProjectStore(s => s.toggleArm)
   const setTrackHeight  = useProjectStore(s => s.setTrackHeight)
   const addTrack        = useProjectStore(s => s.addTrack)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const containerRef    = useRef<HTMLDivElement>(null)
+  // Track frozen state locally (FreezeEngine is the source of truth)
+  const [frozenIds, setFrozenIds] = useState<Set<string>>(() => new Set(freezeEngine.getFrozenList()))
 
   // Sync vertical scroll
   useEffect(() => {
     if (containerRef.current) containerRef.current.scrollTop = scrollY
   }, [scrollY])
+
+  // Handle arm toggle with monitoring side-effect
+  function handleArm(trackId: string, currentArmed: boolean) {
+    toggleArm(trackId)
+    const monitor = getMonitorEngine()
+    const trackMgr = getTrackManager()
+    const node = trackMgr.getTrack(trackId)
+    if (!currentArmed) {
+      // Arming: enable monitoring, route to track
+      if (node instanceof MidiTrackNode || node instanceof AudioTrackNode) {
+        const channelInput = node instanceof AudioTrackNode
+          ? (node as unknown as { input: AudioNode }).input
+          : (node as MidiTrackNode).synthInput
+        monitor.routeToTrack(trackId, channelInput)
+        monitor.enable({ enabled: true, gainDb: 0, directMonitor: false }).catch(() => {})
+      }
+    } else {
+      // Disarming: unroute from monitoring
+      monitor.unrouteTrack(trackId)
+    }
+  }
+
+  // Handle freeze toggle
+  function handleFreeze(trackId: string) {
+    if (freezeEngine.isFrozen(trackId)) {
+      freezeEngine.unfreeze(trackId)
+      setFrozenIds(prev => {
+        const next = new Set(prev)
+        next.delete(trackId)
+        return next
+      })
+    } else {
+      // Freeze requires duration — derive from clip lengths
+      const track = tracks.find(t => t.id === trackId)
+      const clipEndBar = track && track.clips.length > 0
+        ? Math.max(...track.clips.map(c => c.startBar + c.lengthBars - 1))
+        : 32
+      const bpm = 145
+      const durationSec = clipEndBar * 4 * (60 / bpm) + 2
+      const { ctx: offCtx } = freezeEngine.prepareContext({ durationSec })
+      freezeEngine.renderAndFreeze(trackId, offCtx).then(() => {
+        setFrozenIds(prev => new Set([...prev, trackId]))
+      }).catch(() => {})
+    }
+  }
 
   return (
     <div style={{
@@ -257,10 +321,12 @@ export default function TrackHeaders({ scrollY, rulerHeight }: Props) {
             key={track.id}
             track={track}
             isSelected={selectedTrackId === track.id}
+            isFrozen={frozenIds.has(track.id)}
             onSelect={() => selectTrack(track.id)}
             onMute={() => toggleMute(track.id)}
             onSolo={() => toggleSolo(track.id)}
-            onArm={() => toggleArm(track.id)}
+            onArm={() => handleArm(track.id, track.armed)}
+            onFreeze={() => handleFreeze(track.id)}
             onHeightDrag={h => setTrackHeight(track.id, h)}
           />
         ))}

@@ -54,7 +54,8 @@ function Sep() {
 // ─── ArrangementView ─────────────────────────────────────────────────────────
 
 export default function ArrangementView() {
-  const { tool, snap, zoomX, scrollY, setTool, setSnap, setZoom, setScroll, selectedClipIds, deselectAll } =
+  const { tool, snap, zoomX, scrollY, setTool, setSnap, setZoom, setScroll, selectedClipIds, deselectAll,
+          followPlayhead, toggleFollowPlayhead } =
     useArrangementViewStore()
   const { project, deleteClips, duplicateClips } = useProjectStore()
 
@@ -187,6 +188,27 @@ export default function ArrangementView() {
           style={{ ...actionBtnStyle, opacity: selCount > 0 ? 1 : 0.35 }}
         >
           Del
+        </button>
+
+        <Sep />
+
+        {/* Follow playhead toggle */}
+        <button
+          onClick={toggleFollowPlayhead}
+          title="Follow playhead"
+          style={{
+            padding:      '2px 8px',
+            borderRadius: 4,
+            fontSize:     10,
+            fontWeight:   followPlayhead ? 600 : 400,
+            background:   followPlayhead ? 'rgba(6,182,212,0.22)' : 'transparent',
+            color:        followPlayhead ? '#06b6d4' : '#475569',
+            border:       `1px solid ${followPlayhead ? 'rgba(6,182,212,0.4)' : 'transparent'}`,
+            cursor:       'pointer',
+            transition:   'all 0.12s',
+          }}
+        >
+          Follow
         </button>
 
         {/* Spacer */}

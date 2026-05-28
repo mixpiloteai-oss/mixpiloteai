@@ -12,6 +12,7 @@ export interface ARViewState {
   scrollY: number     // px from top
   selectedClipIds: Set<string>
   markers: Array<{ id: string; bar: number; label: string; color: string }>
+  followPlayhead: boolean
 }
 
 export interface ARViewActions {
@@ -26,6 +27,7 @@ export interface ARViewActions {
   addMarker(bar: number): void
   removeMarker(id: string): void
   moveMarker(id: string, bar: number): void
+  toggleFollowPlayhead(): void
 }
 
 export const useArrangementViewStore: UseBoundStore<StoreApi<ARViewState & ARViewActions>> =
@@ -36,6 +38,7 @@ export const useArrangementViewStore: UseBoundStore<StoreApi<ARViewState & ARVie
     scrollX: 0,
     scrollY: 0,
     selectedClipIds: new Set<string>(),
+    followPlayhead: false,
     markers: [
       { id: 'm1', bar:  1, label: 'Intro',  color: '#f59e0b' },
       { id: 'm2', bar:  9, label: 'Drop',   color: '#06b6d4' },
@@ -74,4 +77,5 @@ export const useArrangementViewStore: UseBoundStore<StoreApi<ARViewState & ARVie
     moveMarker: (id, bar) => set(s => ({
       markers: s.markers.map(m => m.id === id ? { ...m, bar } : m).sort((a, b) => a.bar - b.bar),
     })),
+    toggleFollowPlayhead: () => set(s => ({ followPlayhead: !s.followPlayhead })),
   }))

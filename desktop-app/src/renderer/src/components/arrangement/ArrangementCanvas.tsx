@@ -136,9 +136,22 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
       const { w: W, h: H } = sizeRef.current
 
       const { project } = projectStoreRef.current
-      const { zoomX, scrollX, scrollY, selectedClipIds, markers, snap } = viewStoreRef.current
-      const { positionBar } = transportStoreRef.current
+      const { zoomX, scrollX, scrollY, selectedClipIds, markers, snap, followPlayhead } = viewStoreRef.current
+      const { positionBar, playing } = transportStoreRef.current
       const drag = dragRef.current
+
+      // Follow-playhead auto-scroll: keep playhead near left-third of viewport
+      if (followPlayhead && playing) {
+        const tsTop = project.timeSignatureNumerator
+        const playheadBeat = (positionBar - 1) * tsTop
+        const playheadPx   = playheadBeat * zoomX
+        const { w: viewW } = sizeRef.current
+        // Scroll so playhead stays at ~30% from left
+        const targetScrollX = playheadPx - viewW * 0.3
+        if (Math.abs(targetScrollX - scrollX) > 2) {
+          viewStoreRef.current.setScroll(Math.max(0, targetScrollX), scrollY)
+        }
+      }
 
       // Dirty-rect optimisation: if scroll/zoom unchanged and no active drag, skip full redraw
       if (

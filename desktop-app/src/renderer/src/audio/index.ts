@@ -20,31 +20,33 @@
  *   WebAudioBridge  — IAudioBridge implementation
  */
 
-import { AudioEngine }          from './AudioEngine'
-import { Transport }            from './Transport'
-import { MetronomeEngine }      from './MetronomeEngine'
-import { WaveformLoader }       from './WaveformLoader'
-import { TrackMixer }           from './TrackMixer'
-import { WebAudioBridge }       from './AudioBridge'
-import { BusRouter }            from './BusRouter'
-import { AutomationEngine }     from './AutomationEngine'
-import { LatencyCompensator }   from './LatencyCompensator'
-import { MonitorEngine }        from './MonitorEngine'
-import { TrackManager }         from './tracks/TrackManager'
+import { AudioEngine }                from './AudioEngine'
+import { Transport }                  from './Transport'
+import { MetronomeEngine }            from './MetronomeEngine'
+import { WaveformLoader }             from './WaveformLoader'
+import { TrackMixer }                 from './TrackMixer'
+import { WebAudioBridge }             from './AudioBridge'
+import { BusRouter }                  from './BusRouter'
+import { AutomationEngine }           from './AutomationEngine'
+import { LatencyCompensator }         from './LatencyCompensator'
+import { MonitorEngine }              from './MonitorEngine'
+import { TrackManager }               from './tracks/TrackManager'
+import { ClipPlaybackCoordinator }    from './ClipPlaybackCoordinator'
 
 // ─── Singletons ───────────────────────────────────────────────────────────────
 
-let _engine:      AudioEngine       | null = null
-let _transport:   Transport         | null = null
-let _metronome:   MetronomeEngine   | null = null
-let _loader:      WaveformLoader    | null = null
-let _mixer:       TrackMixer        | null = null
-let _bridge:      WebAudioBridge    | null = null
-let _busRouter:   BusRouter         | null = null
-let _automation:  AutomationEngine  | null = null
-let _latency:     LatencyCompensator| null = null
-let _monitor:     MonitorEngine     | null = null
-let _trackMgr:   TrackManager      | null = null
+let _engine:      AudioEngine              | null = null
+let _transport:   Transport                | null = null
+let _metronome:   MetronomeEngine          | null = null
+let _loader:      WaveformLoader           | null = null
+let _mixer:       TrackMixer               | null = null
+let _bridge:      WebAudioBridge           | null = null
+let _busRouter:   BusRouter                | null = null
+let _automation:  AutomationEngine         | null = null
+let _latency:     LatencyCompensator       | null = null
+let _monitor:     MonitorEngine            | null = null
+let _trackMgr:    TrackManager             | null = null
+let _coordinator: ClipPlaybackCoordinator  | null = null
 
 // ─── Accessors ────────────────────────────────────────────────────────────────
 
@@ -112,6 +114,15 @@ export function getTrackManager(): TrackManager {
   return _trackMgr
 }
 
+export function getClipPlaybackCoordinator(): ClipPlaybackCoordinator {
+  if (!_coordinator) {
+    _coordinator = new ClipPlaybackCoordinator(getTransport(), getTrackManager())
+    // Register with transport so play/stop/seek call through to coordinator
+    getTransport().setCoordinator(_coordinator)
+  }
+  return _coordinator
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 /** Pre-warm all singletons. Call once after first user gesture. */
@@ -127,6 +138,7 @@ export function initAudioEngine(): void {
   getLatencyCompensator()
   getMonitorEngine()
   getTrackManager()
+  getClipPlaybackCoordinator()
 }
 
 // ─── Re-exports ───────────────────────────────────────────────────────────────
@@ -146,4 +158,5 @@ export { AudioTrackNode }                       from './tracks/AudioTrackNode'
 export { MidiTrackNode }                        from './tracks/MidiTrackNode'
 export { BusTrackNode }                         from './tracks/BusTrackNode'
 export { TrackManager }                         from './tracks/TrackManager'
+export { ClipPlaybackCoordinator, PreviewScheduler } from './ClipPlaybackCoordinator'
 export * from './types'

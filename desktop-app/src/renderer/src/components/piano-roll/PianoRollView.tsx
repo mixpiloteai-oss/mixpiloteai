@@ -1,12 +1,13 @@
-import { useCallback }        from 'react'
-import { usePianoRollStore }  from './usePianoRollStore'
-import PianoKeys              from './PianoKeys'
-import NoteGrid               from './NoteGrid'
-import VelocityLane           from './VelocityLane'
-import AutomationLanes        from './AutomationLanes'
-import ScalePanel             from './ScalePanel'
-import AIPanel                from './AIPanel'
-import type { PRTool, SnapGrid } from './types'
+import { useCallback, useEffect }  from 'react'
+import { usePianoRollStore }       from './usePianoRollStore'
+import { useProjectStore }         from '../../store/projectStore'
+import PianoKeys                   from './PianoKeys'
+import NoteGrid                    from './NoteGrid'
+import VelocityLane                from './VelocityLane'
+import AutomationLanes             from './AutomationLanes'
+import ScalePanel                  from './ScalePanel'
+import AIPanel                     from './AIPanel'
+import type { PRTool, SnapGrid }   from './types'
 
 // ─── Toolbar constants ────────────────────────────────────────────────────────
 
@@ -53,23 +54,47 @@ function Separator() {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function PianoRollView() {
-  const snap             = usePianoRollStore(s => s.snap)
-  const setSnap          = usePianoRollStore(s => s.setSnap)
-  const zoomX            = usePianoRollStore(s => s.zoomX)
-  const zoomY            = usePianoRollStore(s => s.zoomY)
-  const setZoom          = usePianoRollStore(s => s.setZoom)
-  const totalBeats       = usePianoRollStore(s => s.totalBeats)
-  const timeSigTop       = usePianoRollStore(s => s.timeSigTop)
-  const notes            = usePianoRollStore(s => s.notes)
-  const duplicateSelected = usePianoRollStore(s => s.duplicateSelected)
-  const deleteSelected   = usePianoRollStore(s => s.deleteSelected)
-  const selectAll        = usePianoRollStore(s => s.selectAll)
-  const deselectAll      = usePianoRollStore(s => s.deselectAll)
-  const scaleEnabled     = usePianoRollStore(s => s.scaleEnabled)
-  const aiPanelOpen      = usePianoRollStore(s => s.aiPanelOpen)
-  const scalePanelOpen   = usePianoRollStore(s => s.scalePanelOpen)
-  const toggleAIPanel    = usePianoRollStore(s => s.toggleAIPanel)
-  const toggleScalePanel = usePianoRollStore(s => s.toggleScalePanel)
+  const snap              = usePianoRollStore(s => s.snap)
+  const setSnap           = usePianoRollStore(s => s.setSnap)
+  const zoomX             = usePianoRollStore(s => s.zoomX)
+  const zoomY             = usePianoRollStore(s => s.zoomY)
+  const setZoom           = usePianoRollStore(s => s.setZoom)
+  const totalBeats        = usePianoRollStore(s => s.totalBeats)
+  const timeSigTop        = usePianoRollStore(s => s.timeSigTop)
+  const notes             = usePianoRollStore(s => s.notes)
+  const duplicateSelected  = usePianoRollStore(s => s.duplicateSelected)
+  const deleteSelected    = usePianoRollStore(s => s.deleteSelected)
+  const selectAll         = usePianoRollStore(s => s.selectAll)
+  const deselectAll       = usePianoRollStore(s => s.deselectAll)
+  const scaleEnabled      = usePianoRollStore(s => s.scaleEnabled)
+  const aiPanelOpen       = usePianoRollStore(s => s.aiPanelOpen)
+  const scalePanelOpen    = usePianoRollStore(s => s.scalePanelOpen)
+  const toggleAIPanel     = usePianoRollStore(s => s.toggleAIPanel)
+  const toggleScalePanel  = usePianoRollStore(s => s.toggleScalePanel)
+  const isPreviewPlaying  = usePianoRollStore(s => s.isPreviewPlaying)
+  const startPreview      = usePianoRollStore(s => s.startPreview)
+  const stopPreview       = usePianoRollStore(s => s.stopPreview)
+  const selectedTrackId   = useProjectStore(s => s.selectedTrackId)
+
+  // Space bar toggles preview playback
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return
+      // Don't intercept if typing in an input
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+      e.preventDefault()
+      if (isPreviewPlaying) {
+        stopPreview()
+      } else {
+        const trackId = selectedTrackId ?? useProjectStore.getState().project.tracks
+          .find(t => t.type === 'midi')?.id ?? ''
+        if (trackId) startPreview(trackId)
+      }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [isPreviewPlaying, startPreview, stopPreview, selectedTrackId])
 
   const zoomXIdx  = ZOOM_STEPS.findIndex(z => Math.abs(z - zoomX / 64) < 0.01)
   const zoomXNorm = zoomXIdx >= 0 ? zoomXIdx : 2
@@ -194,6 +219,35 @@ export default function PianoRollView() {
           title="Toggle AI generation panel"
         >
           AI
+        </button>
+
+        <Separator />
+
+        {/* Preview playback */}
+        <button
+          onClick={() => {
+            if (isPreviewPlaying) {
+              stopPreview()
+            } else {
+              const trackId = selectedTrackId ?? useProjectStore.getState().project.tracks
+                .find(t => t.type === 'midi')?.id ?? ''
+              if (trackId) startPreview(trackId)
+            }
+          }}
+          title={isPreviewPlaying ? 'Stop Preview [Space]' : 'Preview [Space]'}
+          style={{
+            padding:      '2px 8px',
+            borderRadius: 4,
+            fontSize:     11,
+            fontWeight:   isPreviewPlaying ? 600 : 400,
+            background:   isPreviewPlaying ? 'rgba(16,185,129,0.22)' : 'transparent',
+            color:        isPreviewPlaying ? '#10b981' : '#475569',
+            border:       `1px solid ${isPreviewPlaying ? 'rgba(16,185,129,0.4)' : 'transparent'}`,
+            cursor:       'pointer',
+            transition:   'all 0.12s',
+          }}
+        >
+          {isPreviewPlaying ? '■' : '▶'}
         </button>
 
         {/* Spacer */}
