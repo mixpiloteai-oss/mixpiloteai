@@ -24,13 +24,15 @@ export interface PluginInfo {
 }
 
 export interface PluginInstance {
-  instanceId: string
-  pluginId:   string
-  name:       string
-  vendor:     string
-  paramCount: number
-  pid:        number
-  loadedAt:   number
+  instanceId:     string
+  pluginId:       string
+  name:           string
+  vendor:         string
+  paramCount:     number
+  pid:            number
+  loadedAt:       number
+  trackId?:       string   // track this instance is inserted into
+  latencySamples?: number  // reported by plugin host; used for PDC
 }
 
 export interface PluginPreset {

@@ -63,7 +63,7 @@ interface ElectronAPI {
   versionRollback:    () => Promise<{ ok: boolean; reason?: string }>
   verifyUpdateFile:   (filePath: string, sha256: string) => Promise<unknown>
   pluginScan:                () => Promise<unknown[]>
-  pluginLoad:                (path: string, format: string) => Promise<{ instanceId: string; name: string; vendor: string; paramCount: number; pid: number }>
+  pluginLoad:                (path: string, format: string) => Promise<{ instanceId: string; name: string; vendor: string; paramCount: number; pid: number; latencySamples?: number }>
   pluginUnload:              (instanceId: string) => Promise<{ ok: boolean }>
   pluginGetInstances:        () => Promise<unknown[]>
   pluginGetBlacklist:        () => Promise<{ path: string; name: string; crashCount: number; blacklistedAt: number | null }[]>
@@ -73,7 +73,30 @@ interface ElectronAPI {
   pluginLoadPreset:          (pluginId: string, presetId: string) => Promise<{ data: Record<string, number> } | null>
   pluginDeletePreset:        (pluginId: string, presetId: string) => Promise<{ ok: boolean }>
   pluginRenamePreset:        (pluginId: string, presetId: string, name: string) => Promise<{ name: string } | null>
+  // Parameter control
+  pluginSetParameter:        (instanceId: string, paramId: number, value: number) => Promise<{ ok: boolean }>
+  pluginGetParameter:        (instanceId: string, paramId: number) => Promise<{ value: number } | null>
+  // Audio chain routing
+  pluginAddToChain:          (instanceId: string, trackId: string) => Promise<{ ok: boolean }>
+  pluginRemoveFromChain:     (instanceId: string, trackId: string) => Promise<{ ok: boolean }>
+  // MIDI routing
+  pluginSetMidiRoute:        (instanceId: string, fromTrackId: string, channel: number, deviceId?: string) => Promise<{ ok: boolean }>
+  pluginGetAudioRoutes:      () => Promise<unknown[]>
+  // Health & recovery
+  pluginGetHealth:           () => Promise<unknown[]>
+  pluginGetInstanceHealth:   (instanceId: string) => Promise<{ memoryMb: number; cpuPercent: number; uptimeMs: number } | null>
+  pluginHotReload:           (instanceId: string) => Promise<{ ok: boolean }>
+  pluginSaveState:           (instanceId: string, pluginPath: string, format: string, parameters: Record<string, number>, trackId?: string) => Promise<{ ok: boolean }>
+  pluginGetRecoveredId:      (oldInstanceId: string) => Promise<{ newInstanceId: string | null }>
+  pluginScanClearCache:      () => Promise<void>
+  pluginScanCleanupCache:    () => Promise<{ removed: number }>
+  pluginScanCacheStats:      () => Promise<unknown>
+  // Events
   onPluginCrashed:           (cb: (info: { instanceId: string; pluginPath: string; pluginName: string; crashCount: number; blacklisted: boolean }) => void) => void
+  onPluginRecovered:         (cb: (info: { oldInstanceId: string; newInstanceId: string; pluginPath: string }) => void) => void
+  onPluginRecoveryFailed:    (cb: (info: unknown) => void) => void
+  onPluginRecoveryAbandoned: (cb: (info: unknown) => void) => void
+  onPluginResourceWarning:   (cb: (info: unknown) => void) => void
   removeAllListeners: (channel: string) => void
   platform: string
   isElectron: true
