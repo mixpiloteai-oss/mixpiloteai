@@ -100,6 +100,17 @@ interface ElectronAPI {
   removeAllListeners: (channel: string) => void
   platform: string
   isElectron: true
+  // Performance / autosave / crash-recovery (perf: namespace)
+  perfGetMemoryMetrics:     () => Promise<{ heapUsedMB: number; heapTotalMB: number; rssMB: number }>
+  perfGetCpuMetrics:        () => Promise<{ userMs: number; systemMs: number }>
+  perfAutosaveSave:         (data: unknown) => Promise<{ savedAt: string }>
+  perfAutosaveLoadLatest:   () => Promise<unknown>
+  perfAutosaveListVersions: () => Promise<{ filename: string; savedAt: string; sizeBytes: number }[]>
+  perfAutosaveGetVersion:   (filename: string) => Promise<unknown>
+  perfCrashWriteMarker:     (sessionId: string) => Promise<void>
+  perfCrashHasMarker:       (sessionId: string) => Promise<boolean>
+  perfCrashClearMarker:     (sessionId: string) => Promise<void>
+  perfCrashListMarkers:     () => Promise<string[]>
 }
 
 interface ImportMetaEnv {

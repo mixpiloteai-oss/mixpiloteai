@@ -205,6 +205,17 @@ const api = {
   // Platform
   platform:    process.platform,
   isElectron:  true as const,
+  // Performance / autosave / crash-recovery (perf: namespace)
+  perfGetMemoryMetrics:         () => ipcRenderer.invoke('perf:get-memory-metrics'),
+  perfGetCpuMetrics:            () => ipcRenderer.invoke('perf:get-cpu-metrics'),
+  perfAutosaveSave:             (data: unknown) => ipcRenderer.invoke('perf:autosave-save', data),
+  perfAutosaveLoadLatest:       () => ipcRenderer.invoke('perf:autosave-load-latest'),
+  perfAutosaveListVersions:     () => ipcRenderer.invoke('perf:autosave-list-versions'),
+  perfAutosaveGetVersion:       (filename: string) => ipcRenderer.invoke('perf:autosave-get-version', filename),
+  perfCrashWriteMarker:         (sessionId: string) => ipcRenderer.invoke('perf:crash-write-marker', sessionId),
+  perfCrashHasMarker:           (sessionId: string) => ipcRenderer.invoke('perf:crash-has-marker', sessionId),
+  perfCrashClearMarker:         (sessionId: string) => ipcRenderer.invoke('perf:crash-clear-marker', sessionId),
+  perfCrashListMarkers:         () => ipcRenderer.invoke('perf:crash-list-markers'),
   // Crash reporting (typed namespace — does NOT expose raw ipcRenderer)
   crash: {
     report: (payload: {

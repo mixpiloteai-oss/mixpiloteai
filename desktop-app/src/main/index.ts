@@ -17,6 +17,8 @@ import { registerVersionManagerIPC, performRollback } from './modules/versionMan
 import { startProductionMonitor, stopProductionMonitor } from './modules/productionMonitor'
 import { registerStabilityIPC } from './modules/stability'
 import { initCrashRecovery } from './modules/crashRecovery'
+import { registerAutoSaveIPC, AutoSaveManager } from './autosave'
+import { registerCrashRecoveryIPC, CrashRecoveryManager } from './crashRecovery'
 
 // ── Global crash safety net ───────────────────────────────────────────────────
 // Plugins run in forked child processes (see modules/pluginHost.ts), so most
@@ -148,6 +150,20 @@ function buildMenu(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
+// ── IPC: Performance metrics ──────────────────────────────────
+ipcMain.handle('perf:get-memory-metrics', () => {
+  const m = process.memoryUsage()
+  return {
+    heapUsedMB:  m.heapUsed  / 1_048_576,
+    heapTotalMB: m.heapTotal / 1_048_576,
+    rssMB:       m.rss       / 1_048_576,
+  }
+})
+ipcMain.handle('perf:get-cpu-metrics', () => {
+  const c = process.cpuUsage()
+  return { userMs: c.user / 1000, systemMs: c.system / 1000 }
+})
+
 // ── IPC: Window controls ──────────────────────────────────────
 ipcMain.handle('minimize-window',  () => mainWindow?.minimize())
 ipcMain.handle('maximize-window',  () => { mainWindow?.isMaximized() ? mainWindow.unmaximize() : mainWindow?.maximize() })
@@ -203,6 +219,12 @@ app.whenReady().then(async () => {
   getAudioEngineWatchdog().start()  // begins health polling (5s interval, unref'd)
 
   startProductionMonitor()
+
+  // Perf autosave + crash recovery (new perf: namespace)
+  const autoSaveMgr = new AutoSaveManager()
+  registerAutoSaveIPC(ipcMain, autoSaveMgr)
+  const crashRecoveryMgr = new CrashRecoveryManager()
+  registerCrashRecoveryIPC(ipcMain, crashRecoveryMgr)
 
   createWindow()
 
