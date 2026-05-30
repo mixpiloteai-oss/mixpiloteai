@@ -52,6 +52,7 @@ import updatesRouter from './routes/updates';
 import errorsRouter  from './routes/errors';
 import metricsRouter from './routes/metrics';
 import { requestMetrics, getMetricsSummary } from './middleware/requestMetrics';
+import cloudSyncRouter from './routes/cloudSync';
 import { shortCache, mediumCache, longCache, aiDedupCache } from './lib/serverCache';
 
 const app = express();
@@ -160,6 +161,7 @@ app.use('/api/plugins',     pluginsRouter);
 app.use('/api/updates',     updatesRouter);
 app.use('/api/errors',      errorsRouter);
 app.use('/api/metrics',     metricsRouter);
+app.use('/api/cloud-sync',  cloudSyncRouter);
 
 app.get('/health', (_req, res) => {
   res.status(200).json({ ok: true });
