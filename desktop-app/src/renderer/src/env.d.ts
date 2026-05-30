@@ -1,5 +1,22 @@
 /// <reference types="vite/client" />
 
+interface SampleRecord {
+  id:         string
+  path:       string
+  name:       string
+  ext:        string
+  type:       string
+  sizeBytes:  number
+  modifiedAt: number
+  dirPath:    string
+  tags:       string[]
+  favorite:   boolean
+  userLabel:  string
+  bpm:        number | null
+  key:        string | null
+  indexedAt:  number
+}
+
 interface ElectronAPI {
   minimize: () => Promise<void>
   maximize: () => Promise<void>
@@ -115,6 +132,21 @@ interface ElectronAPI {
   mixerOpenWindow:  () => Promise<void>
   mixerCloseWindow: () => Promise<void>
   // Recording IPC
+  // Sample browser
+  samplesGetRootDirs:    () => Promise<string[]>
+  samplesAddRootDir:     () => Promise<string | null>
+  samplesRemoveRootDir:  (dir: string) => Promise<void>
+  samplesRescan:         (dir: string) => Promise<number>
+  samplesSearch:         (query: string, opts?: { type?: string; favorite?: boolean; tags?: string[] }) => Promise<SampleRecord[]>
+  samplesListDir:        (dir: string) => Promise<{ name: string; isDir: boolean; hasChildren: boolean }[]>
+  samplesGetRecord:      (id: string) => Promise<SampleRecord | null>
+  samplesSetFavorite:    (id: string, on: boolean) => Promise<void>
+  samplesAddTag:         (id: string, tag: string) => Promise<void>
+  samplesRemoveTag:      (id: string, tag: string) => Promise<void>
+  samplesGetAllTags:     () => Promise<string[]>
+  samplesGetStats:       () => Promise<{ totalRecords: number; favorites: number; rootDirs: number; indexedAt: number }>
+  onSamplesScanProgress: (cb: (info: unknown) => void) => void
+  onSamplesScanComplete: (cb: (info: unknown) => void) => void
   recordingStart: (opts: {
     trackId:      string
     takeNumber:   number

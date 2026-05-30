@@ -227,6 +227,21 @@ const api = {
   recordingList:     ()                       => ipcRenderer.invoke('recording:list'),
   recordingDelete:   (filename: string)       => ipcRenderer.invoke('recording:delete', filename),
   recordingReadPcm:  (filePath: string)       => ipcRenderer.invoke('recording:read-pcm', filePath),
+  // Sample browser IPC
+  samplesGetRootDirs:   ()                                          => ipcRenderer.invoke('samples:get-root-dirs'),
+  samplesAddRootDir:    ()                                          => ipcRenderer.invoke('samples:add-root-dir'),
+  samplesRemoveRootDir: (dir: string)                               => ipcRenderer.invoke('samples:remove-root-dir', dir),
+  samplesRescan:        (dir: string)                               => ipcRenderer.invoke('samples:rescan', dir),
+  samplesSearch:        (query: string, opts?: unknown)             => ipcRenderer.invoke('samples:search', query, opts),
+  samplesListDir:       (dir: string)                               => ipcRenderer.invoke('samples:list-dir', dir),
+  samplesGetRecord:     (id: string)                                => ipcRenderer.invoke('samples:get-record', id),
+  samplesSetFavorite:   (id: string, on: boolean)                   => ipcRenderer.invoke('samples:set-favorite', id, on),
+  samplesAddTag:        (id: string, tag: string)                   => ipcRenderer.invoke('samples:add-tag', id, tag),
+  samplesRemoveTag:     (id: string, tag: string)                   => ipcRenderer.invoke('samples:remove-tag', id, tag),
+  samplesGetAllTags:    ()                                          => ipcRenderer.invoke('samples:get-all-tags'),
+  samplesGetStats:      ()                                          => ipcRenderer.invoke('samples:get-stats'),
+  onSamplesScanProgress:(cb: (info: unknown) => void)               => ipcRenderer.on('samples:scan-progress', (_e, i) => cb(i)),
+  onSamplesScanComplete:(cb: (info: unknown) => void)               => ipcRenderer.on('samples:scan-complete', (_e, i) => cb(i)),
   // Crash reporting (typed namespace — does NOT expose raw ipcRenderer)
   crash: {
     report: (payload: {
