@@ -1,0 +1,43 @@
+[package]
+name = "audio-engine"
+version = "0.1.0"
+edition = "2021"
+description = "Neurotek Studio DAW native audio engine"
+authors = ["Neurotek Studio"]
+
+[[bin]]
+name = "audio-engine"
+path = "src/main.rs"
+
+[dependencies]
+cpal = { version = "0.15", features = [] }
+crossbeam-channel = "0.5"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["rt-multi-thread", "io-std", "io-util", "sync", "time", "macros"] }
+ringbuf = "0.3"
+parking_lot = "0.12"
+log = "0.4"
+env_logger = "0.11"
+thiserror = "1.0"
+atomic_float = "1.0"
+
+libloading = "0.8"
+uuid = { version = "1", features = ["v4"] }
+bytemuck = { version = "1", features = ["derive"] }
+cfg-if = "1"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+cpal = { version = "0.15", features = [] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.9"
+coreaudio-sys = "0.2"
+
+[features]
+asio = ["cpal/asio"]
+
+[profile.release]
+opt-level = 3
+lto = true
+panic = "abort"

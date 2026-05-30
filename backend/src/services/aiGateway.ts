@@ -4,7 +4,9 @@
 // The Claude API key NEVER leaves the server.
 // ============================================================
 import Anthropic from '@anthropic-ai/sdk';
+import { createHash } from 'node:crypto';
 import { SYSTEM_PROMPTS, buildUserPrompt } from '../prompts/systemPrompts';
+import { aiDedupCache } from '../lib/serverCache';
 
 export interface AIRequest {
   userId: string;
@@ -42,10 +44,37 @@ const MAX_TOKENS_BY_PLAN: Record<string, number> = {
   studio: 2048,
 };
 
+async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try { return await fn() } catch (err) {
+      const isRateLimit = err instanceof Error &&
+        (err.message.includes('429') || err.message.toLowerCase().includes('rate'))
+      if (!isRateLimit || attempt === maxAttempts - 1) throw err
+      await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 500))
+    }
+  }
+  throw new Error('unreachable')
+}
+
 export async function callClaude(req: AIRequest): Promise<AIResponse> {
   const anthropic = getClient();
   const systemPrompt = SYSTEM_PROMPTS[req.messageType] ?? SYSTEM_PROMPTS.chat;
   const maxTokens = MAX_TOKENS_BY_PLAN[req.plan] ?? 512;
+
+  const contextHash = req.projectContext
+    ? createHash('sha256').update(JSON.stringify(req.projectContext)).digest('hex').slice(0, 16)
+    : ''
+  const historyHash = req.history?.length
+    ? createHash('sha256').update(JSON.stringify(req.history)).digest('hex').slice(0, 16)
+    : ''
+  const dedupKey = createHash('sha256')
+    .update(`${req.userId}:${req.messageType}:${req.userMessage}:${contextHash}:${historyHash}`)
+    .digest('hex')
+    .slice(0, 32)
+  const cached = aiDedupCache.get(dedupKey)
+  if (cached !== undefined) {
+    return { content: cached, model: 'cache-hit', inputTokens: 0, outputTokens: 0 }
+  }
 
   const messages: Anthropic.MessageParam[] = [
     ...(req.history ?? []).map((h) => ({
@@ -55,17 +84,19 @@ export async function callClaude(req: AIRequest): Promise<AIResponse> {
     { role: 'user', content: buildUserPrompt(req) },
   ];
 
-  const response = await anthropic.messages.create({
+  const response = await withRetry(() => anthropic.messages.create({
     model: process.env.CLAUDE_MODEL ?? 'claude-opus-4-7',
     max_tokens: maxTokens,
-    system: systemPrompt,
+    system: [{ type: 'text' as const, text: systemPrompt, cache_control: { type: 'ephemeral' as const } }] as unknown as Anthropic.TextBlockParam[],
     messages,
-  });
+  }));
 
   const content = response.content
     .filter((b) => b.type === 'text')
     .map((b) => (b as Anthropic.TextBlock).text)
     .join('');
+
+  aiDedupCache.set(dedupKey, content, 60_000)
 
   return {
     content,

@@ -4,11 +4,12 @@
 import { Router, Response } from 'express';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
 import { checkQuota } from '../middleware/quota';
+import { requirePlan } from '../middleware/requirePlan';
 import { antiAbuse } from '../middleware/antiAbuse';
 import { buildCoachPrompt, type Genre, type CoachSession } from '../prompts/coachPrompts';
+import { logger } from '../utils/logger';
 import { selectModel } from '../services/costOptimizer';
 import { incrementUsage } from '../data/mockDB';
-import { PLANS } from '../data/plans';
 import Anthropic from '@anthropic-ai/sdk';
 
 const router = Router();
@@ -20,6 +21,7 @@ router.post(
   antiAbuse,
   requireAuth,
   checkQuota,
+  requirePlan('pro'),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const {
       message, genre = 'general', level = 'intermediate',
@@ -38,22 +40,10 @@ router.post(
       return;
     }
 
-    const plan = (req.user?.plan ?? 'free') as keyof typeof PLANS;
-    const planConfig = PLANS[plan] ?? PLANS.free;
-
-    if (!planConfig.coachAccess) {
-      res.status(403).json({
-        success: false,
-        error: 'AI Coach requires Creator plan or higher',
-        code: 'PLAN_UPGRADE_REQUIRED',
-        upgradeUrl: '/plans',
-      });
-      return;
-    }
-
     const session: CoachSession = { genre, level, midiSetup, context };
     const systemPrompt = buildCoachPrompt(session);
-    const modelSelection = selectModel(plan as any, 'coach', message.length);
+    const plan = (req.user?.plan ?? 'free') as any;
+    const modelSelection = selectModel(plan, 'coach', message.length);
 
     const messages = [
       ...history.slice(-10).map((m) => ({ role: m.role, content: m.content })),
@@ -84,7 +74,7 @@ router.post(
         },
       });
     } catch (err: unknown) {
-      console.error('[Coach] Claude API error:', err);
+      logger.error('[Coach] Claude API error', { error: err instanceof Error ? err.message : String(err) });
       res.status(503).json({ success: false, error: 'AI service temporarily unavailable' });
     }
   },

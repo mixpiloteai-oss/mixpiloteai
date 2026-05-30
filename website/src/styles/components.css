@@ -1,0 +1,213 @@
+/* ================================================================
+   NEUROTEK AI — Reusable Web UI Components
+   Web-adapted from desktop components: hover states, cursors, transitions
+   ================================================================ */
+
+/* ── Gradient Text Utility ─────────────────────────────────────── */
+.nt-gradient-text {
+  background: var(--nt-gradient-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Gradient Border ───────────────────────────────────────────── */
+.nt-gradient-border {
+  position: relative;
+  border-radius: var(--nt-r-md);
+}
+.nt-gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--nt-gradient);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+.nt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--nt-r-md);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  border: none;
+  transition: all var(--nt-dur-normal) var(--nt-ease);
+  white-space: nowrap;
+  user-select: none;
+  text-decoration: none;
+  font-family: var(--nt-font);
+}
+
+.nt-btn-primary {
+  background: var(--nt-gradient);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(124,58,237,0.35);
+}
+.nt-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(124,58,237,0.5);
+  filter: brightness(1.08);
+}
+.nt-btn-primary:active { transform: translateY(0); }
+
+.nt-btn-secondary {
+  background: rgba(124,58,237,0.10);
+  color: var(--nt-purple-400);
+  border: 1px solid var(--nt-border-purple);
+}
+.nt-btn-secondary:hover {
+  background: rgba(124,58,237,0.18);
+  border-color: var(--nt-border-purple-hi);
+  box-shadow: var(--nt-glow-xs-purple);
+  transform: translateY(-1px);
+}
+.nt-btn-secondary:active { transform: translateY(0); }
+
+.nt-btn-ghost {
+  background: transparent;
+  color: var(--nt-text-lo);
+  border: 1px solid var(--nt-border-md);
+}
+.nt-btn-ghost:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--nt-border-hi);
+  color: var(--nt-text);
+  transform: translateY(-1px);
+}
+.nt-btn-ghost:active { transform: translateY(0); }
+
+.nt-btn-danger {
+  background: rgba(239,68,68,0.12);
+  color: #f87171;
+  border: 1px solid rgba(239,68,68,0.25);
+}
+.nt-btn-danger:hover {
+  background: rgba(239,68,68,0.20);
+  box-shadow: var(--nt-glow-red);
+  transform: translateY(-1px);
+}
+.nt-btn-danger:active { transform: translateY(0); }
+
+/* ── Cards ─────────────────────────────────────────────────────── */
+.nt-card {
+  background: var(--nt-bg-surface);
+  border: 1px solid var(--nt-border);
+  border-radius: var(--nt-r-lg);
+  padding: var(--nt-sp-6);
+  transition: border-color var(--nt-dur-normal) var(--nt-ease),
+              box-shadow var(--nt-dur-normal) var(--nt-ease),
+              transform var(--nt-dur-normal) var(--nt-ease);
+}
+.nt-card:hover {
+  border-color: var(--nt-border-purple);
+  box-shadow: var(--nt-shadow-md), var(--nt-glow-xs-purple);
+  transform: translateY(-2px);
+}
+
+.nt-card-glass {
+  background: rgba(12,12,24,0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--nt-border);
+  border-radius: var(--nt-r-lg);
+  transition: border-color var(--nt-dur-normal) var(--nt-ease),
+              box-shadow var(--nt-dur-normal) var(--nt-ease),
+              transform var(--nt-dur-normal) var(--nt-ease);
+}
+.nt-card-glass:hover {
+  border-color: var(--nt-border-purple);
+  box-shadow: var(--nt-shadow-lg), var(--nt-glow-xs-purple);
+  transform: translateY(-2px);
+}
+
+/* ── Badges ─────────────────────────────────────────────────────── */
+.nt-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--nt-r-full);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.nt-badge-purple {
+  background: rgba(124,58,237,0.12);
+  color: var(--nt-purple-400);
+  border: 1px solid var(--nt-border-purple);
+}
+.nt-badge-cyan {
+  background: rgba(6,182,212,0.10);
+  color: var(--nt-cyan-400);
+  border: 1px solid var(--nt-border-cyan);
+}
+.nt-badge-green {
+  background: rgba(16,185,129,0.10);
+  color: #34d399;
+  border: 1px solid rgba(16,185,129,0.25);
+}
+.nt-badge-amber {
+  background: rgba(245,158,11,0.10);
+  color: #fbbf24;
+  border: 1px solid rgba(245,158,11,0.25);
+}
+.nt-badge-red {
+  background: rgba(239,68,68,0.10);
+  color: #f87171;
+  border: 1px solid rgba(239,68,68,0.25);
+}
+
+/* ── Section Title ─────────────────────────────────────────────── */
+.nt-section-title {
+  font-size: clamp(30px, 4.5vw, 56px);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  color: var(--nt-text-hi);
+}
+.nt-section-title .nt-gradient-text {
+  background: var(--nt-gradient-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Hero Glow ─────────────────────────────────────────────────── */
+.nt-hero-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  pointer-events: none;
+}
+.nt-hero-glow-purple {
+  background: radial-gradient(circle, rgba(124,58,237,0.45) 0%, transparent 65%);
+}
+.nt-hero-glow-cyan {
+  background: radial-gradient(circle, rgba(6,182,212,0.35) 0%, transparent 65%);
+}
+.nt-hero-glow-violet {
+  background: radial-gradient(circle, rgba(168,85,247,0.28) 0%, transparent 65%);
+}
+
+/* ── Separator ──────────────────────────────────────────────────── */
+.nt-sep {
+  height: 1px;
+  background: var(--nt-border);
+  width: 100%;
+  border: none;
+}
+.nt-sep-gradient {
+  background: linear-gradient(90deg, transparent, var(--nt-border-purple), transparent);
+}

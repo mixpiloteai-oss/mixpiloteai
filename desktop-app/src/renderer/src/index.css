@@ -1,3 +1,6 @@
+@import './styles/design-tokens.css';
+@import './styles/onboarding.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,25 +8,86 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:        #0a0a0f;
-  --surface:   #12121a;
-  --border:    #1e1e2e;
-  --purple:    #7c3aed;
-  --cyan:      #06b6d4;
+  /* Map legacy vars to design tokens */
+  --bg:        var(--nt-bg-app);
+  --surface:   var(--nt-bg-surface);
+  --card:      var(--nt-bg-raised);
+  --border:    var(--nt-ink);
+  --border-hi: #2a2a3e;
+  --purple:    var(--nt-purple-600);
+  --violet:    var(--nt-violet);
+  --cyan:      var(--nt-cyan-500);
+  --amber:     #f59e0b;
   --text:      #e2e8f0;
+  --subtle:    #94a3b8;
   --muted:     #64748b;
+  --dim:       #475569;
+  --ghost:     #334155;
+  --ink:       #1c1c2e;
 }
 
 html, body, #root {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   overflow: hidden;
   user-select: none;
+  -webkit-user-select: none;
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--surface); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+/* Scrollbars */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--ink); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ghost); }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* Allow text selection inside inputs / text areas */
+input, textarea, [contenteditable] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Focus rings */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 1.5px solid rgba(124, 58, 237, 0.55);
+  outline-offset: 1px;
+}
+
+/* Numeric inputs */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+/* Prevent blue flash on tap in Electron */
+* { -webkit-tap-highlight-color: transparent; }
+
+/* Monospace numbers in transport / meters */
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Drag region for frameless window (applied via inline style in TitleBar) */
+.drag-region { -webkit-app-region: drag; }
+.no-drag     { -webkit-app-region: no-drag; }
+
+/* ── Sidebar Premium Badge ──────────────────────────────────────── */
+.sidebar-upgrade-btn {
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px; padding: 6px 10px; border-radius: 8px; text-decoration: none;
+  background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.3);
+  color: var(--nt-purple-300, #c4b5fd); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  transition: all 0.15s ease; margin: 4px 8px;
+}
+.sidebar-upgrade-btn:hover { background: rgba(124,58,237,0.25); }
+.sidebar-plan-badge {
+  padding: 4px 10px; border-radius: 6px;
+  background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3);
+  color: #6ee7b7; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; text-align: center; margin: 4px 8px;
+}
+.sidebar-plan-badge.expiring {
+  background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.3); color: #fcd34d;
+}

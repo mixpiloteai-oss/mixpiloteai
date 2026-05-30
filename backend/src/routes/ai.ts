@@ -5,28 +5,44 @@ import { Router, Response } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth';
 import { checkQuota } from '../middleware/quota';
 import { aiRateLimiter } from '../middleware/rateLimiter';
-import { callClaude, getDemoResponse, isConfigured, type AIRequest } from '../services/aiGateway';
+import { type AIRequest } from '../services/aiGateway';
+import { routeAI, type AIBackendChoice } from '../services/aiRouter';
+import { streamOllama } from '../services/localAIService';
+import { logger } from '../utils/logger';
 import { incrementUsage, getTodayUsage, getDailyLimit, type Plan } from '../data/mockDB';
+import { asyncHandler } from '../middleware/asyncHandler';
+import { promptInjectionGuard } from '../middleware/promptInjectionGuard';
 
 const router = Router();
 router.use(requireAuth);
 router.use(aiRateLimiter);
 router.use(checkQuota);
+router.use(promptInjectionGuard);
+
+function getBackendPreference(req: AuthenticatedRequest): AIBackendChoice {
+  const header = req.headers['x-ai-backend'] as string | undefined;
+  if (header === 'local' || header === 'cloud') return header;
+  return 'auto';
+}
 
 async function executeAI(req: AuthenticatedRequest, res: Response, aiReq: AIRequest, demoType: string) {
   try {
-    let content: string;
-    let meta: object = { demo: true };
-    if (isConfigured()) {
-      const result = await callClaude(aiReq);
-      content = result.content;
-      meta = { model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens };
-    } else {
-      await new Promise((r) => setTimeout(r, 800 + Math.random() * 400));
-      content = getDemoResponse(demoType);
-    }
-    incrementUsage(req.user!.id);
-    const used = getTodayUsage(req.user!.id);
+    const preferredBackend = getBackendPreference(req);
+    const localModel = req.body.localModel as string | undefined;
+
+    const result = await routeAI(aiReq, { preferredBackend, localModel });
+    const { content, backend, fallback } = result;
+    const meta = {
+      model: result.model,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+      backend,
+      fallback: fallback ?? false,
+      demo: backend === 'demo',
+    };
+
+    await incrementUsage(req.user!.id);
+    const used = await getTodayUsage(req.user!.id);
     const limit = getDailyLimit(req.user!.plan as Plan);
     res.json({
       success: true,
@@ -34,25 +50,72 @@ async function executeAI(req: AuthenticatedRequest, res: Response, aiReq: AIRequ
     });
   } catch (err) {
     const error = err as Error;
-    console.error('[AI Gateway]', error.message);
+    logger.error('[AI Gateway]', { message: error.message });
     res.status(500).json({ success: false, error: 'AI service error', message: error.message });
   }
 }
 
-router.post('/chat', async (req: AuthenticatedRequest, res: Response) => {
+// ── Streaming endpoint (SSE) ──────────────────────────────────
+// POST /api/ai/stream — Streams tokens as SSE for local AI only.
+// Falls back to standard response if local is not available.
+router.post('/stream', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { message, context, history, type = 'chat', localModel } = req.body;
+  if (!message || typeof message !== 'string') {
+    res.status(400).json({ success: false, error: 'message is required' });
+    return;
+  }
+
+  const validTypes = ['chat', 'template', 'mix', 'fx', 'live', 'kick', 'acid'];
+  const messageType = validTypes.includes(type) ? type : 'chat';
+  const aiReq: AIRequest = {
+    userId: req.user!.id,
+    plan: req.user!.plan,
+    messageType,
+    userMessage: message,
+    projectContext: context,
+    history,
+  };
+
+  const model: string = localModel ?? 'auto';
+
+  // SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const sendEvent = (data: object) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+  try {
+    const maxTokens = req.user!.plan === 'studio' ? 2048 : req.user!.plan === 'pro' ? 1024 : 512;
+    for await (const chunk of streamOllama(model, aiReq, maxTokens)) {
+      sendEvent(chunk);
+      if (chunk.done) break;
+    }
+    await incrementUsage(req.user!.id);
+  } catch (err) {
+    // If local streaming fails, send an error event — client can retry with /chat
+    sendEvent({ done: true, error: (err as Error).message });
+    logger.warn('[AI Stream]', { error: (err as Error).message });
+  } finally {
+    res.end();
+  }
+}));
+
+router.post('/chat', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { message, context, history, type = 'chat' } = req.body;
   if (!message || typeof message !== 'string') return res.status(400).json({ success: false, error: 'message is required' });
   const validTypes = ['chat', 'template', 'mix', 'fx', 'live', 'kick', 'acid'];
   const messageType = validTypes.includes(type) ? type : 'chat';
   await executeAI(req, res, { userId: req.user!.id, plan: req.user!.plan, messageType, userMessage: message, projectContext: context, history }, messageType);
-});
+}));
 
-router.post('/generate-template', async (req: AuthenticatedRequest, res: Response) => {
+router.post('/generate-template', asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { genre, bpm, mood } = req.body;
   if (!genre || !bpm) return res.status(400).json({ success: false, error: 'genre and bpm are required' });
   const message = `Generate a complete ${genre} template at ${bpm} BPM${mood ? ` with a ${mood} mood` : ''}. Include full track list, FX chains, routing, and production notes.`;
   await executeAI(req, res, { userId: req.user!.id, plan: req.user!.plan, messageType: 'template', userMessage: message, projectContext: { genre, bpm, mood } }, 'template');
-});
+}));
 
 router.post('/analyse-mix', async (req: AuthenticatedRequest, res: Response) => {
   const { tracks, genre, bpm } = req.body;
@@ -86,8 +149,8 @@ router.post('/acid-pattern', async (req: AuthenticatedRequest, res: Response) =>
   await executeAI(req, res, { userId: req.user!.id, plan: req.user!.plan, messageType: 'acid', userMessage: message, projectContext: { bpm } }, 'acid');
 });
 
-router.get('/quota', (req: AuthenticatedRequest, res: Response) => {
-  const used = getTodayUsage(req.user!.id);
+router.get('/quota', async (req: AuthenticatedRequest, res: Response) => {
+  const used = await getTodayUsage(req.user!.id);
   const limit = getDailyLimit(req.user!.plan as Plan);
   res.json({ success: true, data: { plan: req.user!.plan, used, limit, remaining: Math.max(0, limit - used), resetAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString() } });
 });

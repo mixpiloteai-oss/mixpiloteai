@@ -3,49 +3,80 @@
 // ============================================================
 import { Router, Request, Response } from 'express';
 import { db } from '../data/mockDB';
+import { asyncHandler } from '../utils/asyncHandler';
+import { ok, fail, HTTP } from '../utils/response';
+import { validate } from '../utils/validate';
+import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/', (_req: Request, res: Response) => {
-  const projects = db.getAllProjects();
-  res.json({ success: true, data: projects, count: projects.length });
-});
+router.get('/', asyncHandler(async (req: Request, res: Response) => {
+  const userId = (req as AuthenticatedRequest).user?.id;
+  const projects = userId
+    ? await db.getUserProjects(userId)
+    : await db.getAllProjects();
+  res.json(ok(projects, { count: projects.length }));
+}));
 
-router.get('/:id', (req: Request, res: Response) => {
-  const project = db.getProject(req.params.id);
-  if (!project) return res.status(404).json({ success: false, error: 'Project not found' });
-  res.json({ success: true, data: project });
-});
+router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
+  const project = await db.getProject(req.params.id);
+  if (!project) {
+    res.status(HTTP.NOT_FOUND).json(fail('Project not found'));
+    return;
+  }
+  res.json(ok(project));
+}));
 
-router.post('/', (req: Request, res: Response) => {
-  const { name, genre, bpm, key, mood, coverColor, tags } = req.body;
-  if (!name || !genre || !bpm) return res.status(400).json({ success: false, error: 'name, genre, and bpm are required' });
-  const project = db.createProject({
-    name, genre: genre ?? 'mentalcore', bpm: Number(bpm) ?? 140,
-    key: key ?? 'C', mood: mood ?? 'aggressive', tracks: [], duration: 0,
-    isStarred: false, coverColor: coverColor ?? 'linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%)', tags: tags ?? [],
-    userId: '',
+router.post('/', requireAuth, asyncHandler(async (req: Request, res: Response) => {
+  if (!validate(req, res, {
+    name:  { required: true, type: 'string' },
+    genre: { required: false, type: 'string' },
+    bpm:   { required: false, type: 'number' },
+  })) return;
+
+  const { name, genre, bpm, key, mood, coverColor, tags } = req.body as Record<string, unknown>;
+  const project = await db.createProject({
+    name: name as string,
+    genre: (genre as string) ?? 'mentalcore',
+    bpm: Number(bpm) ?? 140,
+    key: (key as string) ?? 'C',
+    mood: (mood as string) ?? 'aggressive',
+    tracks: [],
+    duration: 0,
+    isStarred: false,
+    coverColor: (coverColor as string) ?? 'linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%)',
+    tags: (tags as string[]) ?? [],
+    userId: (req as AuthenticatedRequest).user?.id ?? '',
   });
-  res.status(201).json({ success: true, data: project });
-});
+  res.status(HTTP.CREATED).json(ok(project));
+}));
 
-router.patch('/:id', (req: Request, res: Response) => {
-  const updated = db.updateProject(req.params.id, req.body);
-  if (!updated) return res.status(404).json({ success: false, error: 'Project not found' });
-  res.json({ success: true, data: updated });
-});
+router.patch('/:id', requireAuth, asyncHandler(async (req: Request, res: Response) => {
+  const updated = await db.updateProject(req.params.id, req.body);
+  if (!updated) {
+    res.status(HTTP.NOT_FOUND).json(fail('Project not found'));
+    return;
+  }
+  res.json(ok(updated));
+}));
 
-router.delete('/:id', (req: Request, res: Response) => {
-  const deleted = db.deleteProject(req.params.id);
-  if (!deleted) return res.status(404).json({ success: false, error: 'Project not found' });
-  res.json({ success: true, message: 'Project deleted' });
-});
+router.delete('/:id', requireAuth, asyncHandler(async (req: Request, res: Response) => {
+  const deleted = await db.deleteProject(req.params.id);
+  if (!deleted) {
+    res.status(HTTP.NOT_FOUND).json(fail('Project not found'));
+    return;
+  }
+  res.json(ok({ message: 'Project deleted' }));
+}));
 
-router.post('/:id/star', (req: Request, res: Response) => {
-  const project = db.getProject(req.params.id);
-  if (!project) return res.status(404).json({ success: false, error: 'Project not found' });
-  const updated = db.updateProject(req.params.id, { isStarred: !project.isStarred });
-  res.json({ success: true, data: updated });
-});
+router.post('/:id/star', requireAuth, asyncHandler(async (req: Request, res: Response) => {
+  const project = await db.getProject(req.params.id);
+  if (!project) {
+    res.status(HTTP.NOT_FOUND).json(fail('Project not found'));
+    return;
+  }
+  const updated = await db.updateProject(req.params.id, { isStarred: !project.isStarred });
+  res.json(ok(updated));
+}));
 
 export default router;

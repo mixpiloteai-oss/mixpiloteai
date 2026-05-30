@@ -1,0 +1,408 @@
+/* ================================================================
+   NEUROTEK AI — Get Started / Onboarding Page
+   ================================================================ */
+
+/* ── Page wrapper ─────────────────────────────────────────────── */
+.gs-page {
+  background: var(--nt-bg-app);
+  color: var(--nt-text);
+  overflow-x: hidden;
+}
+
+/* ── Shared container ─────────────────────────────────────────── */
+.gs-container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────── */
+.gs-hero {
+  padding: 100px 0 60px;
+  text-align: center;
+}
+
+.gs-hero-title {
+  font-size: clamp(36px, 5vw, 56px);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: var(--nt-text-hi);
+  margin-bottom: 16px;
+  line-height: 1.1;
+}
+
+.gs-hero-title span {
+  background: var(--nt-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gs-hero-sub {
+  font-size: 18px;
+  color: var(--nt-text-muted, var(--nt-muted));
+  max-width: 520px;
+  margin: 0 auto 32px;
+  line-height: 1.7;
+}
+
+/* ── Section header shared ────────────────────────────────────── */
+.gs-section-title {
+  text-align: center;
+  font-size: clamp(26px, 4vw, 36px);
+  font-weight: 800;
+  color: var(--nt-text-hi);
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}
+
+.gs-section-sub {
+  text-align: center;
+  font-size: 15px;
+  color: var(--nt-text-muted, var(--nt-muted));
+  margin-bottom: 48px;
+}
+
+/* ── Steps ────────────────────────────────────────────────────── */
+.gs-steps {
+  padding: 80px 0;
+}
+
+.gs-steps-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.gs-step-card {
+  background: var(--nt-bg-surface);
+  border: 1px solid var(--nt-border);
+  border-radius: 16px;
+  padding: 28px;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.gs-step-card:hover {
+  border-color: var(--nt-border-hi);
+  transform: translateY(-3px);
+}
+
+.gs-step-num {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--nt-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 14px;
+}
+
+.gs-step-icon {
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+
+.gs-step-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--nt-text-hi);
+  margin-bottom: 8px;
+}
+
+.gs-step-desc {
+  font-size: 14px;
+  color: var(--nt-text-muted, var(--nt-muted));
+  line-height: 1.7;
+  margin-bottom: 16px;
+}
+
+/* ── Step visual mockups ──────────────────────────────────────── */
+.gs-step-visual {
+  background: var(--nt-bg-overlay);
+  border: 1px solid var(--nt-border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.gs-platform-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.gs-platform-chip {
+  background: var(--nt-bg-raised);
+  border: 1px solid var(--nt-border);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--nt-text-muted, var(--nt-muted));
+  font-weight: 600;
+}
+
+.gs-feature-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.gs-feature-chip {
+  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  color: var(--nt-purple-300);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* DAW zones visual */
+.gs-daw-zones {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.gs-daw-zone {
+  background: var(--nt-bg-raised);
+  border: 1px dashed var(--nt-border-hi);
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--nt-text-muted, var(--nt-muted));
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.gs-daw-zone.primary {
+  border-color: rgba(124, 58, 237, 0.4);
+  color: var(--nt-purple-400);
+}
+
+/* Mini template cards inside step visual */
+.gs-mini-templates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.gs-mini-template {
+  background: var(--nt-bg-raised);
+  border: 1px solid var(--nt-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.gs-mini-template-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--nt-text);
+}
+
+.gs-mini-template-bpm {
+  font-size: 10px;
+  color: var(--nt-dim);
+}
+
+/* ── Templates section ────────────────────────────────────────── */
+.gs-templates {
+  padding: 80px 0;
+  background: var(--nt-bg-base);
+}
+
+.gs-template-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.gs-template-card {
+  background: var(--nt-bg-surface);
+  border: 1px solid var(--nt-border);
+  border-radius: 16px;
+  padding: 24px;
+  transition: all 0.2s ease;
+}
+
+.gs-template-card:hover {
+  border-color: var(--nt-border-hi);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.gs-template-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.gs-template-card-icon {
+  font-size: 28px;
+}
+
+.gs-template-card-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--nt-text-hi);
+}
+
+.gs-template-card-bpm {
+  font-size: 12px;
+  color: var(--nt-dim);
+  background: var(--nt-bg-overlay);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: monospace;
+  display: inline-block;
+  margin-top: 2px;
+}
+
+.gs-template-card-desc {
+  font-size: 13px;
+  color: var(--nt-text-muted, var(--nt-muted));
+  line-height: 1.7;
+  margin-bottom: 14px;
+}
+
+.gs-template-card-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.gs-template-card-tag {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--nt-dim);
+  background: var(--nt-bg-overlay);
+  border: 1px solid var(--nt-border);
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── FAQ ──────────────────────────────────────────────────────── */
+.gs-faq {
+  padding: 80px 0;
+}
+
+.gs-faq-list {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gs-faq-item {
+  background: var(--nt-bg-surface);
+  border: 1px solid var(--nt-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.gs-faq-item summary {
+  padding: 18px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--nt-text);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.gs-faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.gs-faq-item summary:hover {
+  background: var(--nt-bg-raised);
+}
+
+.gs-faq-item summary::after {
+  content: '+';
+  font-size: 20px;
+  font-weight: 300;
+  color: var(--nt-purple-400);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+.gs-faq-item[open] summary::after {
+  transform: rotate(45deg);
+}
+
+.gs-faq-item[open] summary {
+  color: var(--nt-text-hi);
+}
+
+.gs-faq-answer {
+  padding: 0 20px 18px;
+  font-size: 14px;
+  color: var(--nt-text-muted, var(--nt-muted));
+  line-height: 1.8;
+  margin: 0;
+}
+
+/* ── Final CTA ────────────────────────────────────────────────── */
+.gs-cta {
+  padding: 100px 0;
+  text-align: center;
+}
+
+.gs-cta-title {
+  font-size: clamp(30px, 4vw, 44px);
+  font-weight: 800;
+  color: var(--nt-text-hi);
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+}
+
+.gs-cta-sub {
+  font-size: 16px;
+  color: var(--nt-text-muted, var(--nt-muted));
+  margin-bottom: 32px;
+}
+
+.gs-cta-btns {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .gs-steps-grid,
+  .gs-template-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .gs-daw-zones,
+  .gs-mini-templates {
+    grid-template-columns: 1fr 1fr;
+  }
+}

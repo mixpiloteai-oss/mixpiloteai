@@ -4,6 +4,8 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from './auth';
 import { getTodayUsage, getDailyLimit, type Plan } from '../data/mockDB';
+import { getUserPlanStatus } from '../lib/subscriptionValidator';
+import { getPlanForQuota } from '../lib/planManager';
 
 export function checkQuota(
   req: AuthenticatedRequest,
@@ -16,19 +18,41 @@ export function checkQuota(
     return;
   }
 
-  const plan = (req.user?.plan ?? 'free') as Plan;
-  const used = getTodayUsage(userId);
-  const limit = getDailyLimit(plan);
+  // Resolve plan from DB (authoritative) asynchronously, fall back to JWT
+  getUserPlanStatus(userId, req.user?.plan).then(async (planStatus) => {
+    const effectivePlan = (planStatus.isActive ? planStatus.plan : 'free') as Plan;
+    const used = await getTodayUsage(userId);
+    const { dailyAIRequests } = getPlanForQuota(effectivePlan);
+    const limit = dailyAIRequests;
 
-  if (used >= limit) {
-    res.status(429).json({
-      success: false,
-      error: 'Daily AI quota exceeded',
-      code: 'QUOTA_EXCEEDED',
-      quota: { used, limit, remaining: 0 },
-    });
-    return;
-  }
+    if (used >= limit) {
+      res.status(429).json({
+        success: false,
+        error: 'Daily AI quota exceeded',
+        code: 'QUOTA_EXCEEDED',
+        quota: { used, limit, remaining: 0 },
+      });
+      return;
+    }
 
-  next();
+    next();
+  }).catch(async () => {
+    // If plan status lookup fails entirely, fall back to JWT plan
+    const plan = (req.user?.plan ?? 'free') as Plan;
+    const used = await getTodayUsage(userId);
+    const { dailyAIRequests: fallbackLimit } = getPlanForQuota(plan);
+    const limit = fallbackLimit;
+
+    if (used >= limit) {
+      res.status(429).json({
+        success: false,
+        error: 'Daily AI quota exceeded',
+        code: 'QUOTA_EXCEEDED',
+        quota: { used, limit, remaining: 0 },
+      });
+      return;
+    }
+
+    next();
+  });
 }

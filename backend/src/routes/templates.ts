@@ -25,9 +25,8 @@ router.get('/:id', (req: Request, res: Response) => {
   res.json({ success: true, data: template });
 });
 
-router.post('/generate', async (req: Request, res: Response) => {
+router.post('/generate', (req: Request, res: Response) => {
   const { genre = 'mentalcore', bpm = 140, mood = 'aggressive' } = req.body;
-  await new Promise((r) => setTimeout(r, 500));
 
   const genreDef = genreDefaults[genre] ?? genreDefaults.mentalcore;
   const trackColors: Record<string, string> = {

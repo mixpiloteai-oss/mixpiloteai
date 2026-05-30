@@ -1,0 +1,141 @@
+name: Playwright E2E
+
+on:
+  push:
+    branches: [main, 'claude/**']
+    paths:
+      - 'e2e/**'
+      - 'website/**'
+      - 'backend/**'
+      - '.github/workflows/playwright.yml'
+  pull_request:
+    paths:
+      - 'e2e/**'
+      - 'website/**'
+      - 'backend/**'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target environment (staging | local)'
+        required: false
+        default: 'staging'
+  schedule:
+    # Nightly run against staging — catches drift between deploys
+    - cron: '0 4 * * *'
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: E2E — smoke (always runs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: e2e
+    env:
+      CI: 'true'
+      # Always use local servers for the smoke job so it is self-contained and
+      # never depends on an external staging deployment being available.
+      E2E_WEBSITE_URL: 'http://localhost:5173'
+      E2E_BACKEND_URL: 'http://localhost:3000'
+      E2E_WEB_SERVER: '1'
+      # Minimal backend secrets — dev mode accepts any non-empty value
+      NODE_ENV: development
+      PORT: '3000'
+      JWT_SECRET: ci-smoke-jwt-secret-not-for-production
+      JWT_REFRESH_SECRET: ci-smoke-refresh-secret-not-for-prod
+      ADMIN_KEY: ci-smoke-admin-key
+      VITE_API_URL: 'http://localhost:3000'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: |
+            e2e/package-lock.json
+            backend/package-lock.json
+            website/package-lock.json
+      - name: Install e2e dependencies
+        run: npm ci
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend
+      - name: Install website dependencies
+        run: npm ci
+        working-directory: website
+      - name: Create website env (point browser API calls at local backend)
+        run: echo "VITE_API_URL=http://localhost:3000" > .env.local
+        working-directory: website
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run smoke + pricing
+        run: npx playwright test --grep "@smoke"
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-smoke-${{ github.sha }}
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 14
+
+  full-suite:
+    name: E2E — full suite (sandbox creds required)
+    needs: smoke
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') || contains(github.event.pull_request.labels.*.name, 'run-e2e-full')
+    runs-on: ${{ vars.E2E_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: e2e
+    env:
+      CI: 'true'
+      E2E_WEBSITE_URL: ${{ vars.E2E_WEBSITE_URL }}
+      E2E_BACKEND_URL: ${{ vars.E2E_BACKEND_URL }}
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+      E2E_ADMIN_NONROOT_EMAIL: ${{ secrets.E2E_ADMIN_NONROOT_EMAIL }}
+      E2E_ADMIN_NONROOT_PASSWORD: ${{ secrets.E2E_ADMIN_NONROOT_PASSWORD }}
+      E2E_MODERATOR_EMAIL: ${{ secrets.E2E_MODERATOR_EMAIL }}
+      E2E_MODERATOR_PASSWORD: ${{ secrets.E2E_MODERATOR_PASSWORD }}
+      E2E_STRIPE_SECRET_KEY: ${{ secrets.E2E_STRIPE_SECRET_KEY }}
+      E2E_STRIPE_WEBHOOK_SECRET: ${{ secrets.E2E_STRIPE_WEBHOOK_SECRET }}
+      E2E_PAYPAL_CLIENT_ID: ${{ secrets.E2E_PAYPAL_CLIENT_ID }}
+      E2E_PAYPAL_SECRET: ${{ secrets.E2E_PAYPAL_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: e2e/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps
+      - name: Run full suite
+        run: npx playwright test
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-full-${{ github.sha }}
+          path: e2e/playwright-report/
+          retention-days: 30
+      - name: Upload traces (failures only)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-${{ github.sha }}
+          path: e2e/test-results/
+          retention-days: 14
+      - name: Notify Slack on failure
+        if: failure() && env.E2E_SLACK_WEBHOOK_URL != ''
+        env:
+          E2E_SLACK_WEBHOOK_URL: ${{ secrets.E2E_SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST -H 'Content-Type: application/json' "$E2E_SLACK_WEBHOOK_URL" \
+            -d "{\"text\":\":x: E2E failed on ${{ github.ref_name }} — run ${{ github.run_id }}\"}"

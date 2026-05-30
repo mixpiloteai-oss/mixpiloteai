@@ -1,0 +1,229 @@
+/* ================================================================
+   NEUROTEK AI — Reusable UI Components
+   ================================================================ */
+
+/* ── Gradient Text Utility ─────────────────────────────────────── */
+.nt-gradient-text {
+  background: var(--nt-gradient-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+.nt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--nt-r-sm);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  border: none;
+  transition: all var(--nt-dur-normal) var(--nt-ease);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.nt-btn-primary {
+  background: var(--nt-gradient);
+  color: #fff;
+  box-shadow: var(--nt-glow-xs-purple);
+}
+.nt-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--nt-glow-sm-purple);
+}
+.nt-btn-primary:active { transform: translateY(0); }
+
+.nt-btn-secondary {
+  background: rgba(124,58,237,0.10);
+  color: var(--nt-purple-400);
+  border: 1px solid var(--nt-border-purple);
+}
+.nt-btn-secondary:hover {
+  background: rgba(124,58,237,0.18);
+  border-color: var(--nt-border-purple-hi);
+  box-shadow: var(--nt-glow-xs-purple);
+}
+
+.nt-btn-ghost {
+  background: transparent;
+  color: var(--nt-text-lo);
+  border: 1px solid var(--nt-border);
+}
+.nt-btn-ghost:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--nt-border-md);
+  color: var(--nt-text);
+}
+
+.nt-btn-danger {
+  background: rgba(239,68,68,0.12);
+  color: #f87171;
+  border: 1px solid rgba(239,68,68,0.25);
+}
+.nt-btn-danger:hover {
+  background: rgba(239,68,68,0.20);
+  box-shadow: var(--nt-glow-red);
+}
+
+.nt-btn-sm { padding: 4px 10px; font-size: 11px; border-radius: var(--nt-r-xs); }
+.nt-btn-lg { padding: 10px 20px; font-size: 13px; border-radius: var(--nt-r-md); }
+.nt-btn-icon { padding: 6px; aspect-ratio: 1; }
+
+/* ── Cards ─────────────────────────────────────────────────────── */
+.nt-card {
+  background: var(--nt-bg-surface);
+  border: 1px solid var(--nt-border);
+  border-radius: var(--nt-r-lg);
+  padding: var(--nt-sp-4);
+}
+.nt-card-hover {
+  transition: border-color var(--nt-dur-normal) var(--nt-ease),
+              box-shadow var(--nt-dur-normal) var(--nt-ease);
+}
+.nt-card-hover:hover {
+  border-color: var(--nt-border-purple);
+  box-shadow: var(--nt-shadow-md), var(--nt-glow-xs-purple);
+}
+
+.nt-card-glass {
+  background: rgba(12,12,24,0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--nt-border);
+  border-radius: var(--nt-r-lg);
+}
+
+/* ── Panels ─────────────────────────────────────────────────────── */
+.nt-panel {
+  background: var(--nt-bg-surface);
+  border: 1px solid var(--nt-border);
+  border-radius: var(--nt-r-md);
+  overflow: hidden;
+}
+
+.nt-panel-header {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--nt-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--nt-muted);
+}
+
+.nt-panel-accent-left {
+  border-left: 2px solid var(--nt-purple-600);
+}
+
+/* ── Inputs ─────────────────────────────────────────────────────── */
+.nt-input {
+  background: var(--nt-bg-app);
+  border: 1px solid var(--nt-border-md);
+  border-radius: var(--nt-r-sm);
+  color: var(--nt-text);
+  font-size: 12px;
+  font-family: var(--nt-font);
+  padding: 6px 10px;
+  outline: none;
+  transition: border-color var(--nt-dur-fast) var(--nt-ease);
+  width: 100%;
+}
+.nt-input:focus {
+  border-color: var(--nt-purple-600);
+  box-shadow: var(--nt-glow-xs-purple);
+}
+.nt-input::placeholder { color: var(--nt-muted); }
+
+/* ── Badges ─────────────────────────────────────────────────────── */
+.nt-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--nt-r-full);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.nt-badge-purple {
+  background: rgba(124,58,237,0.15);
+  color: var(--nt-purple-400);
+  border: 1px solid var(--nt-border-purple);
+}
+.nt-badge-cyan {
+  background: rgba(6,182,212,0.12);
+  color: var(--nt-cyan-400);
+  border: 1px solid var(--nt-border-cyan);
+}
+.nt-badge-green {
+  background: rgba(16,185,129,0.12);
+  color: #34d399;
+  border: 1px solid rgba(16,185,129,0.25);
+}
+.nt-badge-amber {
+  background: rgba(245,158,11,0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(245,158,11,0.25);
+}
+.nt-badge-red {
+  background: rgba(239,68,68,0.12);
+  color: #f87171;
+  border: 1px solid rgba(239,68,68,0.25);
+}
+
+/* ── Separator ──────────────────────────────────────────────────── */
+.nt-sep {
+  height: 1px;
+  background: var(--nt-border);
+  width: 100%;
+  border: none;
+  margin: var(--nt-sp-4) 0;
+}
+.nt-sep-gradient {
+  background: linear-gradient(90deg, transparent, var(--nt-border-purple), transparent);
+}
+
+/* ── Section Label ─────────────────────────────────────────────── */
+.nt-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--nt-muted);
+}
+.nt-label-accent {
+  color: var(--nt-purple-400);
+}
+
+/* ── Knob/Meter glow classes ───────────────────────────────────── */
+.nt-active-glow-purple { box-shadow: var(--nt-glow-xs-purple); }
+.nt-active-glow-cyan   { box-shadow: var(--nt-glow-xs-cyan); }
+
+/* ── Brand gradient border ─────────────────────────────────────── */
+.nt-gradient-border {
+  position: relative;
+  border-radius: var(--nt-r-md);
+}
+.nt-gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--nt-gradient);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.5;
+}
