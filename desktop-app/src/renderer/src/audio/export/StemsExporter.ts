@@ -1,12 +1,14 @@
 // ─── Stems Exporter ───────────────────────────────────────────────────────────
-// Renders individual track stems via isolated OfflineAudioContext passes.
-// Each stem = one track rendered solo, other tracks muted.
+// Renders individual track stems via ProjectRenderer (real audio synthesis).
+// Each stem = one track with its clips rendered to a Float32Array buffer.
 
 import { normalize, type NormMode } from './Normalizer'
 import { ditherBuffer, type DitherType } from './Dithering'
 import { encodeWav } from './encoders/WavEncoder'
 import { encodeFlac } from './encoders/FlacEncoder'
 import type { ExportFormat, ExportQualityPreset } from './ExportPipeline'
+import { renderProject, defaultRenderOptions, type ProjectRenderOptions } from './ProjectRenderer'
+import type { Project } from '../../types/project'
 
 export interface StemDefinition {
   trackId:   string
@@ -32,53 +34,87 @@ export type StemsProgressCallback = (
 ) => void
 
 export interface StemsOptions {
-  format:      ExportFormat
-  quality:     ExportQualityPreset
-  normMode:    NormMode
+  format:       ExportFormat
+  quality:      ExportQualityPreset
+  normMode:     NormMode
   normTargetDB: number
-  dither:      DitherType
-  bitDepth:    16 | 24 | 32
-  sampleRate:  number
-  durationSec: number
+  dither:       DitherType
+  bitDepth:     16 | 24 | 32
+  sampleRate:   number
+  durationSec:  number
+  // Optional project for real rendering; if absent falls back to silence
+  project?:     Project
+  renderOpts?:  Partial<ProjectRenderOptions>
 }
 
-async function renderStem(
-  _trackId:   string,
+function buildFakeAudioBuffer(
+  left: Float32Array,
+  right: Float32Array,
+  sampleRate: number,
+): AudioBuffer {
+  // Minimal AudioBuffer-compatible object for the normalization/dithering API.
+  // In a browser context, OfflineAudioContext.createBuffer would be used instead.
+  let _left  = left
+  let _right = right
+  return {
+    sampleRate,
+    numberOfChannels: 2,
+    length: left.length,
+    duration: left.length / sampleRate,
+    getChannelData: (ch: number) => (ch === 0 ? _left : _right),
+    copyFromChannel: () => {},
+    copyToChannel:   () => {},
+  } as unknown as AudioBuffer
+}
+
+function renderStemSync(
+  trackId:    string,
   options:    StemsOptions,
   onProgress: (pct: number) => void,
-): Promise<{ buffer: AudioBuffer; peakdBFS: number }> {
-  const sr  = options.sampleRate
-  const ch  = 2
-  const len = Math.ceil(options.durationSec * sr)
+): { buffer: AudioBuffer; peakdBFS: number } {
+  onProgress(5)
 
-  // Create an OfflineAudioContext per stem
-  // In a real integration: route only this track's nodes into offCtx.destination
-  // Here we create a silent buffer representing what the track would render
-  const offCtx = new OfflineAudioContext(ch, len, sr)
+  let left:  Float32Array
+  let right: Float32Array
 
-  onProgress(10)
+  if (options.project) {
+    const opts = {
+      ...defaultRenderOptions(options.project, options.sampleRate),
+      ...options.renderOpts,
+      selectedTrackIds: [trackId],
+      includeMuted:     true,   // we're rendering this track regardless of mute state
+    }
+    const result = renderProject(options.project, opts)
+    left  = result.mixLeft
+    right = result.mixRight
+  } else {
+    // Fallback: silent buffer
+    const len = Math.ceil(options.durationSec * options.sampleRate)
+    left  = new Float32Array(len)
+    right = new Float32Array(len)
+  }
 
-  // Render
-  let rendered = await offCtx.startRendering()
   onProgress(60)
 
+  const buffer = buildFakeAudioBuffer(left, right, options.sampleRate)
+
   // Normalization
-  normalize(rendered, options.normMode, options.normTargetDB)
+  normalize(buffer, options.normMode, options.normTargetDB)
   onProgress(80)
 
   // Dithering
-  if (options.bitDepth < 32) ditherBuffer(rendered, options.bitDepth as 16 | 24, options.dither)
+  if (options.bitDepth < 32) ditherBuffer(buffer, options.bitDepth as 16 | 24, options.dither)
 
   // Measure peak
   let peak = 0
-  for (let c = 0; c < rendered.numberOfChannels; c++) {
-    const ch = rendered.getChannelData(c)
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const ch = buffer.getChannelData(c)
     for (let i = 0; i < ch.length; i++) { const abs = Math.abs(ch[i]!); if (abs > peak) peak = abs }
   }
   const peakdBFS = peak > 0 ? 20 * Math.log10(peak) : -Infinity
 
   onProgress(100)
-  return { buffer: rendered, peakdBFS }
+  return { buffer, peakdBFS }
 }
 
 export async function exportStems(
@@ -92,7 +128,7 @@ export async function exportStems(
     const stem = stems[idx]!
     onProgress(idx, stems.length, stem.trackName, 0)
 
-    const { buffer, peakdBFS } = await renderStem(
+    const { buffer, peakdBFS } = renderStemSync(
       stem.trackId, options,
       (pct) => onProgress(idx, stems.length, stem.trackName, pct),
     )

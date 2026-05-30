@@ -13,6 +13,8 @@ import { ditherBuffer, type DitherType } from './Dithering'
 import { encodeWav, type WavOptions, type WavMetadata } from './encoders/WavEncoder'
 import { encodeFlac, type FlacOptions } from './encoders/FlacEncoder'
 import { GPUProcessor, gpuAvailable } from './GPUProcessor'
+import { renderProject, renderResultToAudioBuffer, defaultRenderOptions, type ProjectRenderOptions } from './ProjectRenderer'
+import type { Project } from '../../types/project'
 
 export type ExportFormat  = 'wav' | 'mp3' | 'flac'
 export type ExportQualityPreset = 'master-ready' | 'streaming' | 'cd' | 'archive' | 'custom'
@@ -59,12 +61,15 @@ export const QUALITY_PRESETS: Record<ExportQualityPreset, QualityConfig> = {
 }
 
 export interface ExportJob {
-  id:          string
-  projectName: string
-  preset:      ExportQualityPreset
-  config:      QualityConfig
-  durationSec: number
-  metadata?:   WavMetadata
+  id:           string
+  projectName:  string
+  preset:       ExportQualityPreset
+  config:       QualityConfig
+  durationSec:  number
+  metadata?:    WavMetadata
+  // Optional: project data for real rendering. If absent falls back to silence.
+  project?:     Project
+  renderOpts?:  Partial<ProjectRenderOptions>
 }
 
 export interface ExportResult {
@@ -95,26 +100,35 @@ export async function runExportPipeline(
 
   // ── 1. Offline render ─────────────────────────────────────────────────────
   onProgress(0, 'rendering')
-  const len    = Math.ceil(job.durationSec * sr)
-  const offCtx = new OfflineAudioContext(2, len, sr)
-
-  // In real integration: wire project audio sources into offCtx.destination here.
-  // Demo: silent buffer so the pipeline runs end-to-end.
-  const silent = offCtx.createBuffer(2, len, sr)
-  const src    = offCtx.createBufferSource()
-  src.buffer   = silent
-  src.connect(offCtx.destination)
-  src.start(0)
-
-  let pct = 0
-  const renderTimer = setInterval(() => {
-    pct = Math.min(pct + 3, 55)
-    onProgress(pct, 'rendering')
-  }, 100)
 
   let rendered: AudioBuffer
-  try { rendered = await offCtx.startRendering() }
-  finally { clearInterval(renderTimer) }
+
+  if (job.project) {
+    // Real render: synthesize project audio from tracks/clips
+    const opts = { ...defaultRenderOptions(job.project, sr), ...job.renderOpts }
+    const renderResult = renderProject(job.project, opts, (pct) => {
+      onProgress(Math.round(pct * 0.55), 'rendering')
+    })
+    const offCtx = new OfflineAudioContext(2, renderResult.totalSamples, sr)
+    rendered = renderResultToAudioBuffer(renderResult, offCtx)
+  } else {
+    // Fallback: silent render (demo / no project data)
+    const len    = Math.ceil(job.durationSec * sr)
+    const offCtx = new OfflineAudioContext(2, len, sr)
+    const silent = offCtx.createBuffer(2, len, sr)
+    const src    = offCtx.createBufferSource()
+    src.buffer   = silent
+    src.connect(offCtx.destination)
+    src.start(0)
+
+    let pct = 0
+    const renderTimer = setInterval(() => {
+      pct = Math.min(pct + 3, 55)
+      onProgress(pct, 'rendering')
+    }, 100)
+    try { rendered = await offCtx.startRendering() }
+    finally { clearInterval(renderTimer) }
+  }
 
   onProgress(60, 'gpu')
 
