@@ -35,7 +35,11 @@ export function getNextQuantBoundary(q: Quantization, bpm: number, currentTimeSe
   const quantBeats = quantizationToBeats(q)
   const secondsPerBeat = 60 / bpm
   const currentBeats = currentTimeSeconds / secondsPerBeat
-  const nextBeat = Math.ceil(currentBeats / quantBeats) * quantBeats
+  // If exactly on a boundary, advance to the next one
+  const divided = currentBeats / quantBeats
+  const nextBeat = divided === Math.floor(divided)
+    ? (Math.floor(divided) + 1) * quantBeats
+    : Math.ceil(divided) * quantBeats
   return nextBeat * secondsPerBeat
 }
 
