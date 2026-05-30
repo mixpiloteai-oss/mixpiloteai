@@ -111,6 +111,9 @@ interface ElectronAPI {
   perfCrashHasMarker:       (sessionId: string) => Promise<boolean>
   perfCrashClearMarker:     (sessionId: string) => Promise<void>
   perfCrashListMarkers:     () => Promise<string[]>
+  // Mixer detachable window
+  mixerOpenWindow:  () => Promise<void>
+  mixerCloseWindow: () => Promise<void>
 }
 
 interface ImportMetaEnv {

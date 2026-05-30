@@ -3,6 +3,7 @@ import { useProjectStore }          from '../../store/projectStore'
 import { useMixerStore }            from './useMixerStore'
 import SpectrumCanvas               from './SpectrumCanvas'
 import { TrackChannelStrip, BusChannelStrip } from './ChannelStrip'
+import { MixerLayoutControls }      from './MixerLayoutControls'
 import type { TrackSpectrum }       from './SpectrumCanvas'
 
 // ─── Toolbar ──────────────────────────────────────────────────────────────────
@@ -133,7 +134,9 @@ export default function MixerView() {
 
         <div style={{ flex: 1 }} />
 
-        <span style={{ fontSize: 9, color: '#1c1c2e', fontFamily: 'monospace' }}>
+        <MixerLayoutControls />
+
+        <span style={{ fontSize: 9, color: '#1c1c2e', fontFamily: 'monospace', marginLeft: 8 }}>
           {tracks.length} ch · {groupBuses.length} grp · {fxBuses.length} fx
         </span>
       </div>

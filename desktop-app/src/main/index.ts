@@ -173,6 +173,27 @@ ipcMain.handle('set-always-on-top', (_e, flag: boolean) => mainWindow?.setAlways
 ipcMain.handle('open-external',    (_e, url: string) => shell.openExternal(url))
 ipcMain.handle('debug-open-devtools', () => mainWindow?.webContents.toggleDevTools())
 
+// ── IPC: Mixer detachable window ─────────────────────────────
+let mixerWindow: BrowserWindow | null = null
+ipcMain.handle('mixer:open-window', () => {
+  if (mixerWindow && !mixerWindow.isDestroyed()) { mixerWindow.focus(); return }
+  mixerWindow = new BrowserWindow({
+    width: 900, height: 420, minWidth: 600, minHeight: 320,
+    title: 'Mixer',
+    webPreferences: { preload: join(__dirname, '../preload/index.js'), contextIsolation: true, nodeIntegration: false },
+  })
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    void mixerWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}#mixer`)
+  } else {
+    void mixerWindow.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'mixer' })
+  }
+  mixerWindow.on('closed', () => { mixerWindow = null })
+})
+ipcMain.handle('mixer:close-window', () => {
+  if (mixerWindow && !mixerWindow.isDestroyed()) mixerWindow.close()
+  mixerWindow = null
+})
+
 // ── IPC: File system ─────────────────────────────────────────
 ipcMain.handle('open-file-dialog', async (_e, opts) => {
   const result = await dialog.showOpenDialog(mainWindow!, opts)

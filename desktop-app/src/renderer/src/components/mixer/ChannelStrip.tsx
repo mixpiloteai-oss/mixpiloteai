@@ -1,6 +1,7 @@
 import { useRef, useCallback, memo }   from 'react'
 import { useProjectStore }             from '../../store/projectStore'
 import { useMixerStore }               from './useMixerStore'
+import { useMixerLayout }              from './useMixerLayout'
 import MeterCanvas                     from './MeterCanvas'
 import EQCurveCanvas                   from './EQCurveCanvas'
 import { useTrackLevel }               from '../../hooks/useTrackLevel'
@@ -315,6 +316,7 @@ const TrackChannelStrip = memo(function TrackChannelStrip({ track, channelNum }:
   const level = useTrackLevel(track.id)
   const { toggleMute, toggleSolo, toggleArm, setTrackGain, setTrackPan } = useProjectStore()
   const { buses, getOrCreate, setEQEnabled, toggleSection: _toggleSection } = useMixerStore()
+  const { channelWidth, compactMode } = useMixerLayout()
   const ch = getOrCreate(track.id)
 
   const handleGain    = useCallback((db: number) => setTrackGain(track.id, db), [track.id, setTrackGain])
@@ -327,8 +329,8 @@ const TrackChannelStrip = memo(function TrackChannelStrip({ track, channelNum }:
 
   return (
     <div style={{
-      width:         68,
-      minWidth:      68,
+      width:         channelWidth,
+      minWidth:      channelWidth,
       flexShrink:    0,
       display:       'flex',
       flexDirection: 'column',
@@ -350,39 +352,47 @@ const TrackChannelStrip = memo(function TrackChannelStrip({ track, channelNum }:
         <div style={{ fontSize: 8, color: '#2a2a40' }}>#{channelNum}</div>
       </div>
 
-      {/* Inserts */}
-      <SectionLabel label="FX" color={track.color} />
-      <InsertsSection trackId={track.id} />
+      {/* Inserts — hidden in compact mode */}
+      {!compactMode && <>
+        <SectionLabel label="FX" color={track.color} />
+        <InsertsSection trackId={track.id} />
+      </>}
 
-      {/* EQ mini curve */}
-      <SectionLabel label="EQ" color={track.color} />
-      <div style={{ padding: '2px 4px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 2px' }}>
-          <div
-            onClick={() => setEQEnabled(track.id, !ch.eqEnabled)}
-            style={{
-              width: 14, height: 14, borderRadius: 2, fontSize: 7, fontWeight: 700,
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: ch.eqEnabled ? `${track.color}30` : 'rgba(255,255,255,0.04)',
-              border: `1px solid ${ch.eqEnabled ? track.color + '60' : '#1a1a2e'}`,
-              color:  ch.eqEnabled ? track.color : '#334155',
-            }}
-          >E</div>
-          <EQCurveCanvas bands={ch.eqBands} color={track.color} width={44} height={28} enabled={ch.eqEnabled} />
+      {/* EQ mini curve — hidden in compact mode */}
+      {!compactMode && <>
+        <SectionLabel label="EQ" color={track.color} />
+        <div style={{ padding: '2px 4px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 2px' }}>
+            <div
+              onClick={() => setEQEnabled(track.id, !ch.eqEnabled)}
+              style={{
+                width: 14, height: 14, borderRadius: 2, fontSize: 7, fontWeight: 700,
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: ch.eqEnabled ? `${track.color}30` : 'rgba(255,255,255,0.04)',
+                border: `1px solid ${ch.eqEnabled ? track.color + '60' : '#1a1a2e'}`,
+                color:  ch.eqEnabled ? track.color : '#334155',
+              }}
+            >E</div>
+            <EQCurveCanvas bands={ch.eqBands} color={track.color} width={44} height={28} enabled={ch.eqEnabled} />
+          </div>
         </div>
-      </div>
+      </>}
 
-      {/* Sends */}
-      <SectionLabel label="SEND" color={track.color} />
-      <SendsSection trackId={track.id} buses={buses} />
+      {/* Sends — hidden in compact mode */}
+      {!compactMode && <>
+        <SectionLabel label="SEND" color={track.color} />
+        <SendsSection trackId={track.id} buses={buses} />
+      </>}
 
-      {/* Group */}
-      <SectionLabel label="GRP" color={track.color} />
-      <div style={{ padding: '2px 6px' }}>
-        <div style={{ fontSize: 8, color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {ch.groupId ? (buses.find(b => b.id === ch.groupId)?.name ?? '—') : '—'}
+      {/* Group — hidden in compact mode */}
+      {!compactMode && <>
+        <SectionLabel label="GRP" color={track.color} />
+        <div style={{ padding: '2px 6px' }}>
+          <div style={{ fontSize: 8, color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {ch.groupId ? (buses.find(b => b.id === ch.groupId)?.name ?? '—') : '—'}
+          </div>
         </div>
-      </div>
+      </>}
 
       {/* Pan */}
       <SectionLabel label="PAN" color={track.color} />
@@ -430,7 +440,8 @@ interface BusStripProps {
 const BusChannelStrip = memo(function BusChannelStrip({ bus, isMaster }: BusStripProps) {
   const level = useBusLevel(bus.id)
   const { setBusGain, setBusPan, toggleBusMute, toggleBusSolo } = useMixerStore()
-  const width = isMaster ? 88 : 68
+  const { channelWidth } = useMixerLayout()
+  const width = isMaster ? Math.max(channelWidth, 88) : channelWidth
 
   const handleGain    = useCallback((db: number) => setBusGain(bus.id, db), [bus.id, setBusGain])
   const handleGainReset = useCallback(() => setBusGain(bus.id, 0),           [bus.id, setBusGain])

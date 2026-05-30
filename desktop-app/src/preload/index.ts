@@ -216,6 +216,9 @@ const api = {
   perfCrashHasMarker:           (sessionId: string) => ipcRenderer.invoke('perf:crash-has-marker', sessionId),
   perfCrashClearMarker:         (sessionId: string) => ipcRenderer.invoke('perf:crash-clear-marker', sessionId),
   perfCrashListMarkers:         () => ipcRenderer.invoke('perf:crash-list-markers'),
+  // Mixer detachable window
+  mixerOpenWindow:  () => ipcRenderer.invoke('mixer:open-window'),
+  mixerCloseWindow: () => ipcRenderer.invoke('mixer:close-window'),
   // Crash reporting (typed namespace — does NOT expose raw ipcRenderer)
   crash: {
     report: (payload: {
