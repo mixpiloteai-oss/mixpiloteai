@@ -167,6 +167,11 @@ interface ElectronAPI {
   recordingList:     () => Promise<string[]>
   recordingDelete:   (filename: string) => Promise<void>
   recordingReadPcm:  (filePath: string) => Promise<number[]>
+  // Diagnostic logger (optional — only available when main process registers the IPC)
+  diagnosticLog?:            (level: string, category: string, msg: string, data?: unknown) => Promise<void>
+  diagnosticRead?:           (maxLines?: number) => Promise<unknown[]>
+  diagnosticGenerateReport?: () => Promise<unknown>
+  diagnosticClear?:          () => Promise<void>
 }
 
 interface ImportMetaEnv {
