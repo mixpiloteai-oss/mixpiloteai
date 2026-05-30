@@ -19,6 +19,8 @@ import { registerStabilityIPC } from './modules/stability'
 import { initCrashRecovery } from './modules/crashRecovery'
 import { registerAutoSaveIPC, AutoSaveManager } from './autosave'
 import { registerCrashRecoveryIPC, CrashRecoveryManager } from './crashRecovery'
+import { registerRecordingIPC } from './recording/RecordingIPC'
+import { RecordingFileManager } from './recording/RecordingFileManager'
 
 // ── Global crash safety net ───────────────────────────────────────────────────
 // Plugins run in forked child processes (see modules/pluginHost.ts), so most
@@ -246,6 +248,9 @@ app.whenReady().then(async () => {
   registerAutoSaveIPC(ipcMain, autoSaveMgr)
   const crashRecoveryMgr = new CrashRecoveryManager()
   registerCrashRecoveryIPC(ipcMain, crashRecoveryMgr)
+  const recordingFileMgr = new RecordingFileManager()
+  registerRecordingIPC(ipcMain, recordingFileMgr)
+  void recordingFileMgr.recoverPartialRecordings().catch(e => console.warn('[main] recording recovery:', e))
 
   createWindow()
 

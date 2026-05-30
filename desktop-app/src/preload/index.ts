@@ -219,6 +219,14 @@ const api = {
   // Mixer detachable window
   mixerOpenWindow:  () => ipcRenderer.invoke('mixer:open-window'),
   mixerCloseWindow: () => ipcRenderer.invoke('mixer:close-window'),
+  // Recording IPC (recording: namespace)
+  recordingStart:    (opts: unknown)          => ipcRenderer.invoke('recording:start', opts),
+  recordingChunk:    (payload: unknown)       => ipcRenderer.invoke('recording:chunk', payload),
+  recordingFinalize: (sessionId: string)      => ipcRenderer.invoke('recording:finalize', sessionId),
+  recordingAbort:    (sessionId: string)      => ipcRenderer.invoke('recording:abort', sessionId),
+  recordingList:     ()                       => ipcRenderer.invoke('recording:list'),
+  recordingDelete:   (filename: string)       => ipcRenderer.invoke('recording:delete', filename),
+  recordingReadPcm:  (filePath: string)       => ipcRenderer.invoke('recording:read-pcm', filePath),
   // Crash reporting (typed namespace — does NOT expose raw ipcRenderer)
   crash: {
     report: (payload: {

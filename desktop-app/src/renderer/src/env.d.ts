@@ -114,6 +114,27 @@ interface ElectronAPI {
   // Mixer detachable window
   mixerOpenWindow:  () => Promise<void>
   mixerCloseWindow: () => Promise<void>
+  // Recording IPC
+  recordingStart: (opts: {
+    trackId:      string
+    takeNumber:   number
+    format:       'wav' | 'flac'
+    sampleRate:   number
+    channelCount: number
+    bitDepth:     16 | 24 | 32
+  }) => Promise<{ sessionId: string }>
+  recordingChunk:    (payload: { sessionId: string; data: number[] }) => Promise<void>
+  recordingFinalize: (sessionId: string) => Promise<{
+    filePath:        string
+    durationSamples: number
+    sampleRate:      number
+    channelCount:    number
+    takeNumber:      number
+  } | null>
+  recordingAbort:    (sessionId: string) => Promise<void>
+  recordingList:     () => Promise<string[]>
+  recordingDelete:   (filename: string) => Promise<void>
+  recordingReadPcm:  (filePath: string) => Promise<number[]>
 }
 
 interface ImportMetaEnv {
