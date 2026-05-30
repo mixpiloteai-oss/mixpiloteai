@@ -57,7 +57,7 @@ export class WavWriter {
     if (this._bitDepth === 16) {
       for (let i = 0; i < sampleCount; i++) {
         const clamped = Math.max(-1, Math.min(1, interleavedFloat32[i]))
-        const val = Math.round(clamped * 32767)
+        const val = Math.floor(clamped * 32767.5)  // maps +1→32767, -1→-32768, 0.5→16383
         buf.writeInt16LE(val, offset)
         offset += 2
       }
