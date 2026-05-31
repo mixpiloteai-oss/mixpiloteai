@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react'
+import { FpsThrottle } from '../../audio/perf/FpsThrottle'
 import { usePianoRollStore }                from './usePianoRollStore'
 import { isBlackKey, pitchName, SNAP_BEATS, snapFloor, type PRNote, type SnapGrid } from './types'
 import { getTransport }                     from '../../audio'
@@ -160,7 +161,6 @@ interface NoteGridProps {
 export default function NoteGrid({ ghostNotes = [] }: NoteGridProps) {
   const canvasRef     = useRef<HTMLCanvasElement>(null)
   const sizeRef       = useRef({ w: 1, h: 1 })
-  const rafRef        = useRef(0)
   const dragRef       = useRef<DragState>({ type: 'idle' })
   // Mirror store into a ref so the stable rAF closure always reads latest
   const storeRef      = useRef(usePianoRollStore.getState())
@@ -379,12 +379,9 @@ export default function NoteGrid({ ghostNotes = [] }: NoteGridProps) {
       }
     }
 
-    function loop() {
-      draw()
-      rafRef.current = requestAnimationFrame(loop)
-    }
-    rafRef.current = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(rafRef.current)
+    const throttle = new FpsThrottle(60)
+    const cancelThrottle = throttle.request(() => draw())
+    return () => { cancelThrottle(); throttle.dispose() }
   }, []) // stable — reads everything from refs
 
   // ── Resize observer ─────────────────────────────────────────────────────

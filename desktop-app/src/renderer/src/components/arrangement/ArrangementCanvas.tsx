@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
+import { FpsThrottle } from '../../audio/perf/FpsThrottle'
 import { useProjectStore } from '../../store/projectStore'
 import { useTransportStore } from '../../store/transportStore'
 import { useArrangementViewStore } from './useArrangementViewStore'
@@ -98,7 +99,6 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef    = useRef<HTMLCanvasElement>(null)
   const sizeRef      = useRef({ w: 1, h: 1 })
-  const rafRef       = useRef(0)
   const dragRef      = useRef<DragState>({ type: 'idle' })
   const canvasRectRef= useRef<DOMRect | null>(null)
   const _lastScrollX = useRef(-1)
@@ -539,11 +539,12 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
       }
     }
 
-    function loop() { draw(); rafRef.current = requestAnimationFrame(loop) }
-    rafRef.current = requestAnimationFrame(loop)
+    const throttle = new FpsThrottle(60)
+    const cancelThrottle = throttle.request(() => draw())
     return () => {
-      cancelAnimationFrame(rafRef.current)
+      cancelThrottle()
       cancelAnimationFrame(inertiaRafRef.current)
+      throttle.dispose()
     }
   }, []) // stable — reads from refs
 
