@@ -4,7 +4,7 @@
  */
 
 import React from 'react'
-import { type KeyCombo, serializeKeyCombo } from '../../hotkeys/KeybindingEngine.ts'
+import { type KeyCombo, serializeKeyCombo } from '../../hotkeys/KeybindingEngine'
 
 interface KeyChordDisplayProps {
   combo:   KeyCombo

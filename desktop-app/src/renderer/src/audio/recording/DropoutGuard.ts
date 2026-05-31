@@ -2,7 +2,7 @@
 // Monitors a BufferManager fill ratio and fires warnings when buffer runs low.
 // Uses setInterval (available in both browser and Node.js).
 
-import type { BufferManager } from './BufferManager.ts'
+import type { BufferManager } from './BufferManager'
 
 export type DropoutLevel = 'warning' | 'critical'
 

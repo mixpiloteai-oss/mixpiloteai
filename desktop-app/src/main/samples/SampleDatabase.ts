@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
-import type { SampleFileEntry } from './FileScanner.ts'
+import type { SampleFileEntry } from './FileScanner'
 
 export interface SampleRecord extends SampleFileEntry {
   id:         string     // hash of path

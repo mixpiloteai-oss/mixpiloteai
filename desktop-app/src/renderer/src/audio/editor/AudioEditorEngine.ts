@@ -3,7 +3,7 @@
 // Each operation clones the current buffer before mutating and pushes the
 // old snapshot onto the undo stack.
 
-import { AudioEditBuffer } from './AudioEditBuffer.ts'
+import { AudioEditBuffer } from './AudioEditBuffer'
 
 export type FadeCurve = 'linear' | 'exponential' | 'sine'
 

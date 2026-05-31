@@ -2,7 +2,7 @@
 // Browser-only: requires Web Audio API. Not testable in Node.
 // Provides a typed audio-graph channel strip used by MixerEngine.
 
-import { dBToLinear } from './mixerMath.ts'
+import { dBToLinear } from './mixerMath'
 
 export interface ChannelLevel {
   peakL: number

@@ -2,7 +2,7 @@
 // Renderer-side named project backup management.
 // Uses a separate IDB object store 'backups' in the same database as AutoSaveEngine.
 
-import type { ProjectSnapshot } from './types.ts'
+import type { ProjectSnapshot } from './types'
 
 const IDB_DB      = 'mixpilot-autosave'
 const IDB_STORE   = 'backups'

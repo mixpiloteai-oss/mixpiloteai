@@ -3,10 +3,10 @@
 // Connects MediaStream → ScriptProcessorNode, forwards interleaved PCM to the
 // main process via IPC. No Node.js imports.
 
-import { InputDeviceManager } from './InputDeviceManager.ts'
-import { BufferManager } from './BufferManager.ts'
-import { LatencyCompensator } from './LatencyCompensator.ts'
-import type { RecordingResult } from './TakeManager.ts'
+import { InputDeviceManager } from './InputDeviceManager'
+import { BufferManager } from './BufferManager'
+import { LatencyCompensator } from './LatencyCompensator'
+import type { RecordingResult } from './TakeManager'
 
 export interface RecordingOptions {
   punchIn?:   number   // sample offset

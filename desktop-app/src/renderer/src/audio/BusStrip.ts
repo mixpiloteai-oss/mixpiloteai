@@ -2,7 +2,7 @@
 // Browser-only: requires Web Audio API.
 // A bus/subgroup strip: receives sends from multiple tracks, applies gain+pan.
 
-import { ChannelStrip } from './ChannelStrip.ts'
+import { ChannelStrip } from './ChannelStrip'
 
 export class BusStrip extends ChannelStrip {
   readonly inputMix:       GainNode

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { type ActiveTool, nextTool } from '../tools/ToolState.ts'
+import { type ActiveTool, nextTool } from '../tools/ToolState'
 
 export type ViewId =
   | 'arrangement' | 'mixer' | 'pianoroll'

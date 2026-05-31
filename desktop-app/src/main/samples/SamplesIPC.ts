@@ -1,7 +1,7 @@
 import type { IpcMain, BrowserWindow } from 'electron'
 import { dialog } from 'electron'
-import { FileScanner } from './FileScanner.ts'
-import { SampleDatabaseManager } from './SampleDatabase.ts'
+import { FileScanner } from './FileScanner'
+import { SampleDatabaseManager } from './SampleDatabase'
 
 export function registerSamplesIPC(
   ipcMain: IpcMain,

@@ -1,7 +1,7 @@
 // ─── MeterWorker.ts ───────────────────────────────────────────────────────────
 // Pure math metering utilities — no AudioContext, fully testable in Node.
 
-import { linearToDb } from './mixerMath.ts'
+import { linearToDb } from './mixerMath'
 
 /** Peak level: maximum absolute sample value in [0, 1]. */
 export function computePeak(samples: Float32Array): number {

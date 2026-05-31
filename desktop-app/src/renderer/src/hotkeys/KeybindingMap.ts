@@ -8,7 +8,7 @@ import {
   type KeyCombo,
   parseKeyCombo,
   serializeKeyCombo,
-} from './KeybindingEngine.ts'
+} from './KeybindingEngine'
 
 // ─── Stable string key for a combo ───────────────────────────────────────────
 

@@ -3,8 +3,8 @@
 // No persistence.
 
 import { create } from 'zustand'
-import type { Take } from '../audio/recording/TakeManager.ts'
-import type { AudioDeviceInfo } from '../audio/recording/InputDeviceManager.ts'
+import type { Take } from '../audio/recording/TakeManager'
+import type { AudioDeviceInfo } from '../audio/recording/InputDeviceManager'
 
 export type RecordingStatus = 'idle' | 'armed' | 'recording' | 'stopping'
 

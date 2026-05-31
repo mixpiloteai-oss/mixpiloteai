@@ -2,10 +2,10 @@
 // Browser-only: requires Web Audio API.
 // Singleton orchestration layer: bridges useMixerStore state → Web Audio graph.
 
-import { ChannelStrip } from './ChannelStrip.ts'
-import { BusStrip }     from './BusStrip.ts'
-import { MasterStrip }  from './MasterStrip.ts'
-import { dBToLinear }   from './mixerMath.ts'
+import { ChannelStrip } from './ChannelStrip'
+import { BusStrip }     from './BusStrip'
+import { MasterStrip }  from './MasterStrip'
+import { dBToLinear }   from './mixerMath'
 
 interface SendConnection {
   gainNode: GainNode

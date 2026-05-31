@@ -3,7 +3,7 @@
  */
 
 import { useEffect } from 'react'
-import { HotkeyManager } from '../hotkeys/HotkeyManager.ts'
+import { HotkeyManager } from '../hotkeys/HotkeyManager'
 
 export function useHotkeys(): void {
   useEffect(() => {

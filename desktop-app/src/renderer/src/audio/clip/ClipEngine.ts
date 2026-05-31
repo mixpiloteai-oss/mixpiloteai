@@ -1,7 +1,7 @@
 // ─── ClipEngine ───────────────────────────────────────────────────────────────
 // Pure clip state management logic. No browser API imports — Node-compatible.
 
-import type { Quantization } from './ClipScheduler.ts'
+import type { Quantization } from './ClipScheduler'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

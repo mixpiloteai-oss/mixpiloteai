@@ -12,10 +12,10 @@ import {
   type KeyEventLike,
   type ChordState,
   CHORD_TIMEOUT_MS,
-} from './KeybindingEngine.ts'
-import { KeybindingMap } from './KeybindingMap.ts'
-import { ActionRegistry } from './ActionRegistry.ts'
-import { type PresetName, PRESETS } from './HotkeyPresets.ts'
+} from './KeybindingEngine'
+import { KeybindingMap } from './KeybindingMap'
+import { ActionRegistry } from './ActionRegistry'
+import { type PresetName, PRESETS } from './HotkeyPresets'
 
 // ─── Storage interface (localStorage-compatible) ──────────────────────────────
 

@@ -5,10 +5,10 @@
  */
 
 import React, { useState, useRef, useCallback } from 'react'
-import { HotkeyManager } from '../../hotkeys/HotkeyManager.ts'
-import { type PresetName, PRESETS } from '../../hotkeys/HotkeyPresets.ts'
-import { type ActionDef } from '../../hotkeys/ActionRegistry.ts'
-import { type KeyCombo, parseKeyCombo, serializeKeyCombo } from '../../hotkeys/KeybindingEngine.ts'
+import { HotkeyManager } from '../../hotkeys/HotkeyManager'
+import { type PresetName, PRESETS } from '../../hotkeys/HotkeyPresets'
+import { type ActionDef } from '../../hotkeys/ActionRegistry'
+import { type KeyCombo, parseKeyCombo, serializeKeyCombo } from '../../hotkeys/KeybindingEngine'
 import { KeyChordDisplay } from './KeyChordDisplay.tsx'
 
 const PRESET_LABELS: Record<PresetName, string> = {

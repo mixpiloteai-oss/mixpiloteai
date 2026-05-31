@@ -2,8 +2,8 @@
 // Browser-only: requires Web Audio API.
 // Final master output strip with limiter and metering.
 
-import { dBToLinear } from './mixerMath.ts'
-import type { ChannelLevel } from './ChannelStrip.ts'
+import { dBToLinear } from './mixerMath'
+import type { ChannelLevel } from './ChannelStrip'
 
 export class MasterStrip {
   readonly gainNode: GainNode

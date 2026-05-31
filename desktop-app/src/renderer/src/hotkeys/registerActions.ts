@@ -4,7 +4,7 @@
  * can be loaded without a full store environment during tests.
  */
 
-import type { ActionRegistry } from './ActionRegistry.ts'
+import type { ActionRegistry } from './ActionRegistry'
 
 export function registerActions(registry: ActionRegistry): void {
 
