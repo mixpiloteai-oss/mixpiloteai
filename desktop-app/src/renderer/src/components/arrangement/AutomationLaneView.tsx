@@ -253,11 +253,6 @@ export function AutomationLaneHeader({
   const { setLaneMode, toggleLaneEnabled } = useAutomationStore.getState()
   const color = lane.color ?? '#7c3aed'
 
-  function cycleMode() {
-    const idx = MODE_CYCLE.indexOf(lane.mode)
-    setLaneMode(lane.id, MODE_CYCLE[(idx + 1) % MODE_CYCLE.length])
-  }
-
   return (
     <div style={{
       height,

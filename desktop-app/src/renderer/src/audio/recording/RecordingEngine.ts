@@ -5,7 +5,6 @@
 
 import { InputDeviceManager } from './InputDeviceManager'
 import { BufferManager } from './BufferManager'
-import { LatencyCompensator } from './LatencyCompensator'
 import type { RecordingResult } from './TakeManager'
 
 export interface RecordingOptions {
@@ -35,7 +34,6 @@ export class RecordingEngine {
   private _ctx:         AudioContext
   private _armed:       Map<string, ArmedTrack> = new Map()
   private _sessions:    Map<string, string>     = new Map()  // trackId → sessionId
-  private _compensator: LatencyCompensator      = new LatencyCompensator()
   private _inputMgr:    InputDeviceManager      = new InputDeviceManager()
 
   constructor(ctx: AudioContext) {

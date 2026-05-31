@@ -3,7 +3,6 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react'
-import type { LogLevel } from '../../../../main/DiagnosticLogger'
 
 interface LogEntry {
   ts:        number

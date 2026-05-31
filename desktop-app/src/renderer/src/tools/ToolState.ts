@@ -39,7 +39,7 @@ export interface ModifierState {
 }
 
 export function getModifierTool(
-  base: ActiveTool,
+  _base: ActiveTool,
   mods: ModifierState,
 ): ActiveTool | null {
   if (mods.alt)  return 'eraser'

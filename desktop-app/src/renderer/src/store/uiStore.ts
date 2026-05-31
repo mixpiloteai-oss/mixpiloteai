@@ -15,6 +15,7 @@ interface UIStore {
   zoomY: number                 // vertical zoom (track height)
   activeTool: ActiveTool
   scrollOffsetBars: number
+  selectAllSignal: number       // incremented to signal "select all" action
   setView: (v: ViewId) => void
   toggleAIPanel: () => void
   toggleMixer: () => void
@@ -38,6 +39,7 @@ export const useUIStore = create<UIStore>((set) => ({
   zoomY: 1,
   activeTool: 'pointer',
   scrollOffsetBars: 0,
+  selectAllSignal: 0,
 
   setView:          (v) => set({ activeView: v }),
   toggleAIPanel:    () => set(s => ({ aiPanelOpen: !s.aiPanelOpen })),

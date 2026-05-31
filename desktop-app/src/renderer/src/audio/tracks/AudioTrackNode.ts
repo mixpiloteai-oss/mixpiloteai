@@ -144,7 +144,7 @@ export class AudioTrackNode {
       for (let ch = 0; ch < numChannels; ch++) {
         const r = results[ch]!
         if (r.type === 'resample') {
-          resampled.copyToChannel(r.samples, ch)
+          resampled.copyToChannel(r.samples as Float32Array<ArrayBuffer>, ch)
         }
       }
       buffer = resampled

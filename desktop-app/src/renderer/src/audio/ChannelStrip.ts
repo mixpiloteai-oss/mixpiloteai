@@ -23,7 +23,6 @@ export class ChannelStrip {
   private _muted      = false
   private _phaseGain: GainNode
   private _bufL:      Float32Array
-  private _bufR:      Float32Array
 
   constructor(id: string, ctx: AudioContext, destination: AudioNode) {
     this.id         = id
@@ -36,7 +35,6 @@ export class ChannelStrip {
     this.analyserL.fftSize = 256
     this.analyserR.fftSize = 256
     this._bufL = new Float32Array(this.analyserL.fftSize)
-    this._bufR = new Float32Array(this.analyserR.fftSize)
 
     // Routing: input → gain → pan → phaseGain → analyserL → destination
     this.input.connect(this.gainNode)
@@ -68,7 +66,7 @@ export class ChannelStrip {
   }
 
   getLevel(): ChannelLevel {
-    this.analyserL.getFloatTimeDomainData(this._bufL)
+    this.analyserL.getFloatTimeDomainData(this._bufL as Float32Array<ArrayBuffer>)
     let peakL = 0, rmsL = 0
     for (let i = 0; i < this._bufL.length; i++) {
       const abs = Math.abs(this._bufL[i])

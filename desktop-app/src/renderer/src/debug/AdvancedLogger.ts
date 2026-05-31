@@ -26,7 +26,7 @@ export class AdvancedLogger {
 
     if (level === 'error' && typeof window !== 'undefined' && window.electronAPI) {
       // Report crash info to main process if available
-      const api = window.electronAPI as Record<string, unknown>
+      const api = window.electronAPI as unknown as Record<string, unknown>
       if (typeof api['crash'] === 'object' && api['crash'] !== null) {
         const crash = api['crash'] as Record<string, unknown>
         if (typeof crash['report'] === 'function') {

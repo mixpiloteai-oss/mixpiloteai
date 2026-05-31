@@ -373,7 +373,6 @@ export default function SessionView(): React.JSX.Element {
               {/* Clip cells for each track */}
               {trackIds.map((trackId, ti) => {
                 const clipInfo = buildClipInfo(scene.id, trackId)
-                const clipId   = clipInfo?.id ?? `${scene.id}::${trackId}`
 
                 return (
                   <div

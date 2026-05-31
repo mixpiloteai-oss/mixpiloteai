@@ -9,7 +9,7 @@
  * in Node.js unit tests. All DSP is pure TypeScript on typed arrays.
  */
 
-import type { Project, Track, Clip, MidiNote } from '../../types/project'
+import type { Project, Clip } from '../../types/project'
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 

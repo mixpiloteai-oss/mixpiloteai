@@ -50,7 +50,6 @@ export function TrackHeader({
   const sliderRef = useRef<HTMLDivElement>(null)
   const dragging  = useRef(false)
 
-  const sliderWidth = width - 28   // leave room for mute button
   const pos         = gainDbToPos(track.gainDb)
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {

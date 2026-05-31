@@ -4,13 +4,13 @@
 import React from 'react'
 import { useMixerStore } from './useMixerStore'
 import { MeterBar }      from './MeterBar'
-import { useTrackLevel } from '../../../hooks/useTrackLevel'
+import { useTrackLevel } from '../../hooks/useTrackLevel'
 
 export const MasterStripUI: React.FC = () => {
   const { masterLimiter, masterLimiterThreshold, setMasterLimiter, setMasterLimiterThreshold } = useMixerStore()
   // Use master bus level ('master' is the master bus id by convention)
-  const level = useTrackLevel?.('master') ?? { peakL: 0, peakR: 0, rmsL: 0, rmsR: 0 }
-  const lufs  = level.rmsL > 0 ? (-0.691 + 10 * Math.log10(level.rmsL * level.rmsL)).toFixed(1) : '-∞'
+  const level = useTrackLevel?.('master') ?? { rms: 0, peak: 0, dbfs: -Infinity }
+  const lufs  = level.rms > 0 ? (-0.691 + 10 * Math.log10(level.rms * level.rms)).toFixed(1) : '-∞'
 
   return (
     <div
@@ -33,8 +33,8 @@ export const MasterStripUI: React.FC = () => {
 
       {/* Meters */}
       <div style={{ display: 'flex', gap: 3 }}>
-        <MeterBar peak={level.peakL} rms={level.rmsL} isClipping={level.peakL >= 1} height={100} width={10} />
-        <MeterBar peak={level.peakR} rms={level.rmsR} isClipping={level.peakR >= 1} height={100} width={10} />
+        <MeterBar peak={level.peak} rms={level.rms} isClipping={level.peak >= 1} height={100} width={10} />
+        <MeterBar peak={level.peak} rms={level.rms} isClipping={level.peak >= 1} height={100} width={10} />
       </div>
 
       {/* LUFS */}

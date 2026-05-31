@@ -8,8 +8,8 @@ import React, { useState, useRef, useCallback } from 'react'
 import { HotkeyManager } from '../../hotkeys/HotkeyManager'
 import { type PresetName, PRESETS } from '../../hotkeys/HotkeyPresets'
 import { type ActionDef } from '../../hotkeys/ActionRegistry'
-import { type KeyCombo, parseKeyCombo, serializeKeyCombo } from '../../hotkeys/KeybindingEngine'
-import { KeyChordDisplay } from './KeyChordDisplay.tsx'
+import { type KeyCombo, parseKeyCombo } from '../../hotkeys/KeybindingEngine'
+import { KeyChordDisplay } from './KeyChordDisplay'
 
 const PRESET_LABELS: Record<PresetName, string> = {
   default: 'Default',

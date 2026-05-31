@@ -141,7 +141,8 @@ export function registerActions(registry: ActionRegistry): void {
       // Selection is managed per-app; signal via a UI store event
       // Components subscribe to this store key
       const { useUIStore } = require('../store/uiStore') as typeof import('../store/uiStore')
-      useUIStore.setState({ selectAllSignal: (useUIStore.getState().selectAllSignal ?? 0) + 1 } as Parameters<typeof useUIStore.setState>[0])
+      const cur = useUIStore.getState()
+      useUIStore.setState({ selectAllSignal: (cur.selectAllSignal ?? 0) + 1 })
     },
   })
 

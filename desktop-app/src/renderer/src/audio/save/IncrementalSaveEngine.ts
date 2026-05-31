@@ -1,7 +1,7 @@
 // ─── IncrementalSaveEngine ────────────────────────────────────────────────────
 // Pure-TS diff/patch engine — no DOM, no IDB, fully testable in Node.
 
-import type { ProjectSaveData, ProjectSnapshot } from './types'
+import type { ProjectSaveData } from './types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

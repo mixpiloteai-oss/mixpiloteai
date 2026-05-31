@@ -9,7 +9,6 @@ export class MasterStrip {
   readonly gainNode: GainNode
   readonly limiter:  DynamicsCompressorNode
   readonly analyser: AnalyserNode
-  private _gainDb    = 0
   private _buf:      Float32Array
 
   constructor(ctx: AudioContext) {
@@ -33,7 +32,6 @@ export class MasterStrip {
   }
 
   setMasterGainDb(db: number): void {
-    this._gainDb = db
     this.gainNode.gain.setTargetAtTime(dBToLinear(db), this.gainNode.context.currentTime, 0.005)
   }
 
@@ -47,7 +45,7 @@ export class MasterStrip {
   }
 
   getLevel(): ChannelLevel {
-    this.analyser.getFloatTimeDomainData(this._buf)
+    this.analyser.getFloatTimeDomainData(this._buf as Float32Array<ArrayBuffer>)
     let peak = 0, rms = 0
     for (let i = 0; i < this._buf.length; i++) {
       const abs = Math.abs(this._buf[i])

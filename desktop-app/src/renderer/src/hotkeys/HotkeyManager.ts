@@ -6,7 +6,6 @@
 
 import {
   parseKeyCombo,
-  matchesEvent,
   serializeKeyCombo,
   normalizeKey,
   type KeyEventLike,

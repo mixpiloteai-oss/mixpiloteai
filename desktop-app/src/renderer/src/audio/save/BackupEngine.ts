@@ -107,7 +107,7 @@ export class BackupEngine {
 
   /** Create a named backup snapshot */
   async createBackup(label: string): Promise<ProjectSnapshot> {
-    const { getProjectSerializer } = await import('./ProjectSerializer.ts')
+    const { getProjectSerializer } = await import('./ProjectSerializer')
     const snap = getProjectSerializer().makeSnapshot(label, 'backup')
     await this.storage.put(snap)
     return snap
@@ -129,7 +129,7 @@ export class BackupEngine {
       return { ok: false, reason: `Backup not found: ${id}` }
     }
 
-    const { getProjectSerializer } = await import('./ProjectSerializer.ts')
+    const { getProjectSerializer } = await import('./ProjectSerializer')
     const serializer = getProjectSerializer()
     if (!serializer.verify(snap)) {
       return { ok: false, reason: 'Backup checksum verification failed' }

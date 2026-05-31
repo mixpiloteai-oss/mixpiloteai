@@ -112,7 +112,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   },
 
   undo() {
-    const { past, future } = get()
+    const { past } = get()
     if (past.length === 0) return
     const cmd = past[past.length - 1]
     try {
@@ -196,7 +196,6 @@ export function jumpToHistory(targetIndex: number): void {
  */
 let _batchActive  = false
 let _batchItems:  HistoryCommand[] = []
-let _batchDomain: HistoryDomain = 'arrangement'
 
 export function withUndoGroup(label: string, domain: HistoryDomain, fn: () => void): void {
   if (_batchActive) {
@@ -206,7 +205,6 @@ export function withUndoGroup(label: string, domain: HistoryDomain, fn: () => vo
   }
   _batchActive  = true
   _batchItems   = []
-  _batchDomain  = domain
   fn()
   _batchActive  = false
   if (_batchItems.length === 0) return
