@@ -7,6 +7,7 @@ import AutomationLaneView from './AutomationLaneView'
 import { ClipContextMenu } from '../context-menu/ClipContextMenu'
 import { TimelineContextMenu } from '../context-menu/TimelineContextMenu'
 import type { Clip, Track } from '../../types/project'
+import { undoableDuplicateClips } from '../../store/undoableActions'
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -59,6 +60,38 @@ type DragState =
   | { type: 'marker-drag'; markerId: string; origBar: number; x0: number }
   | { type: 'pan'; lastX: number; lastY: number; vx: number; vy: number; lastT: number }
 
+// ─── Magnet snap helper ────────────────────────────────────────────────────────
+
+function magnetSnap(
+  beat: number,
+  allClips: Clip[],
+  dragClipIds: string[],
+  zoomX: number,
+  threshold = 8  // pixels
+): number {
+  const thresholdBeats = threshold / zoomX
+  let closest = beat
+  let minDist = thresholdBeats
+
+  for (const c of allClips) {
+    if (dragClipIds.includes(c.id)) continue
+    // Each clip stores startBar (1-based), lengthBars
+    // We use beats = (startBar - 1) * beatsPerBar, but we don't have tsTop here.
+    // Beat positions are already in "raw beat" space passed from caller.
+    // The caller must pass beats already in the same units.
+    const startBeat = c.startBar - 1   // in bars (caller passes beat in same space)
+    const endBeat   = startBeat + c.lengthBars
+
+    const distStart = Math.abs(beat - startBeat)
+    const distEnd   = Math.abs(beat - endBeat)
+
+    if (distStart < minDist) { minDist = distStart; closest = startBeat }
+    if (distEnd   < minDist) { minDist = distEnd;   closest = endBeat   }
+  }
+
+  return closest
+}
+
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeight: _rulerHeight }: Props) {
@@ -74,6 +107,7 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
   const _lastAutoSz  = useRef(-1)
   const inertiaRafRef= useRef(0)
   const inertiaVRef  = useRef({ vx: 0, vy: 0 })
+  const snapLineRef  = useRef<number | null>(null)
 
   // ── Context menu state ───────────────────────────────────────────────────────
   type CtxMenuState =
@@ -283,7 +317,7 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
           const isSelected = selectedClipIds.has(clip.id)
           const isMuted    = clip.muted || track.muted
 
-          // Ghost for move drag
+          // Ghost for move drag: dotted outline at original position
           if (drag.type === 'move' && drag.clipIds.includes(clip.id)) {
             const ghostX = beatToPx(barToBeat(clip.startBar))
             ctx.save()
@@ -293,6 +327,20 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
             ctx.strokeRect(ghostX + 0.5, tl.y + 2.5, clipW - 1, tl.clipH - 5)
             ctx.setLineDash([])
             ctx.restore()
+
+            // Semi-transparent fill at target position (Mod 4 — ghost preview enhanced)
+            const targetTl = trackLayout[displayTi]
+            if (targetTl) {
+              const rTarget = ctx as CanvasRenderingContext2D & { roundRect: (x: number, y: number, w: number, h: number, r: number) => void }
+              ctx.save()
+              ctx.globalAlpha = 0.45
+              ctx.fillStyle = clip.color
+              ctx.beginPath()
+              rTarget.roundRect(clipX, targetTl.y + 2, clipW, targetTl.clipH - 4, 4)
+              ctx.fill()
+              ctx.globalAlpha = 1
+              ctx.restore()
+            }
           }
 
           // Clip background
@@ -433,6 +481,24 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
           rr2.roundRect(drawX, drawTl.y + 2, Math.max(8, drawW), drawTl.clipH - 4, 4)
           ctx.fill()
           ctx.stroke()
+          ctx.restore()
+        }
+      }
+
+      // 7b. Snap indicator line (Mod 6)
+      const snapLineBeat = snapLineRef.current
+      if (snapLineBeat !== null && (drag.type === 'move' || drag.type === 'draw')) {
+        const snapX = beatToPx(snapLineBeat)
+        if (snapX >= 0 && snapX <= W) {
+          ctx.save()
+          ctx.strokeStyle = 'rgba(16, 185, 129, 0.6)'
+          ctx.lineWidth = 1
+          ctx.setLineDash([3, 3])
+          ctx.beginPath()
+          ctx.moveTo(snapX, 0)
+          ctx.lineTo(snapX, H)
+          ctx.stroke()
+          ctx.setLineDash([])
           ctx.restore()
         }
       }
@@ -597,13 +663,51 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
         } else {
           const { selectedClipIds: selIds } = viewStoreRef.current
           const clipIds = selIds.has(clip.id) ? [...selIds] : [clip.id]
-          const origClips = new Map<string, { startBar: number; trackId: string }>()
-          project.tracks.forEach(t => {
-            t.clips.forEach(c => {
-              if (clipIds.includes(c.id)) origClips.set(c.id, { startBar: c.startBar, trackId: t.id })
+
+          if (e.altKey) {
+            // Alt+drag: duplicate selected clips, then drag the duplicates (Mod 1)
+            // Snapshot clip IDs before duplication
+            const beforeIds = new Set<string>()
+            project.tracks.forEach(t => t.clips.forEach(c => beforeIds.add(c.id)))
+
+            // Perform duplication (mutates store)
+            undoableDuplicateClips(clipIds)
+
+            // Find new clip IDs by diffing before/after
+            const afterProject = useProjectStore.getState().project
+            const newClipIds: string[] = []
+            const newOrigClips = new Map<string, { startBar: number; trackId: string }>()
+            afterProject.tracks.forEach(t => {
+              t.clips.forEach(c => {
+                if (!beforeIds.has(c.id)) {
+                  newClipIds.push(c.id)
+                  newOrigClips.set(c.id, { startBar: c.startBar, trackId: t.id })
+                }
+              })
             })
-          })
-          dragRef.current = { type: 'move', clipIds, origClips, beat0: pxToBeat(px), trackIdx0: trackIdx, dBeat: 0, dTrackIdx: 0 }
+
+            // Select the new (duplicated) clips
+            selectClips(newClipIds)
+
+            // Start move drag with the duplicated clip IDs
+            dragRef.current = {
+              type: 'move',
+              clipIds: newClipIds,
+              origClips: newOrigClips,
+              beat0: pxToBeat(px),
+              trackIdx0: trackIdx,
+              dBeat: 0,
+              dTrackIdx: 0,
+            }
+          } else {
+            const origClips = new Map<string, { startBar: number; trackId: string }>()
+            project.tracks.forEach(t => {
+              t.clips.forEach(c => {
+                if (clipIds.includes(c.id)) origClips.set(c.id, { startBar: c.startBar, trackId: t.id })
+              })
+            })
+            dragRef.current = { type: 'move', clipIds, origClips, beat0: pxToBeat(px), trackIdx0: trackIdx, dBeat: 0, dTrackIdx: 0 }
+          }
         }
         useProjectStore.getState().selectTrack(track.id)
       } else {
@@ -671,9 +775,28 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
       const snappedDeltaBars = snapG > 0
         ? Math.round(rawDeltaBars / (snapG / tsTop)) * (snapG / tsTop)
         : rawDeltaBars
+
+      // Mod 3 — magnet snap to clip edges
+      // Use the first dragged clip as reference to compute its new bar position
+      const firstOrigEntry = d.origClips.values().next().value as { startBar: number; trackId: string } | undefined
+      let magnetDeltaBars = snappedDeltaBars
+      if (firstOrigEntry) {
+        const allClips = projectStoreRef.current.project.tracks.flatMap(t => t.clips)
+        // New start in 0-based bars
+        const candidateBar0 = (firstOrigEntry.startBar - 1) + snappedDeltaBars
+        const magnetBar0 = magnetSnap(candidateBar0, allClips, d.clipIds, zoomX)
+        magnetDeltaBars = snappedDeltaBars + (magnetBar0 - candidateBar0)
+      }
+
       const curIdx = pxToTrackIdx(py)
-      d.dBeat = snappedDeltaBars
+      d.dBeat = magnetDeltaBars
       d.dTrackIdx = curIdx >= 0 ? curIdx - d.trackIdx0 : d.dTrackIdx
+
+      // Mod 6 — update snap line position (in beats, for RAF)
+      if (firstOrigEntry) {
+        const newStartBars = (firstOrigEntry.startBar - 1) + magnetDeltaBars
+        snapLineRef.current = newStartBars * tsTop
+      }
 
     } else if (d.type === 'resize-end') {
       const rawLen = (pxToBeat(px) - (d.origStart - 1) * tsTop) / tsTop
