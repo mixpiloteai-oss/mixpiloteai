@@ -1,0 +1,6 @@
+export { SubtractiveSynth, DEFAULT_SYNTH_PARAMS } from './SubtractiveSynth'
+export type { SynthParams, FilterType, LfoTarget } from './SubtractiveSynth'
+export { SamplerEngine, DEFAULT_SAMPLER_CONFIG } from './SamplerEngine'
+export type { SamplerZone, SamplerConfig } from './SamplerEngine'
+export { InstrumentPresetManager, getSynthPresetManager, getSamplerPresetManager, SYNTH_FACTORY_PRESETS } from './InstrumentPresetManager'
+export type { InstrumentPreset, InstrumentType } from './InstrumentPresetManager'
