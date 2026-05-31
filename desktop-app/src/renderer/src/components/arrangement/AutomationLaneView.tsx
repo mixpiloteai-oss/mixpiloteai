@@ -312,7 +312,7 @@ export function AutomationLaneHeader({
 
 export default function AutomationLaneView() {
   const { zoomX, scrollX, scrollY, expandedAutomationTracks } = useArrangementViewStore()
-  const { project } = useProjectStore()
+  const project = useProjectStore(s => s.project)
   const { lanes } = useAutomationStore()
 
   if (expandedAutomationTracks.size === 0) return null

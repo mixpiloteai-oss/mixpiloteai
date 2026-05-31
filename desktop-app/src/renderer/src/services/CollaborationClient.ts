@@ -248,7 +248,7 @@ export class CollaborationClient {
     if (!this.roomId)        return
 
     const delay = jitteredDelay(this._reconnectDelay)
-    console.log(`[CollaborationClient] reconnecting in ${Math.round(delay)}ms`)
+    console.warn(`[CollaborationClient] reconnecting in ${Math.round(delay)}ms`)
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null

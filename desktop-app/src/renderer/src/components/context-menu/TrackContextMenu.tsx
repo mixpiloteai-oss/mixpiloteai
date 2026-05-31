@@ -21,8 +21,9 @@ export function TrackContextMenu({ x, y, trackId, onClose }: TrackContextMenuPro
       action: () => {
         const name = window.prompt('Track name:')
         if (name) {
-          // TODO: implement renameTrack in projectStore — using setProjectName workaround
-          console.log('TODO: renameTrack', trackId, name)
+          // renameTrack not yet wired to projectStore; name collected for future integration
+          void name
+          void trackId
         }
       },
     },

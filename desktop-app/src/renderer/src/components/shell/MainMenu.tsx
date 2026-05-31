@@ -163,7 +163,7 @@ export function MainMenu(): JSX.Element {
           id: 'prefs',
           label: 'Préférences',
           disabled: true,
-          action: () => console.log('TODO: préférences'),
+          action: () => { /* preferences not yet implemented */ },
         },
         { id: 'sep1', label: '', separator: true },
         {
@@ -192,9 +192,7 @@ export function MainMenu(): JSX.Element {
           label: 'Ouvrir projet',
           shortcut: 'Ctrl+O',
           action: () => {
-            if (window.electronAPI) {
-              console.log('TODO: open via electron dialog')
-            } else {
+            if (!window.electronAPI) {
               alert('Open via File > Import')
             }
           },
@@ -207,7 +205,6 @@ export function MainMenu(): JSX.Element {
           action: () => {
             const project = useProjectStore.getState().project
             localStorage.setItem('neurotek-project', JSON.stringify(project))
-            console.log('Project saved to localStorage')
           },
         },
         {
@@ -231,8 +228,7 @@ export function MainMenu(): JSX.Element {
             input.type = 'file'
             input.accept = '.wav,.mp3,.ogg,.flac,.aiff'
             input.onchange = () => {
-              const file = input.files?.[0]
-              if (file) console.log('Import audio:', file.name)
+              void input.files?.[0] // audio import integration point
             }
             input.click()
           },

@@ -31,7 +31,7 @@ export function ClipContextMenu({ x, y, clipId, clipType, onClose }: ClipContext
       label: 'Copy',
       shortcut: 'Ctrl+C',
       icon: '📋',
-      action: () => console.log('TODO: copy clip', clipId),
+      action: () => { /* copy-to-clipboard not yet implemented */ },
     },
     {
       id: 'delete',
@@ -117,12 +117,12 @@ export function ClipContextMenu({ x, y, clipId, clipType, onClose }: ClipContext
       icon: 'ℹ️',
       action: () => {
         const store = useProjectStore.getState()
-        let clipInfo: unknown = null
+        let clipInfo: import('../../types/project').Clip | null = null
         store.project.tracks.forEach((t) => {
           const found = t.clips.find((c) => c.id === clipId)
           if (found) clipInfo = found
         })
-        console.log('Clip properties:', clipInfo)
+        void clipInfo // properties panel integration point
       },
     },
   ]

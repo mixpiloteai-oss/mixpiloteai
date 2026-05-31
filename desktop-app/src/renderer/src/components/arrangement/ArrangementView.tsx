@@ -67,7 +67,10 @@ export default function ArrangementView() {
           followPlayhead, toggleFollowPlayhead, rippleEdit, toggleRippleEdit,
           automationMode, setAutomationMode } =
     useArrangementViewStore()
-  const { project, deleteClips, duplicateClips, consolidateClips } = useProjectStore()
+  const project          = useProjectStore(s => s.project)
+  const deleteClips      = useProjectStore(s => s.deleteClips)
+  const duplicateClips   = useProjectStore(s => s.duplicateClips)
+  const consolidateClips = useProjectStore(s => s.consolidateClips)
 
   // ── Toolbar actions ───────────────────────────────────────────────────────
 

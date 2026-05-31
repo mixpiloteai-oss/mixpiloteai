@@ -314,7 +314,11 @@ interface TrackStripProps {
 
 const TrackChannelStrip = memo(function TrackChannelStrip({ track, channelNum }: TrackStripProps) {
   const level = useTrackLevel(track.id)
-  const { toggleMute, toggleSolo, toggleArm, setTrackGain, setTrackPan } = useProjectStore()
+  const toggleMute  = useProjectStore(s => s.toggleMute)
+  const toggleSolo  = useProjectStore(s => s.toggleSolo)
+  const toggleArm   = useProjectStore(s => s.toggleArm)
+  const setTrackGain = useProjectStore(s => s.setTrackGain)
+  const setTrackPan  = useProjectStore(s => s.setTrackPan)
   const { buses, getOrCreate, setEQEnabled, toggleSection: _toggleSection } = useMixerStore()
   const { channelWidth, compactMode } = useMixerLayout()
   const ch = getOrCreate(track.id)

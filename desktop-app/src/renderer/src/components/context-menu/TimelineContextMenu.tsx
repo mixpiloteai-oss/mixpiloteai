@@ -65,7 +65,7 @@ export function TimelineContextMenu({ x, y, barPosition, onClose }: TimelineCont
       label: 'Paste',
       shortcut: 'Ctrl+V',
       icon: '📋',
-      action: () => console.log('TODO: paste at bar', barPosition),
+      action: () => { void barPosition /* paste-at-bar not yet implemented */ },
     },
     { id: 'sep2', label: '', separator: true },
     {

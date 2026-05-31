@@ -77,9 +77,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
     }
   },
 
-  applyToTrack: (trackId: string, clipId: string) => {
+  applyToTrack: (_trackId: string, _clipId: string) => {
     // Integration point for future project store wiring
-    console.log(`apply to track: trackId=${trackId}, clipId=${clipId}`)
   },
 
   loadSuggestions: () => {

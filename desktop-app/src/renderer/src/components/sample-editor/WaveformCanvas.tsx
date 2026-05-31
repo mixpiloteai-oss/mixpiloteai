@@ -42,7 +42,7 @@ export const WaveformCanvas: React.FC = () => {
       canvas.width  = width  * dpr
       canvas.height = height * dpr
     }
-    ctx.scale(dpr, dpr)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, width, height)
 
     ctx.fillStyle = COLORS.background
@@ -146,7 +146,7 @@ export const WaveformCanvas: React.FC = () => {
       ctx.lineTo(playX, height)
       ctx.stroke()
     }
-  }, [engine, selectionStart, selectionEnd, cursorPosition, zoomLevel, scrollOffset, transientMarkers, warpMarkers, setSelection, setCursor])
+  }, [engine, selectionStart, selectionEnd, cursorPosition, zoomLevel, scrollOffset, transientMarkers, warpMarkers])
 
   useEffect(() => {
     const loop = (): void => { draw(); rafRef.current = requestAnimationFrame(loop) }
