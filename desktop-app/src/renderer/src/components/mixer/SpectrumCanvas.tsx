@@ -7,6 +7,7 @@ export interface TrackSpectrum {
   type: 'midi' | 'audio' | 'bus' | 'master'
   color: string
   getLevel: () => { rmsL: number; rmsR: number; peakL: number; peakR: number }
+  getSpectrum?: () => Float32Array<ArrayBuffer>
 }
 
 interface Props {
@@ -107,15 +108,26 @@ export default function SpectrumCanvas({ tracks, height }: Props) {
       const currentTracks = tracksRef.current
 
       for (const track of currentTracks) {
-        const { rmsL, rmsR } = track.getLevel()
-        const rms = (rmsL + rmsR) * 0.5
-        if (rms < 0.0001) continue
+        if (track.getSpectrum) {
+          // Real FFT data path: dBFS values in range [-100, 0] mapped to [0, 1]
+          const fftData = track.getSpectrum()
+          for (let i = 0; i < NUM_BINS; i++) {
+            const db = fftData[i] !== undefined ? fftData[i]! : -100
+            const amplitude = Math.max(0, Math.min(1, (db + 100) / 100))
+            raw[i] += amplitude
+          }
+        } else {
+          // Fallback: fake frequency weights based on RMS level
+          const { rmsL, rmsR } = track.getLevel()
+          const rms = (rmsL + rmsR) * 0.5
+          if (rms < 0.0001) continue
 
-        for (let i = 0; i < NUM_BINS; i++) {
-          const w = trackFreqWeight(track.type, BIN_FREQS[i])
-          // Add Gaussian noise-like variation seeded by bin index for a natural look
-          const variation = 0.85 + 0.15 * Math.abs(Math.sin(i * 2.3 + rms * 10))
-          raw[i] += rms * w * variation
+          for (let i = 0; i < NUM_BINS; i++) {
+            const w = trackFreqWeight(track.type, BIN_FREQS[i])
+            // Add Gaussian noise-like variation seeded by bin index for a natural look
+            const variation = 0.85 + 0.15 * Math.abs(Math.sin(i * 2.3 + rms * 10))
+            raw[i] += rms * w * variation
+          }
         }
       }
 
@@ -161,20 +173,43 @@ export default function SpectrumCanvas({ tracks, height }: Props) {
       ctx.lineWidth = 0.8
       ctx.globalAlpha = 0.35
       for (const track of currentTracks) {
-        const { rmsL, rmsR } = track.getLevel()
-        const rms = (rmsL + rmsR) * 0.5
-        if (rms < 0.0005) continue
+        if (track.getSpectrum) {
+          // Real FFT data path
+          const fftData = track.getSpectrum()
+          let hasSignal = false
+          for (let i = 0; i < NUM_BINS; i++) {
+            if ((fftData[i] ?? -100) > -90) { hasSignal = true; break }
+          }
+          if (!hasSignal) continue
 
-        ctx.strokeStyle = track.color
-        ctx.beginPath()
-        for (let i = 0; i < NUM_BINS; i++) {
-          const x   = (i / (NUM_BINS - 1)) * W
-          const amp = rms * trackFreqWeight(track.type, BIN_FREQS[i])
-          const y   = ampToY(amp)
-          if (i === 0) ctx.moveTo(x, y)
-          else         ctx.lineTo(x, y)
+          ctx.strokeStyle = track.color
+          ctx.beginPath()
+          for (let i = 0; i < NUM_BINS; i++) {
+            const x = (i / (NUM_BINS - 1)) * W
+            const db = fftData[i] !== undefined ? fftData[i]! : -100
+            const amplitude = Math.max(0, Math.min(1, (db + 100) / 100))
+            const y = ampToY(amplitude)
+            if (i === 0) ctx.moveTo(x, y)
+            else         ctx.lineTo(x, y)
+          }
+          ctx.stroke()
+        } else {
+          // Fallback: fake frequency weights based on RMS level
+          const { rmsL, rmsR } = track.getLevel()
+          const rms = (rmsL + rmsR) * 0.5
+          if (rms < 0.0005) continue
+
+          ctx.strokeStyle = track.color
+          ctx.beginPath()
+          for (let i = 0; i < NUM_BINS; i++) {
+            const x   = (i / (NUM_BINS - 1)) * W
+            const amp = rms * trackFreqWeight(track.type, BIN_FREQS[i])
+            const y   = ampToY(amp)
+            if (i === 0) ctx.moveTo(x, y)
+            else         ctx.lineTo(x, y)
+          }
+          ctx.stroke()
         }
-        ctx.stroke()
       }
       ctx.globalAlpha = 1.0
 

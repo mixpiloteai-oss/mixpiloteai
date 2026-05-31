@@ -18,6 +18,10 @@ export interface Clip {
   muted: boolean
   notes: MidiNote[]
   playbackRate?: number  // 1.0 = normal; stretch factor for timestretch
+  clipGainDb?: number    // per-clip gain offset, default 0 dB
+  fadeInSec?: number     // fade-in duration in seconds, default 0
+  fadeOutSec?: number    // fade-out duration in seconds, default 0
+  audioFilePath?: string // path to audio file (for audio clips)
 }
 
 export interface TrackSend {

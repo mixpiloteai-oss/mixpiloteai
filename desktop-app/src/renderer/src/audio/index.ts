@@ -33,24 +33,28 @@ import { MonitorEngine }              from './MonitorEngine'
 import { TrackManager }               from './tracks/TrackManager'
 import { AudioTrackNode }             from './tracks/AudioTrackNode'
 import { ClipPlaybackCoordinator }    from './ClipPlaybackCoordinator'
+import { AudioClipPlaybackEngine }    from './AudioClipPlaybackEngine'
+import { SpectrumAnalyzer }           from './SpectrumAnalyzer'
 import { useMixerStore }              from '../components/mixer/useMixerStore'
 import type { EQBand as StoreEQBand } from '../components/mixer/useMixerStore'
 import type { EQBand as DspEQBand }   from './EqChain'
 
 // ─── Singletons ───────────────────────────────────────────────────────────────
 
-let _engine:      AudioEngine              | null = null
-let _transport:   Transport                | null = null
-let _metronome:   MetronomeEngine          | null = null
-let _loader:      WaveformLoader           | null = null
-let _mixer:       TrackMixer               | null = null
-let _bridge:      WebAudioBridge           | null = null
-let _busRouter:   BusRouter                | null = null
-let _automation:  AutomationEngine         | null = null
-let _latency:     LatencyCompensator       | null = null
-let _monitor:     MonitorEngine            | null = null
-let _trackMgr:    TrackManager             | null = null
-let _coordinator: ClipPlaybackCoordinator  | null = null
+let _engine:         AudioEngine              | null = null
+let _transport:      Transport                | null = null
+let _metronome:      MetronomeEngine          | null = null
+let _loader:         WaveformLoader           | null = null
+let _mixer:          TrackMixer               | null = null
+let _bridge:         WebAudioBridge           | null = null
+let _busRouter:      BusRouter                | null = null
+let _automation:     AutomationEngine         | null = null
+let _latency:        LatencyCompensator       | null = null
+let _monitor:        MonitorEngine            | null = null
+let _trackMgr:       TrackManager             | null = null
+let _coordinator:    ClipPlaybackCoordinator  | null = null
+let _audioClipEngine: AudioClipPlaybackEngine | null = null
+let _spectrumAnalyzer: SpectrumAnalyzer       | null = null
 
 // ─── Accessors ────────────────────────────────────────────────────────────────
 
@@ -125,6 +129,27 @@ export function getClipPlaybackCoordinator(): ClipPlaybackCoordinator {
     getTransport().setCoordinator(_coordinator)
   }
   return _coordinator
+}
+
+export function getAudioClipPlaybackEngine(): AudioClipPlaybackEngine {
+  if (!_audioClipEngine) {
+    _audioClipEngine = new AudioClipPlaybackEngine(
+      getTransport(),
+      getTrackManager(),
+      getWaveformLoader(),
+    )
+  }
+  return _audioClipEngine
+}
+
+export function getSpectrumAnalyzer(): SpectrumAnalyzer {
+  if (!_spectrumAnalyzer) {
+    const engine = getAudioEngine()
+    _spectrumAnalyzer = new SpectrumAnalyzer(engine.ctx)
+    // Connect masterAnalyser output to the spectrum analyzer input
+    engine.masterAnalyser.connect(_spectrumAnalyzer.input)
+  }
+  return _spectrumAnalyzer
 }
 
 // ─── EQ band type conversion ──────────────────────────────────────────────────
@@ -218,4 +243,11 @@ export { MidiTrackNode }                        from './tracks/MidiTrackNode'
 export { BusTrackNode }                         from './tracks/BusTrackNode'
 export { TrackManager }                         from './tracks/TrackManager'
 export { ClipPlaybackCoordinator, PreviewScheduler } from './ClipPlaybackCoordinator'
+export { AudioClipPlaybackEngine }              from './AudioClipPlaybackEngine'
+export { SpectrumAnalyzer }                     from './SpectrumAnalyzer'
+export type { FrequencyBin }                    from './SpectrumAnalyzer'
+export { computePanGains }                      from './PanLaw'
+export type { PanLawType, PanGains }            from './PanLaw'
+export { runAudioBenchmark }                    from './AudioPerformanceBenchmark'
+export type { BenchmarkResult }                 from './AudioPerformanceBenchmark'
 export * from './types'

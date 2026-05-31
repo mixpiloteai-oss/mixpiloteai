@@ -21,6 +21,9 @@ export interface AudioClipSchedule {
   startContextTime: number  // AudioContext.currentTime to start playback
   offsetSec:    number      // offset into the buffer
   durationSec?: number      // optional clip length limit
+  clipGainDb?: number       // per-clip gain applied before the track input
+  fadeInSec?: number        // linear ramp 0→1 over first N seconds
+  fadeOutSec?: number       // linear ramp 1→0 over last N seconds
 }
 
 // Default flat EQ bands (all gain=0, disabled)
@@ -154,18 +157,41 @@ export class AudioTrackNode {
     src.buffer      = buffer
     const startTime = Math.max(ctx.currentTime, sched.startContextTime)
 
-    // Anti-crackle ramp gain node
+    // Per-clip gain node (inserted before rampGain)
+    const clipGainNode = ctx.createGain()
+    clipGainNode.gain.value = dbToGain(sched.clipGainDb ?? 0)
+
+    // Anti-crackle / fade ramp gain node
     const rampGain  = ctx.createGain()
-    rampGain.gain.setValueAtTime(0, startTime)
-    rampGain.gain.linearRampToValueAtTime(1, startTime + 0.002)
+
+    const fadeInSec  = sched.fadeInSec  ?? 0
+    const fadeOutSec = sched.fadeOutSec ?? 0
+
+    if (fadeInSec > 0) {
+      // Explicit fade-in: ramp from 0 to 1 over fadeInSec
+      rampGain.gain.setValueAtTime(0, startTime)
+      rampGain.gain.linearRampToValueAtTime(1, startTime + Math.max(0.002, fadeInSec))
+    } else {
+      // Default anti-crackle 2ms ramp
+      rampGain.gain.setValueAtTime(0, startTime)
+      rampGain.gain.linearRampToValueAtTime(1, startTime + 0.002)
+    }
 
     if (sched.durationSec !== undefined) {
       const endTime = startTime + sched.durationSec
-      rampGain.gain.setValueAtTime(1, endTime - 0.002)
-      rampGain.gain.linearRampToValueAtTime(0, endTime)
+      if (fadeOutSec > 0) {
+        // Explicit fade-out: ramp from 1 to 0 over fadeOutSec before end
+        rampGain.gain.setValueAtTime(1, endTime - fadeOutSec)
+        rampGain.gain.linearRampToValueAtTime(0, endTime)
+      } else {
+        // Default anti-crackle 2ms ramp at end
+        rampGain.gain.setValueAtTime(1, endTime - 0.002)
+        rampGain.gain.linearRampToValueAtTime(0, endTime)
+      }
     }
 
-    src.connect(rampGain)
+    src.connect(clipGainNode)
+    clipGainNode.connect(rampGain)
     rampGain.connect(this.input)
 
     src.start(startTime, sched.offsetSec, sched.durationSec)
@@ -173,6 +199,7 @@ export class AudioTrackNode {
     this._activeSources.add(src)
     src.onended = () => {
       src.disconnect()
+      clipGainNode.disconnect()
       rampGain.disconnect()
       this._activeSources.delete(src)
     }
