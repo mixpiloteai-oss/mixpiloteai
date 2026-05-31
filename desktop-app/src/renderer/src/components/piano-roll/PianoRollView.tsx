@@ -7,6 +7,7 @@ import VelocityLane                from './VelocityLane'
 import AutomationLanes             from './AutomationLanes'
 import ScalePanel                  from './ScalePanel'
 import AIPanel                     from './AIPanel'
+import ArpPanel                    from './ArpPanel'
 import type { PRTool, SnapGrid }   from './types'
 
 // ─── Toolbar constants ────────────────────────────────────────────────────────
@@ -74,6 +75,12 @@ export default function PianoRollView() {
   const isPreviewPlaying  = usePianoRollStore(s => s.isPreviewPlaying)
   const startPreview      = usePianoRollStore(s => s.startPreview)
   const stopPreview       = usePianoRollStore(s => s.stopPreview)
+  const arpPanelOpen      = usePianoRollStore(s => s.arpPanelOpen)
+  const toggleArpPanel    = usePianoRollStore(s => s.toggleArpPanel)
+  const noteFoldEnabled   = usePianoRollStore(s => s.noteFoldEnabled)
+  const toggleNoteFold    = usePianoRollStore(s => s.toggleNoteFold)
+  const swingAmount       = usePianoRollStore(s => s.swingAmount)
+  const setSwingAmount    = usePianoRollStore(s => s.setSwingAmount)
   const selectedTrackId   = useProjectStore(s => s.selectedTrackId)
 
   // Space bar toggles preview playback
@@ -221,6 +228,62 @@ export default function PianoRollView() {
           AI
         </button>
 
+        {/* Fold toggle */}
+        <button
+          onClick={toggleNoteFold}
+          style={{
+            padding:      '2px 8px',
+            borderRadius: 4,
+            fontSize:     10,
+            fontWeight:   noteFoldEnabled ? 600 : 400,
+            background:   noteFoldEnabled ? 'rgba(16,185,129,0.22)' : 'transparent',
+            color:        noteFoldEnabled ? '#10b981' : '#475569',
+            border:       `1px solid ${noteFoldEnabled ? 'rgba(16,185,129,0.4)' : 'transparent'}`,
+            cursor:       'pointer',
+            transition:   'all 0.12s',
+          }}
+          title="Toggle note fold (compact view)"
+        >
+          Fold
+        </button>
+
+        {/* Arp toggle */}
+        <button
+          onClick={toggleArpPanel}
+          style={{
+            padding:      '2px 8px',
+            borderRadius: 4,
+            fontSize:     10,
+            fontWeight:   arpPanelOpen ? 600 : 400,
+            background:   arpPanelOpen ? 'rgba(245,158,11,0.22)' : 'transparent',
+            color:        arpPanelOpen ? '#f59e0b' : '#475569',
+            border:       `1px solid ${arpPanelOpen ? 'rgba(245,158,11,0.4)' : 'transparent'}`,
+            cursor:       'pointer',
+            transition:   'all 0.12s',
+          }}
+          title="Toggle arpeggiator panel"
+        >
+          Arp
+        </button>
+
+        <Separator />
+
+        {/* Swing */}
+        <span style={{ fontSize: 9, color: '#334155' }}>SWING</span>
+        <input
+          type="range"
+          min={0}
+          max={0.5}
+          step={0.01}
+          value={swingAmount}
+          onChange={e => setSwingAmount(Number(e.target.value))}
+          style={{ accentColor: '#7c3aed', width: 60 }}
+          title={`Swing: ${Math.round(swingAmount * 200)}%`}
+        />
+        <span style={{ fontSize: 9, color: '#475569', minWidth: 22 }}>
+          {Math.round(swingAmount * 200)}%
+        </span>
+
         <Separator />
 
         {/* Preview playback */}
@@ -264,6 +327,9 @@ export default function PianoRollView() {
 
       {/* ── AI panel (collapsible) ──────────────────────────────────────────── */}
       {aiPanelOpen && <AIPanel />}
+
+      {/* ── Arp panel (collapsible) ─────────────────────────────────────────── */}
+      {arpPanelOpen && <ArpPanel />}
 
       {/* ── Main content ────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>

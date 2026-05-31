@@ -2,10 +2,11 @@ export type TrackType = 'midi' | 'audio' | 'bus' | 'master'
 
 export interface MidiNote {
   id: string
-  pitch: number       // 0-127
-  startBeat: number   // beat within pattern
+  pitch: number         // 0-127
+  startBeat: number     // beat within pattern
   lengthBeats: number
-  velocity: number    // 0-127
+  velocity: number      // 0-127
+  probability?: number  // 0–100, 100 = always plays (default when absent)
 }
 
 export interface Clip {

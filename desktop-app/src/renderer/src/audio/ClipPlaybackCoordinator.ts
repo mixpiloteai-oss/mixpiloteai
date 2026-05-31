@@ -161,6 +161,10 @@ export class ClipPlaybackCoordinator {
           if (this._scheduled.has(dedupKey)) continue
           this._scheduled.add(dedupKey)
 
+          // Probability: skip note with (100 - probability)% chance
+          const prob = note.probability ?? 100
+          if (prob < 100 && Math.random() * 100 >= prob) continue
+
           // Calculate exact AudioContext time for this note
           // noteAudioTime = audioCtx.currentTime + (absoluteBeat - currentAbsoluteBeat) / (bpm / 60)
           const beatOffset  = absoluteBeat - currentAbsoluteBeat

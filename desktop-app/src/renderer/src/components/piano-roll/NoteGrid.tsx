@@ -190,7 +190,7 @@ export default function NoteGrid({ ghostNotes = [] }: NoteGridProps) {
       const { w: W, h: H } = sizeRef.current
       const {
         notes, snap, zoomX, zoomY, scrollX, scrollY, timeSigTop, totalBeats,
-        scaleEnabled, scaleRoot, scaleMode,
+        scaleEnabled, scaleRoot, scaleMode, noteFoldEnabled,
       } = storeRef.current
       const d = dragRef.current
 
@@ -202,29 +202,74 @@ export default function NoteGrid({ ghostNotes = [] }: NoteGridProps) {
         : null
       const rootMidiMod = scaleEnabled ? SCALE_ROOT_MIDI[scaleRoot] % 12 : -1
 
-      // ── Row backgrounds ──────────────────────────────────────────────
-      const pitchTop = Math.min(127, Math.ceil((scrollY + H) / zoomY) + 1)
-      const pitchBot = Math.max(0,   Math.floor(scrollY / zoomY) - 1)
-      for (let p = pitchBot; p <= pitchTop; p++) {
-        const y       = (127 - p) * zoomY - scrollY
-        const pc      = p % 12
-        const inScale = scalePitchSet?.has(pc) ?? false
-        const isRoot  = pc === rootMidiMod
+      // ── Fold mapping: compute sorted unique pitches present in notes ──
+      // When folded, only rows for pitches in use are rendered
+      const sortedActivePitches: number[] = noteFoldEnabled
+        ? [...new Set(notes.map(n => n.pitch))].sort((a, b) => a - b)
+        : []
 
-        let rowColor: string
-        if (isRoot && scaleEnabled) {
-          rowColor = isBlackKey(p) ? '#1a0a30' : '#1c0a36'
-        } else if (inScale) {
-          rowColor = isBlackKey(p) ? '#0f0820' : '#12092a'
-        } else {
-          rowColor = isBlackKey(p) ? C_ROW_BLACK : C_ROW_WHITE
+      // Helper: pitch → y position (handles fold mode)
+      const pitchToY = (pitch: number): number => {
+        if (!noteFoldEnabled) {
+          return (127 - pitch) * zoomY - scrollY
         }
+        const idx = sortedActivePitches.indexOf(pitch)
+        const foldedRow = sortedActivePitches.length - 1 - idx
+        return foldedRow * zoomY - scrollY
+      }
 
-        ctx.fillStyle = rowColor
-        ctx.fillRect(0, y, W, zoomY)
-        if (p % 12 === 0) {         // C-note octave separator
-          ctx.fillStyle = C_C_LINE
-          ctx.fillRect(0, y, W, 1)
+      // ── Row backgrounds ──────────────────────────────────────────────
+      if (noteFoldEnabled) {
+        // Only render rows for active pitches
+        for (let fi = 0; fi < sortedActivePitches.length; fi++) {
+          const p = sortedActivePitches[fi]!
+          const foldedRow = sortedActivePitches.length - 1 - fi
+          const y = foldedRow * zoomY - scrollY
+          const pc = p % 12
+          const inScale = scalePitchSet?.has(pc) ?? false
+          const isRoot  = pc === rootMidiMod
+
+          let rowColor: string
+          if (isRoot && scaleEnabled) {
+            rowColor = isBlackKey(p) ? '#1a0a30' : '#1c0a36'
+          } else if (inScale) {
+            rowColor = isBlackKey(p) ? '#0f0820' : '#12092a'
+          } else {
+            rowColor = isBlackKey(p) ? C_ROW_BLACK : C_ROW_WHITE
+          }
+
+          if (y + zoomY < -1 || y > H + 1) continue
+          ctx.fillStyle = rowColor
+          ctx.fillRect(0, y, W, zoomY)
+          if (p % 12 === 0) {
+            ctx.fillStyle = C_C_LINE
+            ctx.fillRect(0, y, W, 1)
+          }
+        }
+      } else {
+        const pitchTop = Math.min(127, Math.ceil((scrollY + H) / zoomY) + 1)
+        const pitchBot = Math.max(0,   Math.floor(scrollY / zoomY) - 1)
+        for (let p = pitchBot; p <= pitchTop; p++) {
+          const y       = (127 - p) * zoomY - scrollY
+          const pc      = p % 12
+          const inScale = scalePitchSet?.has(pc) ?? false
+          const isRoot  = pc === rootMidiMod
+
+          let rowColor: string
+          if (isRoot && scaleEnabled) {
+            rowColor = isBlackKey(p) ? '#1a0a30' : '#1c0a36'
+          } else if (inScale) {
+            rowColor = isBlackKey(p) ? '#0f0820' : '#12092a'
+          } else {
+            rowColor = isBlackKey(p) ? C_ROW_BLACK : C_ROW_WHITE
+          }
+
+          ctx.fillStyle = rowColor
+          ctx.fillRect(0, y, W, zoomY)
+          if (p % 12 === 0) {
+            ctx.fillStyle = C_C_LINE
+            ctx.fillRect(0, y, W, 1)
+          }
         }
       }
 
@@ -247,7 +292,8 @@ export default function NoteGrid({ ghostNotes = [] }: NoteGridProps) {
 
       // ── Ghost notes ──────────────────────────────────────────────────
       for (const gn of ghostRef.current) {
-        drawSingleNote(ctx, gn, zoomX, zoomY, scrollX, scrollY, W, H, true)
+        const gY = pitchToY(gn.pitch)
+        drawSingleNote(ctx, gn, zoomX, zoomY, scrollX, gY + scrollY, W, H, true)
       }
 
       // ── Glide lines (portamento connectors) ──────────────────────────
@@ -264,9 +310,9 @@ export default function NoteGrid({ ghostNotes = [] }: NoteGridProps) {
         if (!next) continue
         // Draw a bezier curve from n end to next start at different pitch
         const x1 = (n.startBeat + n.lengthBeats) * zoomX - scrollX
-        const y1 = (127 - n.pitch) * zoomY - scrollY + zoomY / 2
+        const y1 = pitchToY(n.pitch) + zoomY / 2
         const x2 = next.startBeat * zoomX - scrollX
-        const y2 = (127 - next.pitch) * zoomY - scrollY + zoomY / 2
+        const y2 = pitchToY(next.pitch) + zoomY / 2
         if (x1 > W || x2 < 0) continue
         ctx.strokeStyle = 'rgba(99,202,255,0.5)'
         ctx.lineWidth   = 1.5
@@ -283,7 +329,7 @@ export default function NoteGrid({ ghostNotes = [] }: NoteGridProps) {
         // Note out of viewport — skip
         const noteX = note.startBeat * zoomX - scrollX
         const noteW = note.lengthBeats * zoomX
-        const noteY = (127 - note.pitch) * zoomY - scrollY
+        const noteY = pitchToY(note.pitch)
         const noteH = zoomY
         if (noteX + noteW < -1 || noteX > W + 1 || noteY + noteH < -1 || noteY > H + 1) continue
 
@@ -296,7 +342,12 @@ export default function NoteGrid({ ghostNotes = [] }: NoteGridProps) {
             pitch:     Math.max(0, Math.min(127, op.pitch + d.dPitch)),
           }
         }
-        drawSingleNote(ctx, display, zoomX, zoomY, scrollX, scrollY, W, H, false)
+        // Use scrollY offset adjusted for fold: pass adjusted scrollY so drawSingleNote
+        // which uses (127-pitch)*zoomY - scrollY gives the right Y
+        const adjustedScrollY = noteFoldEnabled
+          ? scrollY - (pitchToY(display.pitch) - ((127 - display.pitch) * zoomY - scrollY))
+          : scrollY
+        drawSingleNote(ctx, display, zoomX, zoomY, scrollX, adjustedScrollY, W, H, false)
       }
 
       // ── Rubber-band selection rect ───────────────────────────────────

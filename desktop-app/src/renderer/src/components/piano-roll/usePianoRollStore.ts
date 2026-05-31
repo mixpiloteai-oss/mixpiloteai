@@ -5,7 +5,8 @@ import { getScalePitches, snapPitchToScale, buildChord, getDiatonicChords, gener
 import type { ChordType } from '../../lib/musicTheory'
 import { PreviewScheduler } from '../../audio/ClipPlaybackCoordinator'
 import { MidiTrackNode } from '../../audio/tracks/MidiTrackNode'
-import { getTrackManager, getTransport } from '../../audio'
+import { getTrackManager, getTransport, getClipPlaybackCoordinator } from '../../audio'
+import { transpose, invert, reverse, legato, staccato } from '../../audio/midi/MidiNoteTransformer'
 
 let _uid = 1
 const uid = () => `pr${_uid++}`
@@ -78,6 +79,14 @@ export interface PianoRollState {
   scaleMode:       ScaleMode
   aiPanelOpen:     boolean
   scalePanelOpen:  boolean
+  // Clipboard
+  clipboard:       PRNote[] | null
+  // Note fold
+  noteFoldEnabled: boolean
+  // Arp panel
+  arpPanelOpen:    boolean
+  // Swing
+  swingAmount:     number
 
   addNote(data: Omit<PRNote, 'id' | 'selected' | 'muted'>): PRNote
   removeNote(id: string): void
@@ -122,6 +131,28 @@ export interface PianoRollState {
   previewTrackId: string | null
   startPreview(trackId: string): void
   stopPreview(): void
+  // Clipboard
+  copySelected(): void
+  cutSelected(): void
+  paste(atBeat: number): void
+  // Velocity curves
+  applyVelocityCurve(
+    curve: 'ramp-up' | 'ramp-down' | 'sine' | 'random',
+    startVel: number,
+    endVel: number,
+  ): void
+  // Note fold
+  toggleNoteFold(): void
+  // Arp panel
+  toggleArpPanel(): void
+  // Swing
+  setSwingAmount(v: number): void
+  // Transformers
+  transposeSelected(semitones: number): void
+  invertSelected(pivotPitch?: number): void
+  reverseSelected(): void
+  legatoSelected(): void
+  staccatoSelected(fraction?: number): void
 }
 
 export const usePianoRollStore = create<PianoRollState>((set, get) => ({
@@ -144,6 +175,10 @@ export const usePianoRollStore = create<PianoRollState>((set, get) => ({
   scalePanelOpen:  false,
   isPreviewPlaying: false,
   previewTrackId:  null,
+  clipboard:       null,
+  noteFoldEnabled: false,
+  arpPanelOpen:    false,
+  swingAmount:     0,
 
   addNote(data) {
     const note: PRNote = { ...data, id: uid(), selected: false, muted: false }
@@ -401,5 +436,129 @@ export const usePianoRollStore = create<PianoRollState>((set, get) => ({
   stopPreview() {
     if (_previewScheduler) _previewScheduler.stop()
     set({ isPreviewPlaying: false, previewTrackId: null })
+  },
+
+  // ── Clipboard ────────────────────────────────────────────────────────────
+  copySelected() {
+    const { notes } = get()
+    const sel = notes.filter(n => n.selected)
+    if (!sel.length) return
+    const minStart = Math.min(...sel.map(n => n.startBeat))
+    const clipped = sel.map(n => ({ ...n, startBeat: n.startBeat - minStart }))
+    set({ clipboard: clipped })
+  },
+
+  cutSelected() {
+    get().copySelected()
+    get().deleteSelected()
+  },
+
+  paste(atBeat) {
+    const { clipboard } = get()
+    if (!clipboard || clipboard.length === 0) return
+    const pasted: PRNote[] = clipboard.map(n => ({
+      ...n,
+      id:        uid(),
+      startBeat: atBeat + n.startBeat,
+      selected:  true,
+    }))
+    set(s => ({
+      notes: [
+        ...s.notes.map(n => ({ ...n, selected: false })),
+        ...pasted,
+      ],
+    }))
+  },
+
+  // ── Velocity curves ──────────────────────────────────────────────────────
+  applyVelocityCurve(curve, startVel, endVel) {
+    const { notes } = get()
+    const sel = [...notes.filter(n => n.selected)].sort((a, b) => a.startBeat - b.startBeat)
+    if (sel.length < 2) return
+    const N = sel.length
+    const velMap = new Map<string, number>()
+    for (let i = 0; i < N; i++) {
+      const t = i / (N - 1)
+      let vel: number
+      if (curve === 'ramp-up' || curve === 'ramp-down') {
+        vel = startVel + (endVel - startVel) * t
+      } else if (curve === 'sine') {
+        vel = startVel + (endVel - startVel) * Math.sin(t * Math.PI)
+      } else {
+        vel = startVel + Math.random() * (endVel - startVel)
+      }
+      vel = Math.round(Math.max(1, Math.min(127, vel)))
+      velMap.set(sel[i]!.id, vel)
+    }
+    set(s => ({
+      notes: s.notes.map(n => velMap.has(n.id) ? { ...n, velocity: velMap.get(n.id)! } : n),
+    }))
+  },
+
+  // ── Note fold ────────────────────────────────────────────────────────────
+  toggleNoteFold() {
+    set(s => ({ noteFoldEnabled: !s.noteFoldEnabled }))
+  },
+
+  // ── Arp panel ────────────────────────────────────────────────────────────
+  toggleArpPanel() {
+    set(s => ({ arpPanelOpen: !s.arpPanelOpen }))
+  },
+
+  // ── Swing ────────────────────────────────────────────────────────────────
+  setSwingAmount(v) {
+    const clamped = Math.max(0, Math.min(0.5, v))
+    set({ swingAmount: clamped })
+    try {
+      getClipPlaybackCoordinator().setSwing(clamped)
+    } catch {
+      // coordinator may not be initialised yet — ignore
+    }
+  },
+
+  // ── Transformers ─────────────────────────────────────────────────────────
+  transposeSelected(semitones) {
+    const { notes } = get()
+    const sel = notes.filter(n => n.selected)
+    if (!sel.length) return
+    const transformed = transpose(sel, semitones)
+    const map = new Map(transformed.map(n => [n.id, n]))
+    set(s => ({ notes: s.notes.map(n => map.has(n.id) ? map.get(n.id)! : n) }))
+  },
+
+  invertSelected(pivotPitch) {
+    const { notes } = get()
+    const sel = notes.filter(n => n.selected)
+    if (!sel.length) return
+    const transformed = invert(sel, pivotPitch)
+    const map = new Map(transformed.map(n => [n.id, n]))
+    set(s => ({ notes: s.notes.map(n => map.has(n.id) ? map.get(n.id)! : n) }))
+  },
+
+  reverseSelected() {
+    const { notes } = get()
+    const sel = notes.filter(n => n.selected)
+    if (!sel.length) return
+    const transformed = reverse(sel)
+    const map = new Map(transformed.map(n => [n.id, n]))
+    set(s => ({ notes: s.notes.map(n => map.has(n.id) ? map.get(n.id)! : n) }))
+  },
+
+  legatoSelected() {
+    const { notes } = get()
+    const sel = notes.filter(n => n.selected)
+    if (!sel.length) return
+    const transformed = legato(sel)
+    const map = new Map(transformed.map(n => [n.id, n]))
+    set(s => ({ notes: s.notes.map(n => map.has(n.id) ? map.get(n.id)! : n) }))
+  },
+
+  staccatoSelected(fraction) {
+    const { notes } = get()
+    const sel = notes.filter(n => n.selected)
+    if (!sel.length) return
+    const transformed = staccato(sel, fraction)
+    const map = new Map(transformed.map(n => [n.id, n]))
+    set(s => ({ notes: s.notes.map(n => map.has(n.id) ? map.get(n.id)! : n) }))
   },
 }))
