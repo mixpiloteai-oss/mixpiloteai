@@ -17,9 +17,24 @@ const api = {
   getVersion:        () => ipcRenderer.invoke('get-version'),
   // MIDI
   getMidiDevices:    () => ipcRenderer.invoke('get-midi-devices'),
-  // VST
+  // VST (legacy)
   scanVSTPlugins:    () => ipcRenderer.invoke('scan-vst-plugins'),
   getVSTPlugins:     () => ipcRenderer.invoke('get-vst-plugins'),
+  // VST3 professional plugin system
+  vstScan:             ()                                               => ipcRenderer.invoke('vst:scan'),
+  vstList:             ()                                               => ipcRenderer.invoke('vst:list'),
+  vstSearch:           (query: string)                                  => ipcRenderer.invoke('vst:search', query),
+  vstLoadInstance:     (pluginId: string)                               => ipcRenderer.invoke('vst:load-instance', pluginId),
+  vstUnloadInstance:   (instanceId: string)                             => ipcRenderer.invoke('vst:unload-instance', instanceId),
+  vstSetParameter:     (instanceId: string, paramIndex: number, value: number) => ipcRenderer.invoke('vst:set-parameter', instanceId, paramIndex, value),
+  vstGetParameter:     (instanceId: string, paramIndex: number)         => ipcRenderer.invoke('vst:get-parameter', instanceId, paramIndex),
+  vstGetAllParameters: (instanceId: string)                             => ipcRenderer.invoke('vst:get-all-parameters', instanceId),
+  vstGetState:         (instanceId: string)                             => ipcRenderer.invoke('vst:get-state', instanceId),
+  vstSetState:         (instanceId: string, state: number[])            => ipcRenderer.invoke('vst:set-state', instanceId, state),
+  vstSendMidi:         (instanceId: string, event: unknown)             => ipcRenderer.invoke('vst:send-midi', instanceId, event),
+  vstGetPresets:       (instanceId: string)                             => ipcRenderer.invoke('vst:get-presets', instanceId),
+  vstLoadPreset:       (instanceId: string, presetId: string)           => ipcRenderer.invoke('vst:load-preset', instanceId, presetId),
+  vstBypass:           (instanceId: string, bypassed: boolean)          => ipcRenderer.invoke('vst:bypass', instanceId, bypassed),
   // Projects
 
   saveProject:       (data: unknown) => ipcRenderer.invoke('save-project', data),

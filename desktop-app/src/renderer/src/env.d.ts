@@ -200,6 +200,21 @@ interface ElectronAPI {
   diagnosticRead?:           (maxLines?: number) => Promise<unknown[]>
   diagnosticGenerateReport?: () => Promise<unknown>
   diagnosticClear?:          () => Promise<void>
+  // VST3 professional plugin system
+  vstScan:             ()                                               => Promise<unknown>
+  vstList:             ()                                               => Promise<unknown[]>
+  vstSearch:           (query: string)                                  => Promise<unknown[]>
+  vstLoadInstance:     (pluginId: string)                               => Promise<string>
+  vstUnloadInstance:   (instanceId: string)                             => Promise<void>
+  vstSetParameter:     (instanceId: string, paramIndex: number, value: number) => Promise<void>
+  vstGetParameter:     (instanceId: string, paramIndex: number)         => Promise<number>
+  vstGetAllParameters: (instanceId: string)                             => Promise<unknown[]>
+  vstGetState:         (instanceId: string)                             => Promise<number[]>
+  vstSetState:         (instanceId: string, state: number[])            => Promise<void>
+  vstSendMidi:         (instanceId: string, event: unknown)             => Promise<void>
+  vstGetPresets:       (instanceId: string)                             => Promise<unknown[]>
+  vstLoadPreset:       (instanceId: string, presetId: string)           => Promise<void>
+  vstBypass:           (instanceId: string, bypassed: boolean)          => Promise<void>
 }
 
 interface ImportMetaEnv {
