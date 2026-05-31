@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu, shell, ipcMain, dialog, powerMonitor } from 'electron'
 import { join } from 'path'
+import * as https from 'https'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import audioModule from './modules/audio'
 import vstModule from './modules/vst'
@@ -153,6 +154,65 @@ function buildMenu(): void {
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
+
+// ── IPC: AI cloud assistant ───────────────────────────────────
+ipcMain.handle('ai:process-command', (_e, ctx: string, cmd: string) => {
+  const apiKey = process.env['ANTHROPIC_API_KEY']
+  if (!apiKey) return { available: false }
+
+  return new Promise<{ available: boolean; text?: string }>((resolve) => {
+    const prompt = `Tu es un assistant musical expert en production musicale électronique.
+Contexte du projet: ${ctx}
+Commande utilisateur: ${cmd}
+Réponds en français en 1-2 phrases maximum, de façon amicale et musicale.`
+
+    const body = JSON.stringify({
+      model:      'claude-haiku-4-5',
+      max_tokens: 256,
+      messages:   [{ role: 'user', content: prompt }],
+    })
+
+    const options: https.RequestOptions = {
+      hostname: 'api.anthropic.com',
+      path:     '/v1/messages',
+      method:   'POST',
+      headers:  {
+        'Content-Type':      'application/json',
+        'x-api-key':         apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Length':    Buffer.byteLength(body),
+      },
+    }
+
+    const timer = setTimeout(() => {
+      req.destroy()
+      resolve({ available: false })
+    }, 15_000)
+
+    const req = https.request(options, (res) => {
+      let data = ''
+      res.on('data', (chunk: Buffer) => { data += chunk.toString() })
+      res.on('end', () => {
+        clearTimeout(timer)
+        try {
+          const parsed = JSON.parse(data) as { content?: { text: string }[] }
+          const text   = parsed?.content?.[0]?.text ?? null
+          resolve(text ? { available: true, text } : { available: false })
+        } catch {
+          resolve({ available: false })
+        }
+      })
+    })
+
+    req.on('error', () => {
+      clearTimeout(timer)
+      resolve({ available: false })
+    })
+
+    req.write(body)
+    req.end()
+  })
+})
 
 // ── IPC: Performance metrics ──────────────────────────────────
 ipcMain.handle('perf:get-memory-metrics', () => {

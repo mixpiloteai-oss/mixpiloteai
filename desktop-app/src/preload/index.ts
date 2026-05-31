@@ -252,6 +252,8 @@ const api = {
   samplesDeleteSmartFolder:       (id: string)                         => ipcRenderer.invoke('samples:delete-smart-folder', id),
   onSamplesScanProgress:(cb: (info: unknown) => void)               => ipcRenderer.on('samples:scan-progress', (_e, i) => cb(i)),
   onSamplesScanComplete:(cb: (info: unknown) => void)               => ipcRenderer.on('samples:scan-complete', (_e, i) => cb(i)),
+  // AI Assistant cloud path
+  aiProcessCommand: (ctx: string, cmd: string) => ipcRenderer.invoke('ai:process-command', ctx, cmd),
   // Crash reporting (typed namespace — does NOT expose raw ipcRenderer)
   crash: {
     report: (payload: {
