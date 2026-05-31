@@ -4,12 +4,16 @@ import { getFileScanner }  from '../../audio/browser/FileScanner'
 import { getSampleIndexer } from '../../audio/browser/SampleIndexer'
 import { getAudioAnalyzer } from '../../audio/browser/AudioAnalyzer'
 import { getAudioCache }   from '../../audio/browser/AudioCache'
+import { useSampleBrowserStore } from '../../store/sampleBrowserStore'
 import type { SampleSort, SampleEntry } from '../../audio/browser/types'
-import FolderTree    from './FolderTree'
-import SearchBar     from './SearchBar'
-import FilterPanel   from './FilterPanel'
-import SampleList    from './SampleList'
-import WaveformPreview from './WaveformPreview'
+import FolderTree       from './FolderTree'
+import SearchBar        from './SearchBar'
+import FilterPanel      from './FilterPanel'
+import SampleList       from './SampleList'
+import WaveformPreview  from './WaveformPreview'
+import CollectionsPanel from './CollectionsPanel'
+import SmartFoldersPanel from './SmartFoldersPanel'
+import RecentPanel      from './RecentPanel'
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -136,6 +140,9 @@ export default function SampleBrowser(): React.ReactElement {
   } = useBrowserStore()
 
   const [showFilters, setShowFilters] = useState<boolean>(false)
+  const [sidebarTab, setSidebarTab] = useState<'files' | 'collections' | 'smart' | 'recent'>('files')
+  const activeCollectionId = useSampleBrowserStore(s => s.activeCollectionId)
+  const collections        = useSampleBrowserStore(s => s.collections)
 
   // ── On mount: hydrate from IndexedDB ──────────────────────────────────────
   useEffect(() => {
@@ -152,12 +159,20 @@ export default function SampleBrowser(): React.ReactElement {
 
   // ── Computed displayed samples ────────────────────────────────────────────
   const displayedSamples: SampleEntry[] = useMemo(() => {
-    const results = getSampleIndexer().search(filter, sort, sortDir)
-    if (!selectedFolder) return results
-    return results.filter(
-      (s) => s.path.startsWith(selectedFolder + '/') || s.path.startsWith(selectedFolder),
-    )
-  }, [samples, filter, sort, sortDir, selectedFolder])
+    let results = getSampleIndexer().search(filter, sort, sortDir)
+    if (selectedFolder) {
+      results = results.filter(
+        (s) => s.path.startsWith(selectedFolder + '/') || s.path.startsWith(selectedFolder),
+      )
+    }
+    if (activeCollectionId) {
+      const col = collections.find(c => c.id === activeCollectionId)
+      if (col) {
+        results = results.filter(s => col.sampleIds.includes(s.id))
+      }
+    }
+    return results
+  }, [samples, filter, sort, sortDir, selectedFolder, activeCollectionId, collections])
 
   // ── Add folder handler ────────────────────────────────────────────────────
   const handleAddFolder = useCallback(async (): Promise<void> => {
@@ -333,20 +348,60 @@ export default function SampleBrowser(): React.ReactElement {
         overflow: 'hidden',
         minHeight: 0,
       }}>
-        {/* Sidebar: folder tree */}
+        {/* Sidebar: folder tree + tabs */}
         <div style={{
           width:       sidebarWidth,
           flexShrink:  0,
           borderRight: `1px solid ${C.border}`,
-          overflowY:   'auto',
-          overflowX:   'hidden',
           display:     'flex',
           flexDirection: 'column',
           background:  C.bg,
-          scrollbarWidth: 'thin',
-          scrollbarColor: `rgba(255,255,255,0.06) transparent`,
         }}>
-          <FolderTree />
+          {/* Tab strip */}
+          <div style={{
+            display:      'flex',
+            flexShrink:   0,
+            borderBottom: `1px solid ${C.border}`,
+            background:   C.toolbar,
+          }}>
+            {(['files', 'collections', 'smart', 'recent'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setSidebarTab(tab)}
+                style={{
+                  flex:         1,
+                  height:       26,
+                  padding:      '0 4px',
+                  background:   sidebarTab === tab ? C.btnActive : 'transparent',
+                  border:       'none',
+                  borderBottom: sidebarTab === tab ? `1px solid ${C.btnActiveBdr}` : '1px solid transparent',
+                  color:        sidebarTab === tab ? C.btnActiveTxt : C.textMuted,
+                  fontSize:     9,
+                  cursor:       'pointer',
+                  fontFamily:   'inherit',
+                  userSelect:   'none',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  transition:   'background 0.1s, color 0.1s',
+                }}
+              >
+                {tab === 'files' ? 'Files' : tab === 'collections' ? 'Colls' : tab === 'smart' ? 'Smart' : 'Recent'}
+              </button>
+            ))}
+          </div>
+          {/* Tab content */}
+          <div style={{
+            flex:      1,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            scrollbarWidth: 'thin',
+            scrollbarColor: `rgba(255,255,255,0.06) transparent`,
+          }}>
+            {sidebarTab === 'files'       && <FolderTree />}
+            {sidebarTab === 'collections' && <CollectionsPanel />}
+            {sidebarTab === 'smart'       && <SmartFoldersPanel />}
+            {sidebarTab === 'recent'      && <RecentPanel />}
+          </div>
         </div>
 
         {/* Main area */}

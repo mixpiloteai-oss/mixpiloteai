@@ -61,3 +61,65 @@ export interface ScanProgress {
   current:  string    // current file being processed
   done:     boolean
 }
+
+// ─── Collections & Smart folders (renderer mirror of main-process types) ──────
+
+export interface SampleCollection {
+  id:        string
+  name:      string
+  sampleIds: string[]
+  createdAt: number
+  updatedAt: number
+}
+
+export interface SmartFolder {
+  id:        string
+  name:      string
+  query:     string
+  type:      string | null
+  favorite:  boolean | null
+  tags:      string[]
+  createdAt: number
+}
+
+// ─── Recent history (renderer-only, not persisted to main process) ─────────────
+
+export interface RecentEntry {
+  sampleId:   string
+  name:       string
+  path:       string
+  accessedAt: number   // ms timestamp
+}
+
+// ─── AI classifier readiness interface ───────────────────────────────────────
+
+export interface AIClassification {
+  style:      string[]     // e.g. ['kick', 'electronic', 'trap']
+  mood:       string[]     // e.g. ['energetic', 'dark']
+  confidence: number       // 0.0–1.0
+  modelName:  string       // identifier of the model that produced this
+}
+
+export interface IAIClassifier {
+  readonly name: string
+  isAvailable(): boolean
+  classify(buffer: Float32Array, sampleRate: number): Promise<AIClassification>
+}
+
+// Registry for future AI classifier plugins
+const _aiClassifiers = new Map<string, IAIClassifier>()
+
+export const AIClassifierRegistry = {
+  register(classifier: IAIClassifier): void {
+    _aiClassifiers.set(classifier.name, classifier)
+  },
+  unregister(name: string): void {
+    _aiClassifiers.delete(name)
+  },
+  list(): IAIClassifier[] {
+    return [..._aiClassifiers.values()]
+  },
+  get(name: string): IAIClassifier | undefined {
+    return _aiClassifiers.get(name)
+  },
+}

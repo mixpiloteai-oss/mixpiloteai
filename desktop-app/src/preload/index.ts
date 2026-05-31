@@ -240,6 +240,16 @@ const api = {
   samplesRemoveTag:     (id: string, tag: string)                   => ipcRenderer.invoke('samples:remove-tag', id, tag),
   samplesGetAllTags:    ()                                          => ipcRenderer.invoke('samples:get-all-tags'),
   samplesGetStats:      ()                                          => ipcRenderer.invoke('samples:get-stats'),
+  // Collections
+  samplesListCollections:         ()                                    => ipcRenderer.invoke('samples:list-collections'),
+  samplesCreateCollection:        (name: string)                        => ipcRenderer.invoke('samples:create-collection', name),
+  samplesDeleteCollection:        (id: string)                          => ipcRenderer.invoke('samples:delete-collection', id),
+  samplesAddToCollection:         (collId: string, sampleId: string)    => ipcRenderer.invoke('samples:add-to-collection', collId, sampleId),
+  samplesRemoveFromCollection:    (collId: string, sampleId: string)    => ipcRenderer.invoke('samples:remove-from-collection', collId, sampleId),
+  // Smart folders
+  samplesListSmartFolders:        ()                                    => ipcRenderer.invoke('samples:list-smart-folders'),
+  samplesCreateSmartFolder:       (name: string, query: string, opts: unknown) => ipcRenderer.invoke('samples:create-smart-folder', name, query, opts),
+  samplesDeleteSmartFolder:       (id: string)                         => ipcRenderer.invoke('samples:delete-smart-folder', id),
   onSamplesScanProgress:(cb: (info: unknown) => void)               => ipcRenderer.on('samples:scan-progress', (_e, i) => cb(i)),
   onSamplesScanComplete:(cb: (info: unknown) => void)               => ipcRenderer.on('samples:scan-complete', (_e, i) => cb(i)),
   // Crash reporting (typed namespace — does NOT expose raw ipcRenderer)

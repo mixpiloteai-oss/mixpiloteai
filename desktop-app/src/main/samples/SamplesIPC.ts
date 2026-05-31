@@ -2,6 +2,7 @@ import type { IpcMain, BrowserWindow } from 'electron'
 import { dialog } from 'electron'
 import { FileScanner } from './FileScanner'
 import { SampleDatabaseManager } from './SampleDatabase'
+import type { SmartFolder } from './SampleDatabase'
 
 export function registerSamplesIPC(
   ipcMain: IpcMain,
@@ -88,4 +89,36 @@ export function registerSamplesIPC(
   ipcMain.handle('samples:get-all-tags', () => db.getAllTags())
 
   ipcMain.handle('samples:get-stats', () => db.getStats())
+
+  // Collections
+  ipcMain.handle('samples:list-collections', () => db.listCollections())
+  ipcMain.handle('samples:create-collection', async (_e, name: string) => {
+    const col = db.createCollection(name)
+    await db.save()
+    return col
+  })
+  ipcMain.handle('samples:delete-collection', async (_e, id: string) => {
+    db.deleteCollection(id)
+    await db.save()
+  })
+  ipcMain.handle('samples:add-to-collection', async (_e, collectionId: string, sampleId: string) => {
+    db.addToCollection(collectionId, sampleId)
+    await db.save()
+  })
+  ipcMain.handle('samples:remove-from-collection', async (_e, collectionId: string, sampleId: string) => {
+    db.removeFromCollection(collectionId, sampleId)
+    await db.save()
+  })
+
+  // Smart folders
+  ipcMain.handle('samples:list-smart-folders', () => db.listSmartFolders())
+  ipcMain.handle('samples:create-smart-folder', async (_e, name: string, query: string, opts: unknown) => {
+    const sf = db.createSmartFolder(name, query, opts as Omit<SmartFolder, 'id'|'name'|'query'|'createdAt'>)
+    await db.save()
+    return sf
+  })
+  ipcMain.handle('samples:delete-smart-folder', async (_e, id: string) => {
+    db.deleteSmartFolder(id)
+    await db.save()
+  })
 }

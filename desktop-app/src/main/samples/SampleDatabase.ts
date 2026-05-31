@@ -12,11 +12,32 @@ export interface SampleRecord extends SampleFileEntry {
   indexedAt:  number     // unix ms
 }
 
+export interface SampleCollection {
+  id:        string     // uuid-like, use Date.now().toString(36) + Math.random().toString(36).slice(2)
+  name:      string
+  sampleIds: string[]   // array of SampleRecord.id
+  createdAt: number     // ms timestamp
+  updatedAt: number
+}
+
+export interface SmartFolder {
+  id:        string
+  name:      string
+  // Saved search criteria (mirrors sampleBrowserStore search opts)
+  query:     string
+  type:      string | null       // extension filter e.g. 'wav', 'mp3'
+  favorite:  boolean | null
+  tags:      string[]
+  createdAt: number
+}
+
 export interface SampleDatabase {
-  version:    number
-  indexedAt:  number
-  rootDirs:   string[]
-  records:    Record<string, SampleRecord>   // keyed by id
+  version:      number
+  indexedAt:    number
+  rootDirs:     string[]
+  records:      Record<string, SampleRecord>   // keyed by id
+  collections:  SampleCollection[]
+  smartFolders: SmartFolder[]
 }
 
 function pathToId(path: string): string {
@@ -43,7 +64,7 @@ export class SampleDatabaseManager {
       dir = opts?.dir ?? join(process.cwd(), 'sample-db')
     }
     this._path = join(dir, 'samples.json')
-    this._db   = { version: 1, indexedAt: 0, rootDirs: [], records: {} }
+    this._db   = { version: 1, indexedAt: 0, rootDirs: [], records: {}, collections: [], smartFolders: [] }
   }
 
   async load(): Promise<void> {
@@ -51,6 +72,8 @@ export class SampleDatabaseManager {
       const raw = await fs.readFile(this._path, 'utf8')
       this._db = JSON.parse(raw) as SampleDatabase
     } catch { /* first run */ }
+    if (!this._db.collections) this._db.collections = []
+    if (!this._db.smartFolders) this._db.smartFolders = []
   }
 
   async save(): Promise<void> {
@@ -152,4 +175,56 @@ export class SampleDatabaseManager {
       indexedAt:    this._db.indexedAt,
     }
   }
+
+  // ── Collections ──────────────────────────────────────────────────────────────
+  createCollection(name: string): SampleCollection {
+    const col: SampleCollection = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+      name, sampleIds: [], createdAt: Date.now(), updatedAt: Date.now(),
+    }
+    this._db.collections.push(col)
+    this._dirty = true
+    return col
+  }
+
+  deleteCollection(id: string): void {
+    this._db.collections = this._db.collections.filter(c => c.id !== id)
+    this._dirty = true
+  }
+
+  addToCollection(collectionId: string, sampleId: string): void {
+    const col = this._db.collections.find(c => c.id === collectionId)
+    if (!col || col.sampleIds.includes(sampleId)) return
+    col.sampleIds.push(sampleId)
+    col.updatedAt = Date.now()
+    this._dirty = true
+  }
+
+  removeFromCollection(collectionId: string, sampleId: string): void {
+    const col = this._db.collections.find(c => c.id === collectionId)
+    if (!col) return
+    col.sampleIds = col.sampleIds.filter(id => id !== sampleId)
+    col.updatedAt = Date.now()
+    this._dirty = true
+  }
+
+  listCollections(): SampleCollection[] { return [...this._db.collections] }
+
+  // ── Smart folders ─────────────────────────────────────────────────────────────
+  createSmartFolder(name: string, query: string, opts: Omit<SmartFolder, 'id'|'name'|'query'|'createdAt'>): SmartFolder {
+    const sf: SmartFolder = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+      name, query, ...opts, createdAt: Date.now(),
+    }
+    this._db.smartFolders.push(sf)
+    this._dirty = true
+    return sf
+  }
+
+  deleteSmartFolder(id: string): void {
+    this._db.smartFolders = this._db.smartFolders.filter(f => f.id !== id)
+    this._dirty = true
+  }
+
+  listSmartFolders(): SmartFolder[] { return [...this._db.smartFolders] }
 }

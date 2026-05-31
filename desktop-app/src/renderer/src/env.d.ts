@@ -1,5 +1,23 @@
 /// <reference types="vite/client" />
 
+interface SampleCollection {
+  id:        string
+  name:      string
+  sampleIds: string[]
+  createdAt: number
+  updatedAt: number
+}
+
+interface SmartFolder {
+  id:        string
+  name:      string
+  query:     string
+  type:      string | null
+  favorite:  boolean | null
+  tags:      string[]
+  createdAt: number
+}
+
 interface SampleRecord {
   id:         string
   path:       string
@@ -145,6 +163,16 @@ interface ElectronAPI {
   samplesRemoveTag:      (id: string, tag: string) => Promise<void>
   samplesGetAllTags:     () => Promise<string[]>
   samplesGetStats:       () => Promise<{ totalRecords: number; favorites: number; rootDirs: number; indexedAt: number }>
+  // Collections
+  samplesListCollections:      () => Promise<SampleCollection[]>
+  samplesCreateCollection:     (name: string) => Promise<SampleCollection>
+  samplesDeleteCollection:     (id: string) => Promise<void>
+  samplesAddToCollection:      (collId: string, sampleId: string) => Promise<void>
+  samplesRemoveFromCollection: (collId: string, sampleId: string) => Promise<void>
+  // Smart folders
+  samplesListSmartFolders:     () => Promise<SmartFolder[]>
+  samplesCreateSmartFolder:    (name: string, query: string, opts: unknown) => Promise<SmartFolder>
+  samplesDeleteSmartFolder:    (id: string) => Promise<void>
   onSamplesScanProgress: (cb: (info: unknown) => void) => void
   onSamplesScanComplete: (cb: (info: unknown) => void) => void
   recordingStart: (opts: {
