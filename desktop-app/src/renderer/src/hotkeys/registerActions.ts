@@ -416,4 +416,13 @@ export function registerActions(registry: ActionRegistry): void {
       if (id) useProjectStore.getState().toggleArm(id)
     },
   })
+
+  registry.register({
+    id: 'view.shortcuts', label: 'Raccourcis clavier', category: 'view',
+    description: 'Afficher le panneau des raccourcis clavier (Ctrl+/)',
+    handler: () => {
+      const { useUIStore } = require('../store/uiStore') as typeof import('../store/uiStore')
+      useUIStore.getState().toggleShortcutsPanel()
+    },
+  })
 }

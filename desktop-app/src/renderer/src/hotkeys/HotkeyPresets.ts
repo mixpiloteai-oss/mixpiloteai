@@ -62,6 +62,9 @@ export const DEFAULT_PRESET: Record<string, string[]> = {
   'mix.mute_selected':       ['M'],
   'mix.solo_selected':       ['Alt+S'],
   'mix.arm_selected':        ['Alt+R'],
+
+  // Help
+  'view.shortcuts':          ['Ctrl+/'],
 }
 
 // ─── Ableton Live 11 preset ───────────────────────────────────────────────────

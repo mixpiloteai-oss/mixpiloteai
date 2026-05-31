@@ -1,9 +1,11 @@
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useState } from 'react'
 import { useProjectStore } from '../../store/projectStore'
 import { useTransportStore } from '../../store/transportStore'
 import { useArrangementViewStore } from './useArrangementViewStore'
 import { computeTrackLayout, snapBeat, clamp, SNAP_BEATS_MAP } from './arrangementUtils'
 import AutomationLaneView from './AutomationLaneView'
+import { ClipContextMenu } from '../context-menu/ClipContextMenu'
+import { TimelineContextMenu } from '../context-menu/TimelineContextMenu'
 import type { Clip, Track } from '../../types/project'
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
@@ -72,6 +74,13 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
   const _lastAutoSz  = useRef(-1)
   const inertiaRafRef= useRef(0)
   const inertiaVRef  = useRef({ vx: 0, vy: 0 })
+
+  // ── Context menu state ───────────────────────────────────────────────────────
+  type CtxMenuState =
+    | { kind: 'clip';     x: number; y: number; clipId: string; clipType: 'audio' | 'midi' }
+    | { kind: 'timeline'; x: number; y: number; barPosition: number }
+    | null
+  const [ctxMenu, setCtxMenu] = useState<CtxMenuState>(null)
 
   // Store refs — read in RAF / event handlers without re-renders
   const projectStoreRef  = useRef(useProjectStore.getState())
@@ -875,6 +884,44 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
         onPointerUp={onPointerUp}
         onWheel={onWheel}
         onKeyDown={onKeyDown}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          const rect = canvasRef.current?.getBoundingClientRect()
+          if (!rect) return
+          const mx = e.clientX - rect.left
+          const my = e.clientY - rect.top
+          const view = viewStoreRef.current
+          const proj = projectStoreRef.current
+          const tracks = proj.project.tracks
+          const layout = computeTrackLayout(tracks, view.scrollY ?? 0)
+          const scrollX = view.scrollX ?? 0
+          const zoomX   = view.zoomX ?? 1
+          const barsPerPx = 1 / (zoomX * 100)
+          const barAt = scrollX * barsPerPx + mx * barsPerPx
+
+          // Hit-test clip under cursor
+          let hitClip: Clip | null = null
+          let hitClipType: 'audio' | 'midi' = 'audio'
+          for (const tl of layout) {
+            if (my < tl.y || my > tl.y + tl.h) continue
+            const track = tracks.find(t => t.id === tl.id) as (Track & { type?: string; clips?: Clip[] }) | undefined
+            if (!track) continue
+            for (const clip of track.clips ?? []) {
+              if (barAt >= clip.startBar && barAt <= clip.startBar + clip.lengthBars) {
+                hitClip = clip
+                hitClipType = track.type === 'midi' ? 'midi' : 'audio'
+                break
+              }
+            }
+            if (hitClip) break
+          }
+
+          if (hitClip) {
+            setCtxMenu({ kind: 'clip', x: e.clientX, y: e.clientY, clipId: hitClip.id, clipType: hitClipType })
+          } else {
+            setCtxMenu({ kind: 'timeline', x: e.clientX, y: e.clientY, barPosition: Math.floor(barAt) })
+          }
+        }}
         style={{
           outline:     'none',
           cursor:      'default',
@@ -886,6 +933,22 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
         }}
       />
       <AutomationLaneView />
+
+      {/* Context menus */}
+      {ctxMenu?.kind === 'clip' && (
+        <ClipContextMenu
+          x={ctxMenu.x} y={ctxMenu.y}
+          clipId={ctxMenu.clipId} clipType={ctxMenu.clipType}
+          onClose={() => setCtxMenu(null)}
+        />
+      )}
+      {ctxMenu?.kind === 'timeline' && (
+        <TimelineContextMenu
+          x={ctxMenu.x} y={ctxMenu.y}
+          barPosition={ctxMenu.barPosition}
+          onClose={() => setCtxMenu(null)}
+        />
+      )}
     </div>
   )
 }

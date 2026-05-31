@@ -16,6 +16,8 @@ interface UIStore {
   activeTool: ActiveTool
   scrollOffsetBars: number
   selectAllSignal: number       // incremented to signal "select all" action
+  beginnerMode: boolean
+  shortcutsPanelOpen: boolean
   setView: (v: ViewId) => void
   toggleAIPanel: () => void
   toggleMixer: () => void
@@ -27,6 +29,8 @@ interface UIStore {
   cycleTool: (dir: 1 | -1) => void
   setScrollOffset: (bars: number) => void
   scrollBy: (deltaBars: number) => void
+  toggleBeginnerMode: () => void
+  toggleShortcutsPanel: () => void
 }
 
 export const useUIStore = create<UIStore>((set) => ({
@@ -40,16 +44,20 @@ export const useUIStore = create<UIStore>((set) => ({
   activeTool: 'pointer',
   scrollOffsetBars: 0,
   selectAllSignal: 0,
+  beginnerMode: false,
+  shortcutsPanelOpen: false,
 
-  setView:          (v) => set({ activeView: v }),
-  toggleAIPanel:    () => set(s => ({ aiPanelOpen: !s.aiPanelOpen })),
-  toggleMixer:      () => set(s => ({ mixerVisible: !s.mixerVisible })),
-  togglePianoRoll:  () => set(s => ({ pianoRollVisible: !s.pianoRollVisible })),
-  toggleSidebar:    () => set(s => ({ sidebarCollapsed: !s.sidebarCollapsed })),
-  setZoomX:         (z) => set({ zoomX: Math.max(0.25, Math.min(8, z)) }),
-  setZoomY:         (z) => set({ zoomY: Math.max(0.5, Math.min(3, z)) }),
-  setActiveTool:    (t) => set({ activeTool: t }),
-  cycleTool:        (dir) => set(s => ({ activeTool: nextTool(s.activeTool, dir) })),
-  setScrollOffset:  (bars) => set({ scrollOffsetBars: Math.max(0, bars) }),
-  scrollBy:         (delta) => set(s => ({ scrollOffsetBars: Math.max(0, s.scrollOffsetBars + delta) })),
+  setView:               (v) => set({ activeView: v }),
+  toggleAIPanel:         () => set(s => ({ aiPanelOpen: !s.aiPanelOpen })),
+  toggleMixer:           () => set(s => ({ mixerVisible: !s.mixerVisible })),
+  togglePianoRoll:       () => set(s => ({ pianoRollVisible: !s.pianoRollVisible })),
+  toggleSidebar:         () => set(s => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+  setZoomX:              (z) => set({ zoomX: Math.max(0.25, Math.min(8, z)) }),
+  setZoomY:              (z) => set({ zoomY: Math.max(0.5, Math.min(3, z)) }),
+  setActiveTool:         (t) => set({ activeTool: t }),
+  cycleTool:             (dir) => set(s => ({ activeTool: nextTool(s.activeTool, dir) })),
+  setScrollOffset:       (bars) => set({ scrollOffsetBars: Math.max(0, bars) }),
+  scrollBy:              (delta) => set(s => ({ scrollOffsetBars: Math.max(0, s.scrollOffsetBars + delta) })),
+  toggleBeginnerMode:    () => set(s => ({ beginnerMode: !s.beginnerMode })),
+  toggleShortcutsPanel:  () => set(s => ({ shortcutsPanelOpen: !s.shortcutsPanelOpen })),
 }))

@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
+import { TrackContextMenu } from '../context-menu/TrackContextMenu'
 import { useProjectStore }          from '../../store/projectStore'
 import { useArrangementViewStore }  from './useArrangementViewStore'
 import { useAutomationStore }       from './useAutomationStore'
@@ -291,6 +292,7 @@ export default function TrackHeaders({ scrollY, rulerHeight }: Props) {
   const { expandedAutomationTracks, toggleAutomationTrack } = useArrangementViewStore()
   const containerRef         = useRef<HTMLDivElement>(null)
   const [frozenIds, setFrozenIds] = useState<Set<string>>(() => new Set(freezeEngine.getFrozenList()))
+  const [trackCtxMenu, setTrackCtxMenu] = useState<{ x: number; y: number; trackId: string } | null>(null)
 
   const handleToggleAutomation = useCallback((track: Track) => {
     toggleAutomationTrack(track.id)
@@ -396,20 +398,27 @@ export default function TrackHeaders({ scrollY, rulerHeight }: Props) {
         style={{ flex: 1, overflowY: 'hidden', overflowX: 'hidden' }}
       >
         {tracks.map(track => (
-          <TrackSlot
+          <div
             key={track.id}
-            track={track}
-            isSelected={selectedTrackId === track.id}
-            isFrozen={frozenIds.has(track.id)}
-            automationExpanded={expandedAutomationTracks.has(track.id)}
-            onSelect={() => selectTrack(track.id)}
-            onMute={() => toggleMute(track.id)}
-            onSolo={() => toggleSolo(track.id)}
-            onArm={() => handleArm(track.id, track.armed)}
-            onFreeze={() => handleFreeze(track.id)}
-            onToggleAutomation={() => handleToggleAutomation(track)}
-            onHeightDrag={h => setTrackHeight(track.id, h)}
-          />
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setTrackCtxMenu({ x: e.clientX, y: e.clientY, trackId: track.id })
+            }}
+          >
+            <TrackSlot
+              track={track}
+              isSelected={selectedTrackId === track.id}
+              isFrozen={frozenIds.has(track.id)}
+              automationExpanded={expandedAutomationTracks.has(track.id)}
+              onSelect={() => selectTrack(track.id)}
+              onMute={() => toggleMute(track.id)}
+              onSolo={() => toggleSolo(track.id)}
+              onArm={() => handleArm(track.id, track.armed)}
+              onFreeze={() => handleFreeze(track.id)}
+              onToggleAutomation={() => handleToggleAutomation(track)}
+              onHeightDrag={h => setTrackHeight(track.id, h)}
+            />
+          </div>
         ))}
 
         {/* Add Track buttons */}
@@ -437,6 +446,16 @@ export default function TrackHeaders({ scrollY, rulerHeight }: Props) {
           ))}
         </div>
       </div>
+
+      {/* Track context menu */}
+      {trackCtxMenu && (
+        <TrackContextMenu
+          x={trackCtxMenu.x}
+          y={trackCtxMenu.y}
+          trackId={trackCtxMenu.trackId}
+          onClose={() => setTrackCtxMenu(null)}
+        />
+      )}
     </div>
   )
 }

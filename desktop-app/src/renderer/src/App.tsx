@@ -32,6 +32,10 @@ import { useTransportSync }  from './hooks/useTransportSync'
 import UpdateBanner          from './components/updater/UpdateBanner'
 import AudioPerfHUD          from './components/audio/AudioPerfHUD'
 import { AudioEngine }       from './audio/AudioEngine'
+import { MainMenu }          from './components/shell/MainMenu'
+import { QuickActionsBar }   from './components/shell/QuickActionsBar'
+import ShortcutsPanel        from './components/help/ShortcutsPanel'
+import UserGuidePanel        from './components/help/UserGuidePanel'
 
 // ─── Login Screen ─────────────────────────────────────────────────────────────
 
@@ -233,8 +237,9 @@ function Dashboard() {
 // ─── DAW Shell ────────────────────────────────────────────────────────────────
 
 function DAWShell() {
-  const { activeView, aiPanelOpen } = useUIStore()
+  const { activeView, aiPanelOpen, shortcutsPanelOpen, toggleShortcutsPanel } = useUIStore()
   const { historyOpen, toggleHistory } = useSaveStore()
+  const [guideOpen, setGuideOpen] = useState(false)
 
   // Initialise auto-save engine + dirty tracking + keyboard shortcuts
   useSaveSystem()
@@ -262,6 +267,8 @@ function DAWShell() {
   return (
     <div className="flex flex-col h-full" style={{ background: '#08080f', overflow: 'hidden' }}>
       <TitleBar />
+      <MainMenu />
+      <QuickActionsBar />
       <TransportBar />
 
       <div className="flex flex-1 min-h-0">
@@ -289,6 +296,12 @@ function DAWShell() {
 
       {/* Snapshot history panel (slide-in from right) */}
       {historyOpen && <SnapshotHistoryPanel onClose={toggleHistory} />}
+
+      {/* Shortcuts panel (F1 / menu Aide) */}
+      {shortcutsPanelOpen && <ShortcutsPanel onClose={toggleShortcutsPanel} />}
+
+      {/* User guide panel */}
+      {guideOpen && <UserGuidePanel onClose={() => setGuideOpen(false)} />}
     </div>
   )
 }
