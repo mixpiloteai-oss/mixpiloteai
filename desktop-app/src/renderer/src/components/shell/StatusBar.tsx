@@ -3,6 +3,8 @@ import { useTransportStore }       from '../../store/transportStore'
 import { useSaveStore }            from '../../store/saveStore'
 import { useDesktopNetworkStore }  from '../../store/networkStore'
 import { usePerformanceModeStore, type PerformanceMode } from '../../store/performanceModeStore'
+import { usePerfMonitorStore }     from '../../store/perfMonitorStore'
+import { economyModeController }   from '../../audio/perf/EconomyModeController'
 
 const PERF_MODE_ORDER: PerformanceMode[] = ['quality', 'balanced', 'studio', 'low-config']
 const PERF_MODE_COLORS: Record<PerformanceMode, string> = {
@@ -13,19 +15,34 @@ export default function StatusBar() {
   const { positionBar, positionBeat, bpm } = useTransportStore()
   const { status, historyOpen, toggleHistory } = useSaveStore()
   const { isOnline, aiAvailable } = useDesktopNetworkStore()
-  const perfMode = usePerformanceModeStore(s => s.mode)
-  const setPerfMode = usePerformanceModeStore(s => s.setMode)
-  const [cpu, setCpu] = useState(0)
-  const [mem, setMem] = useState(0)
-  const [xruns]       = useState(0)
+  const perfMode        = usePerformanceModeStore(s => s.mode)
+  const setPerfMode     = usePerformanceModeStore(s => s.setMode)
+  const snapshot        = usePerfMonitorStore(s => s.snapshot)
+  const startMonitoring = usePerfMonitorStore(s => s.startMonitoring)
+  const monitoring      = usePerfMonitorStore(s => s.monitoring)
+  const [isEconomy, setIsEconomy] = useState(false)
+  const [xruns]         = useState(0)
 
+  // Auto-start performance monitoring on mount
   useEffect(() => {
-    const id = setInterval(() => {
-      setCpu(Math.round(Math.random() * 18 + 2))
-      setMem(Math.round(Math.random() * 60 + 120))
-    }, 2000)
-    return () => clearInterval(id)
+    if (!monitoring) startMonitoring()
+  }, [monitoring, startMonitoring])
+
+  // Track economy mode transitions for status display
+  useEffect(() => {
+    return economyModeController.onChange(setIsEconomy)
   }, [])
+
+  // Feed FPS into economy mode controller
+  useEffect(() => {
+    if (snapshot && snapshot.fps > 0) {
+      economyModeController.ingestFps(snapshot.fps)
+    }
+  }, [snapshot])
+
+  const fps     = Math.round(snapshot?.fps       ?? 0)
+  const memMb   = Math.round(snapshot?.memoryMb  ?? 0)
+  const audioMs = Math.round(snapshot?.audioLatencyMs ?? 0)
 
   const bar  = String(positionBar).padStart(3, ' ')
   const beat = String(positionBeat).padStart(1, ' ')
@@ -66,11 +83,13 @@ export default function StatusBar() {
 
       <Divider />
 
-      {/* Audio engine */}
-      <span className={`cpu-indicator ${cpu > 75 ? 'high' : cpu > 45 ? 'mid' : 'low'}`}>CPU {cpu}%</span>
-      <span>{mem} MB</span>
-      <span>44100 Hz · 512</span>
-      <span>WASAPI · 12ms</span>
+      {/* Audio engine — real metrics from PerformanceMonitor */}
+      <span style={{ color: fps < 30 ? '#ef4444' : fps < 50 ? '#f59e0b' : '#10b981' }}>
+        {fps} fps
+      </span>
+      {memMb > 0 && <span>{memMb} MB</span>}
+      {audioMs > 0 && <span>{audioMs} ms</span>}
+      {isEconomy && <span style={{ color: '#f59e0b' }}>ECO</span>}
 
       {xruns > 0 && (
         <>
@@ -141,7 +160,7 @@ export default function StatusBar() {
       </button>
 
       <Divider />
-      <span style={{ color: '#2e2e42' }}>Neurotek Studio v0.2.0</span>
+      <span style={{ color: '#2e2e42' }}>Neurotek Studio v0.3.1</span>
     </div>
   )
 }

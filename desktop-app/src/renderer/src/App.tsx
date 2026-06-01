@@ -33,7 +33,9 @@ import { usePerformanceMode, applyBootMode } from './hooks/usePerformanceMode'
 import { useTransportSync }  from './hooks/useTransportSync'
 import UpdateBanner          from './components/updater/UpdateBanner'
 import AudioPerfHUD          from './components/audio/AudioPerfHUD'
+import PerformanceOverlay    from './components/perf/PerformanceOverlay'
 import { AudioEngine }       from './audio/AudioEngine'
+import { usePerfMonitorStore } from './store/perfMonitorStore'
 import { MainMenu }          from './components/shell/MainMenu'
 import { QuickActionsBar }   from './components/shell/QuickActionsBar'
 import ShortcutsPanel        from './components/help/ShortcutsPanel'
@@ -352,6 +354,12 @@ export default function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
   const perfMode = usePerfMode()
 
+  // Start performance monitoring as early as possible
+  useEffect(() => {
+    const { monitoring, startMonitoring } = usePerfMonitorStore.getState()
+    if (!monitoring) startMonitoring()
+  }, [])
+
   // Boot logging + auto DevTools in development
   useEffect(() => {
     bootLog.preload(typeof window !== 'undefined' && !!window.electronAPI)
@@ -394,6 +402,8 @@ export default function App() {
       <RecoveryDialog />
       {/* Audio performance HUD — keyboard-triggered (Ctrl+Shift+P) */}
       <AudioPerfHUD perfMonitor={AudioEngine.getInstance().getPerfMonitor()} />
+      {/* Full perf overlay — keyboard-triggered (F12) */}
+      <PerformanceOverlay />
       {/* Onboarding wizard — shown on first launch */}
       {!hasSeenWelcome && <OnboardingWelcome />}
     </>

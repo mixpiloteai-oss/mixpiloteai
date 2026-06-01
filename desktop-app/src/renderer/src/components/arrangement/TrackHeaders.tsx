@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useCallback, memo } from 'react'
 import { TrackContextMenu } from '../context-menu/TrackContextMenu'
 import { useProjectStore }          from '../../store/projectStore'
 import { useArrangementViewStore }  from './useArrangementViewStore'
@@ -55,7 +55,7 @@ function TrackTypeIcon({ type, color }: { type: string; color: string }) {
 
 // ─── Individual track header ──────────────────────────────────────────────────
 
-function TrackHeader({
+const TrackHeader = memo(function TrackHeader({
   track,
   isSelected,
   isFrozen,
@@ -220,11 +220,11 @@ function TrackHeader({
       />
     </div>
   )
-}
+})
 
 // ─── Small control button ─────────────────────────────────────────────────────
 
-function TBtn({
+const TBtn = memo(function TBtn({
   label,
   title,
   active,
@@ -257,7 +257,7 @@ function TBtn({
       {label}
     </button>
   )
-}
+})
 
 // ─── TrackSlot — track header + optional automation lane header ───────────────
 
