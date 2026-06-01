@@ -12,25 +12,19 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-
-    "build:win":           "npm run build && electron-builder --win --x64",
+    "build:win": "npm run build && electron-builder --win --x64",
     "build:win:installer": "npm run build && electron-builder --win nsis --x64",
-    "build:win:portable":  "npm run build && electron-builder --win portable --x64",
-
-    "build:mac":           "npm run build && electron-builder --mac",
-    "build:mac:dmg":       "npm run build && electron-builder --mac dmg",
-
-    "build:linux":         "npm run build && electron-builder --linux",
-    "build:linux:appimage":"npm run build && electron-builder --linux AppImage --x64",
-    "build:linux:deb":     "npm run build && electron-builder --linux deb --x64",
-
-    "build:all":           "npm run build && electron-builder --win --mac --linux",
-
-    "icons":      "node scripts/generate-icons.js",
-    "version:set":"node scripts/version.js set",
-    "version:bump":"node scripts/version.js bump",
-    "release":    "node scripts/build-release.js",
-
+    "build:win:portable": "npm run build && electron-builder --win portable --x64",
+    "build:mac": "npm run build && electron-builder --mac",
+    "build:mac:dmg": "npm run build && electron-builder --mac dmg",
+    "build:linux": "npm run build && electron-builder --linux",
+    "build:linux:appimage": "npm run build && electron-builder --linux AppImage --x64",
+    "build:linux:deb": "npm run build && electron-builder --linux deb --x64",
+    "build:all": "npm run build && electron-builder --win --mac --linux",
+    "icons": "node scripts/generate-icons.js",
+    "version:set": "node scripts/version.js set",
+    "version:bump": "node scripts/version.js bump",
+    "release": "node scripts/build-release.js",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "node --experimental-strip-types --no-warnings --test --import ./tests/setup/register.mjs tests/unit/*.test.ts tests/integration/*.test.ts",
     "test:unit": "node --experimental-strip-types --no-warnings --test --import ./tests/setup/register.mjs tests/unit/*.test.ts",
@@ -109,11 +103,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "assets/icon.ico",
@@ -146,7 +144,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "icon": "assets/icon.png",
@@ -163,21 +164,37 @@
       "title": "Neurotek Studio ${version}",
       "background": null,
       "iconSize": 80,
-      "window": { "width": 540, "height": 380 },
+      "window": {
+        "width": 540,
+        "height": 380
+      },
       "contents": [
-        { "x": 140, "y": 150, "type": "file" },
-        { "x": 400, "y": 150, "type": "link", "path": "/Applications" }
+        {
+          "x": 140,
+          "y": 150,
+          "type": "file"
+        },
+        {
+          "x": 400,
+          "y": 150,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     },
     "linux": {
       "target": [
         {
           "target": "AppImage",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "deb",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "assets/icon.png",
@@ -190,13 +207,25 @@
         "Comment": "AI-Powered Music Production Studio",
         "Keywords": "daw;music;audio;production;ai"
       },
-      "mimeTypes": ["application/x-neurotek-studio"]
+      "mimeTypes": [
+        "application/x-neurotek-studio"
+      ]
     },
     "deb": {
       "maintainer": "NeuroTek AI <support@neurotek.ai>",
       "packageCategory": "sound",
       "priority": "optional",
-      "depends": ["libgtk-3-0", "libnotify4", "libnss3", "libxss1", "libxtst6", "xdg-utils", "libatspi2.0-0", "libuuid1", "libasound2"],
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libasound2"
+      ],
       "afterInstall": "scripts/postinst.sh",
       "afterRemove": "scripts/postrm.sh"
     },
