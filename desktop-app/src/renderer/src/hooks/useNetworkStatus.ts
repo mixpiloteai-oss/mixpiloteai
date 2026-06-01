@@ -21,22 +21,24 @@ async function probeBackend(): Promise<boolean> {
 }
 
 export function useNetworkStatus(): void {
-  const store = useDesktopNetworkStore()
+  // Use stable selector functions instead of the full store to avoid re-render loops
+  const setOnline           = useDesktopNetworkStore(s => s.setOnline)
+  const setBackendReachable = useDesktopNetworkStore(s => s.setBackendReachable)
   const probe = useRef<ReturnType<typeof setInterval>>()
 
   useEffect(() => {
-    function onOnline()  { store.setOnline(true);  void probeBackend().then(store.setBackendReachable) }
-    function onOffline() { store.setOnline(false); store.setBackendReachable(false) }
+    function onOnline()  { setOnline(true);  void probeBackend().then(setBackendReachable) }
+    function onOffline() { setOnline(false); setBackendReachable(false) }
 
     window.addEventListener('online',  onOnline)
     window.addEventListener('offline', onOffline)
 
     // Initial probe
-    probeBackend().then(store.setBackendReachable)
+    void probeBackend().then(setBackendReachable)
 
     // Periodic re-check
     probe.current = setInterval(() => {
-      if (navigator.onLine) probeBackend().then(store.setBackendReachable)
+      if (navigator.onLine) void probeBackend().then(setBackendReachable)
     }, PROBE_INTERVAL)
 
     return () => {
@@ -44,5 +46,5 @@ export function useNetworkStatus(): void {
       window.removeEventListener('offline', onOffline)
       clearInterval(probe.current)
     }
-  }, [store])
+  }, [setOnline, setBackendReachable])
 }

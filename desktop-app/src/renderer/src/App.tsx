@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { apiPost, apiGet } from './lib/apiClient'
 import { useSubscriptionStore } from './store/subscriptionStore'
 import './styles/performance.css'
@@ -36,6 +36,8 @@ import { MainMenu }          from './components/shell/MainMenu'
 import { QuickActionsBar }   from './components/shell/QuickActionsBar'
 import ShortcutsPanel        from './components/help/ShortcutsPanel'
 import UserGuidePanel        from './components/help/UserGuidePanel'
+import { SafeViewBoundary }  from './components/SafeViewBoundary'
+import { bootLog }           from './lib/bootLogger'
 
 // ─── Login Screen ─────────────────────────────────────────────────────────────
 
@@ -247,20 +249,23 @@ function DAWShell() {
   usePerformanceMode()
 
   function renderView() {
+    const wrap = (name: string, el: React.ReactElement) => (
+      <SafeViewBoundary viewName={name}>{el}</SafeViewBoundary>
+    )
     switch (activeView) {
-      case 'arrangement': return <ArrangementView />
-      case 'mixer':       return <MixerView />
-      case 'pianoroll':   return <PianoRollView />
-      case 'live':        return <LiveMode />
-      case 'vst':         return <PluginBrowser />
-      case 'routing':     return <RoutingMatrix />
-      case 'ai-local':    return <LocalAIPanel />
-      case 'performance': return <PerformanceModeSelector />
-      case 'export':      return <ExportPanel />
-      case 'collab':      return <CollabPanel />
-      case 'marketplace': return <MarketplaceBrowser />
-      case 'dashboard':   return <Dashboard />
-      default:            return <Dashboard />
+      case 'arrangement': return wrap('ArrangementView',    <ArrangementView />)
+      case 'mixer':       return wrap('MixerView',          <MixerView />)
+      case 'pianoroll':   return wrap('PianoRollView',      <PianoRollView />)
+      case 'live':        return wrap('LiveMode',           <LiveMode />)
+      case 'vst':         return wrap('PluginBrowser',      <PluginBrowser />)
+      case 'routing':     return wrap('RoutingMatrix',      <RoutingMatrix />)
+      case 'ai-local':    return wrap('LocalAIPanel',       <LocalAIPanel />)
+      case 'performance': return wrap('PerformanceSelector',<PerformanceModeSelector />)
+      case 'export':      return wrap('ExportPanel',        <ExportPanel />)
+      case 'collab':      return wrap('CollabPanel',        <CollabPanel />)
+      case 'marketplace': return wrap('MarketplaceBrowser', <MarketplaceBrowser />)
+      case 'dashboard':   return wrap('Dashboard',          <Dashboard />)
+      default:            return wrap('Dashboard',          <Dashboard />)
     }
   }
 
@@ -310,6 +315,7 @@ function DAWShell() {
 
 // Apply saved performance mode before first render
 applyBootMode()
+bootLog.start('Neurotek Studio renderer')
 
 async function fetchSubscription() {
   try {
@@ -325,6 +331,15 @@ async function fetchSubscription() {
 export default function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
   const perfMode = usePerfMode()
+
+  // Boot logging + auto DevTools in development
+  useEffect(() => {
+    bootLog.preload(typeof window !== 'undefined' && !!window.electronAPI)
+    bootLog.ok('App mounted')
+    if (import.meta.env.DEV) {
+      window.electronAPI?.debugOpenDevTools?.().catch?.(() => {})
+    }
+  }, [])
 
   // Sync performance mode to DOM so performance.css selectors take effect
   useEffect(() => {

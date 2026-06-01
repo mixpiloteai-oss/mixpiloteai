@@ -101,10 +101,11 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
   const sizeRef      = useRef({ w: 1, h: 1 })
   const dragRef      = useRef<DragState>({ type: 'idle' })
   const canvasRectRef= useRef<DOMRect | null>(null)
-  const _lastScrollX = useRef(-1)
-  const _lastScrollY = useRef(-1)
-  const _lastZoom    = useRef(-1)
-  const _lastAutoSz  = useRef(-1)
+  const _lastScrollX  = useRef(-1)
+  const _lastScrollY  = useRef(-1)
+  const _lastZoom     = useRef(-1)
+  const _lastAutoSz   = useRef(-1)
+  const _sizeInvalid  = useRef(true)   // true → force redraw on next RAF after resize
   const inertiaRafRef= useRef(0)
   const inertiaVRef  = useRef({ vx: 0, vy: 0 })
   const snapLineRef  = useRef<number | null>(null)
@@ -171,9 +172,10 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
         }
       }
 
-      // Dirty-rect skip
+      // Dirty-rect skip — also re-draw when canvas was just resized (_sizeInvalid)
       const autoSz = expandedAutomationTracks.size
       if (
+        !_sizeInvalid.current &&
         drag.type === 'idle' &&
         _lastScrollX.current === scrollX &&
         _lastScrollY.current === scrollY &&
@@ -181,6 +183,7 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
         _lastAutoSz.current === autoSz
       ) return
 
+      _sizeInvalid.current = false
       _lastScrollX.current = scrollX
       _lastScrollY.current = scrollY
       _lastZoom.current    = zoomX
@@ -562,6 +565,8 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
         canvasRectRef.current = canvas.getBoundingClientRect()
         const ctx = canvas.getContext('2d')
         if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+        // Invalidate dirty-rect cache so the next RAF always redraws
+        _sizeInvalid.current = true
       }
     })
     ro.observe(canvas)
