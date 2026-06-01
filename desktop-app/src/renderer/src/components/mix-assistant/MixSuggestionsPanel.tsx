@@ -29,13 +29,12 @@ const PRIORITY_BADGE: Record<Priority, string> = {
 
 function EQCard({
   suggestion,
-  suggestionId,
   applied,
   onApply,
   onRevert,
 }: {
   suggestion:   EQSuggestion
-  suggestionId: string
+  suggestionId?: string
   applied:      boolean
   onApply:      () => void
   onRevert:     () => void
@@ -92,13 +91,11 @@ function EQCard({
 
 function CompCard({
   suggestion,
-  trackName,
   applied,
   onApply,
   onRevert,
 }: {
   suggestion: CompressionSuggestion
-  trackName:  string
   applied:    boolean
   onApply:    () => void
   onRevert:   () => void
@@ -201,7 +198,6 @@ export function MixSuggestionsPanel({
             </div>
             <CompCard
               suggestion={suggestion}
-              trackName={trackNames.get(trackId) ?? trackId}
               applied={appliedIds.has(id)}
               onApply={() => onApply(trackId, 'compression', 0)}
               onRevert={() => onRevert(trackId, 'compression', 0)}

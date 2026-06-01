@@ -66,7 +66,6 @@ export function generateAutomation(
   shape: AutomationShape,
   _seed: number,
 ): AutomationCurve {
-  const totalBeats = bars * 4
   const numPoints  = bars * 8  // every 0.5 beats
   const meta = PARAM_META[type]
   const points: AutomationPoint[] = []

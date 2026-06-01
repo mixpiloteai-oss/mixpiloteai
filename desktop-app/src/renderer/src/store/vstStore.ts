@@ -20,7 +20,7 @@ interface VstState {
   scanProgress: number
   selectedInstanceId: string | null
   searchQuery: string
-  categoryFilter: PluginCategory | 'all'
+  categoryFilter: PluginCategory | 'all' | 'failed'
 
   // Enhanced state
   favorites: string[]
@@ -134,7 +134,7 @@ export const useVstStore = create<VstState & VstActions>((set, get) => ({
 
   setSearchQuery: (q: string) => set({ searchQuery: q }),
 
-  setCategoryFilter: (f: PluginCategory | 'all') => set({ categoryFilter: f }),
+  setCategoryFilter: (f: PluginCategory | 'all' | 'failed') => set({ categoryFilter: f }),
 
   // ── Enhanced actions ────────────────────────────────────────────────────
 

@@ -74,7 +74,10 @@ export const useSafetyStore = create<SafetyStore>((set, get) => ({
 
     // Start autosave engine
     autoSaveEngine.setEnabled(get().autosaveEnabled)
-    autoSaveEngine.start(() => useProjectStore.getState())
+    autoSaveEngine.start(() => {
+      const s = useProjectStore.getState()
+      return { bpm: s.project.bpm, tracks: s.project.tracks }
+    })
 
     // Subscribe to save events
     autoSaveEngine.onSaved((saveResult) => {
@@ -135,7 +138,10 @@ export const useSafetyStore = create<SafetyStore>((set, get) => ({
   forceSave: async () => {
     set({ saveStatus: 'saving' })
     try {
-      const result = await autoSaveEngine.forceSave(() => useProjectStore.getState())
+      const result = await autoSaveEngine.forceSave(() => {
+        const s = useProjectStore.getState()
+        return { bpm: s.project.bpm, tracks: s.project.tracks }
+      })
       if (result.success) {
         set({
           saveStatus: 'saved',

@@ -4,7 +4,7 @@
 import type { GeneratedNote, GeneratedPattern } from './PatternGenerator'
 import type { ScaleType } from './MusicTheory'
 import { nearestScaleNote } from './MusicTheory'
-import { SeededRng } from './SeededRng'
+
 
 export type VariationOp =
   | 'octave_up' | 'octave_down'

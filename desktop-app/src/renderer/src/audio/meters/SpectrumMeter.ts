@@ -80,7 +80,7 @@ export class SpectrumMeter {
     onSpectrum: (spectrum: SpectrumData, bars: Float32Array) => void,
     numBars = 64,
   ): () => void {
-    let prevBars = new Float32Array(numBars).fill(-120)
+    let prevBars: Float32Array<ArrayBufferLike> = new Float32Array(numBars).fill(-120)
 
     const id = setInterval(() => {
       const buffer = getBuffer()

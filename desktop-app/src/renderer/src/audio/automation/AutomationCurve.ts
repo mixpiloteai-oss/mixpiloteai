@@ -119,7 +119,7 @@ export function smoothPoints(
   windowBeats: number
 ): AutomationPoint[] {
   if (points.length === 0) return []
-  return points.map((pt, i) => {
+  return points.map((pt) => {
     let weightedSum = 0
     let totalWeight = 0
     for (let j = 0; j < points.length; j++) {

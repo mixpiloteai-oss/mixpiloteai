@@ -9,7 +9,6 @@ import {
   getChordNotes,
   getProgression,
   nearestScaleNote,
-  styleToScale,
 } from './MusicTheory'
 import { SeededRng } from './SeededRng'
 
@@ -103,7 +102,7 @@ export function generateMelody(opts: MelodyOptions): GeneratedPattern {
     : 0.25
 
   // Contour: compute step offsets per note index
-  function contourOffset(idx: number, total: number, prevPitch: number | null, rngLocal: SeededRng): number {
+  function contourOffset(idx: number, total: number, _prevPitch: number | null, rngLocal: SeededRng): number {
     switch (opts.contour) {
       case 'arch': {
         const half = total / 2

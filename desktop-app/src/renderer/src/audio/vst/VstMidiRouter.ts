@@ -61,4 +61,3 @@ export class VstMidiRouter {
 }
 
 export const vstMidiRouter = new VstMidiRouter()
-export type { VstMidiRouter }

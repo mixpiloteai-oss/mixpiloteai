@@ -103,7 +103,7 @@ export function PluginBrowser(): React.ReactElement {
 
   const filteredPlugins = plugins.filter(p => {
     const matchesCategory =
-      categoryFilter === 'all' || categoryFilter === 'failed' ? true : p.category === categoryFilter
+      categoryFilter === 'all' || categoryFilter === 'failed' || p.category === categoryFilter
     const q = searchQuery.toLowerCase()
     const pluginTags = tags[p.id] ?? []
     const matchesSearch = !q ||

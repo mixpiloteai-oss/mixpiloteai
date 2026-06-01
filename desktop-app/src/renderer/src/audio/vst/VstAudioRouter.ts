@@ -127,4 +127,3 @@ export class VstAudioRouter {
 }
 
 export const vstAudioRouter = new VstAudioRouter()
-export type { VstAudioRouter }

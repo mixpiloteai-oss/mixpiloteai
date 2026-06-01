@@ -92,4 +92,3 @@ export class VstPresetManager {
 }
 
 export const vstPresetManager = new VstPresetManager()
-export type { VstPresetManager }

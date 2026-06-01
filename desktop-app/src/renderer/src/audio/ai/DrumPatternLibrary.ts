@@ -1,7 +1,7 @@
 // ─── DrumPatternLibrary.ts ───────────────────────────────────────────────────
 // Extended drum pattern library with styles and variation system.
 
-import type { GeneratedNote, GeneratedPattern } from './PatternGenerator'
+import type { GeneratedNote } from './PatternGenerator'
 import { SeededRng } from './SeededRng'
 
 export type DrumStyle =

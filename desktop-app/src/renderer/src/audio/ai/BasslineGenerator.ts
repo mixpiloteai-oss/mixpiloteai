@@ -4,7 +4,7 @@
 import type { MusicalStyle } from './MusicAnalyzer'
 import type { GeneratedNote, GeneratedPattern } from './PatternGenerator'
 import type { ChordDef } from './MusicTheory'
-import { getProgression, getChordNotes, getScaleNotes } from './MusicTheory'
+import { getProgression, getChordNotes } from './MusicTheory'
 import { SeededRng } from './SeededRng'
 import { styleToProgressionStyle } from './MelodyGenerator'
 

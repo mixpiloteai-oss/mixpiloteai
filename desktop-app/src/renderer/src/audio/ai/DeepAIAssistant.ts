@@ -19,11 +19,6 @@ export interface DeepAIResult {
   source: 'local' | 'cloud'
 }
 
-// Type guard for electron IPC
-interface ElectronAPIDeep {
-  aiProcessCommand?: (ctx: string, cmd: string) => Promise<unknown>
-}
-
 interface CloudResponse {
   available: boolean
   text?: string
@@ -31,12 +26,6 @@ interface CloudResponse {
 
 function isCloudResponse(v: unknown): v is CloudResponse {
   return typeof v === 'object' && v !== null && 'available' in v
-}
-
-declare global {
-  interface Window {
-    electronAPI?: ElectronAPIDeep
-  }
 }
 
 class DeepAIAssistant {

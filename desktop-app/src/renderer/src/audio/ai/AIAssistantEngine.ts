@@ -16,17 +16,6 @@ export interface AIResponse {
   source:   'local' | 'cloud'
 }
 
-// Type for the electronAPI window global
-interface ElectronAPIWithAI {
-  aiProcessCommand?: (ctx: string, cmd: string) => Promise<unknown>
-}
-
-declare global {
-  interface Window {
-    electronAPI?: ElectronAPIWithAI
-  }
-}
-
 // Cloud response type guard
 interface CloudResponse {
   available: boolean

@@ -171,7 +171,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     if (!analysis) return
 
     for (const suggestion of analysis.organization.colors) {
-      const track = useProjectStore.getState().project.tracks.find(t => t.id === suggestion.trackId)
+      void useProjectStore.getState().project.tracks.find(t => t.id === suggestion.trackId)
       _queue.enqueue({
         type:          'set_track_color',
         description:   `Change '${suggestion.trackName}' color to ${suggestion.suggestedColor}`,

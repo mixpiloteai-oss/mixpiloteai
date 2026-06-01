@@ -16,7 +16,6 @@ import {
   scaleValues,
   randomizeValues,
   invertValues,
-  shiftPoints,
 } from './AutomationCurve'
 import { SeededRng } from '../ai/SeededRng'
 
@@ -40,7 +39,6 @@ class AutomationEngine {
   private _lastValues = new Map<string, number>()
   private _isRecording = false
   private _recordBuffer: AutomationChange[] = []
-  private _getBeat: (() => number) | null = null
 
   static readonly LANE_COLORS = [
     '#10b981',
@@ -214,7 +212,6 @@ class AutomationEngine {
   // ── Playback ─────────────────────────────────────────────────────────────────
 
   startPlayback(getBeat: () => number): void {
-    this._getBeat = getBeat
     this._intervalId = setInterval(() => {
       const beat = getBeat()
       for (const [laneId, lane] of this._lanes) {
@@ -413,10 +410,10 @@ class AutomationEngine {
   // ── AI suggestions ───────────────────────────────────────────────────────────
 
   suggestAutomation(
-    target: AutomationTarget,
+    _target: AutomationTarget,
     style: string,
     bars: number,
-    bpm: number,
+    _bpm: number,
     seed: number
   ): AutomationPoint[] {
     const rng = new SeededRng(seed)

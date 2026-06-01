@@ -52,7 +52,6 @@ export function buildBuildup(options: BuildupOptions): TransitionResult {
   const events: TransitionEvent[] = []
   const automationCurves: AcidAutomationCurve[] = []
   const startBeat = startBar * 4
-  const totalBeats = bars * 4
 
   // Exponential density increase: notes per bar doubles each 2 bars
   for (let bar = 0; bar < bars; bar++) {

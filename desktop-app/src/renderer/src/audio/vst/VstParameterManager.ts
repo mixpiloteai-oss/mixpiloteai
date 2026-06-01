@@ -92,4 +92,3 @@ export class VstParameterManager {
 }
 
 export const vstParameterManager = new VstParameterManager()
-export type { VstParameterManager }

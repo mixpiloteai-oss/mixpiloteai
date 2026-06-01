@@ -109,7 +109,7 @@ export class FrequencyAnalyzer {
   /**
    * Compute energy in each of 10 standard octave bands.
    */
-  computeOctaveBands(spectrum: SpectrumData, sampleRate: number): OctaveBandData {
+  computeOctaveBands(spectrum: SpectrumData, _sampleRate: number): OctaveBandData {
     const { frequencies, magnitudes } = spectrum
     const bands: OctaveBand[] = OCTAVE_CENTERS.map((centerHz) => {
       // One octave: lower = center / sqrt(2), upper = center * sqrt(2)
