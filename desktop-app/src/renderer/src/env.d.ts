@@ -195,6 +195,14 @@ interface ElectronAPI {
   recordingList:     () => Promise<string[]>
   recordingDelete:   (filename: string) => Promise<void>
   recordingReadPcm:  (filePath: string) => Promise<number[]>
+  // Safety system (autosave + recovery)
+  safetySave:            (json: string, projectId: string, projectName: string) => Promise<unknown>
+  safetyCheckRecovery:   () => Promise<{ hasCrashRecovery: boolean; snapshots: unknown[] }>
+  safetyRestoreSnapshot: (id: string) => Promise<string | null>
+  safetyDiscardRecovery: () => Promise<void>
+  safetyListBackups:     () => Promise<unknown[]>
+  safetyDeleteBackup:    (id: string) => Promise<void>
+  safetyMarkClean:       () => Promise<void>
   // Diagnostic logger (optional — only available when main process registers the IPC)
   diagnosticLog?:            (level: string, category: string, msg: string, data?: unknown) => Promise<void>
   diagnosticRead?:           (maxLines?: number) => Promise<unknown[]>

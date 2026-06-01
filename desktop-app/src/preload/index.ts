@@ -267,6 +267,14 @@ const api = {
   samplesDeleteSmartFolder:       (id: string)                         => ipcRenderer.invoke('samples:delete-smart-folder', id),
   onSamplesScanProgress:(cb: (info: unknown) => void)               => ipcRenderer.on('samples:scan-progress', (_e, i) => cb(i)),
   onSamplesScanComplete:(cb: (info: unknown) => void)               => ipcRenderer.on('samples:scan-complete', (_e, i) => cb(i)),
+  // Safety system (autosave + recovery)
+  safetySave:             (json: string, projectId: string, projectName: string) => ipcRenderer.invoke('safety:autosave', json, projectId, projectName),
+  safetyCheckRecovery:    () => ipcRenderer.invoke('safety:check-recovery'),
+  safetyRestoreSnapshot:  (id: string) => ipcRenderer.invoke('safety:restore-snapshot', id),
+  safetyDiscardRecovery:  () => ipcRenderer.invoke('safety:discard-recovery'),
+  safetyListBackups:      () => ipcRenderer.invoke('safety:list-backups'),
+  safetyDeleteBackup:     (id: string) => ipcRenderer.invoke('safety:delete-backup', id),
+  safetyMarkClean:        () => ipcRenderer.invoke('safety:mark-clean'),
   // AI Assistant cloud path
   aiProcessCommand: (ctx: string, cmd: string) => ipcRenderer.invoke('ai:process-command', ctx, cmd),
   // Crash reporting (typed namespace — does NOT expose raw ipcRenderer)

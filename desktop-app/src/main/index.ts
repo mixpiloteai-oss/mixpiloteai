@@ -25,6 +25,7 @@ import { RecordingFileManager } from './recording/RecordingFileManager'
 import { registerSamplesIPC } from './samples/SamplesIPC'
 import { SampleDatabaseManager } from './samples/SampleDatabase'
 import { vstHost } from './vst/VstHost'
+import { createSafetyManager } from './safety/ProjectSafetyManager'
 
 // ── Global crash safety net ───────────────────────────────────────────────────
 // Plugins run in forked child processes (see modules/pluginHost.ts), so most
@@ -320,6 +321,13 @@ app.whenReady().then(async () => {
   // VST3 professional plugin system
   vstHost.registerIpcHandlers(ipcMain)
 
+  // Project Safety System (autosave + crash recovery)
+  const safetyManager = createSafetyManager(app.getPath('userData'))
+  safetyManager.initialize().then(({ hasCrashed }) => {
+    if (hasCrashed) console.log('[safety] Previous session crashed — recovery available')
+  }).catch(e => console.warn('[safety] Failed to initialize safety manager:', e))
+  safetyManager.registerIpcHandlers(ipcMain)
+
   createWindow()
 
   app.on('activate', () => {
@@ -340,6 +348,10 @@ app.on('before-quit', () => {
   stopProductionMonitor()
   getAudioEngineWatchdog().stop()
   getAudioEngineProcess().stop()
+  // Notify all renderer windows to mark session clean before quitting
+  BrowserWindow.getAllWindows().forEach(win => {
+    if (!win.isDestroyed()) win.webContents.send('safety:app-quitting')
+  })
 })
 
 process.on('SIGINT', () => {
