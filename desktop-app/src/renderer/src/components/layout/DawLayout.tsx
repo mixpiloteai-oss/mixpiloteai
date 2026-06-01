@@ -15,6 +15,7 @@ import SampleBrowser             from '../browser/SampleBrowser'
 import InspectorPanel            from '../inspector/InspectorPanel'
 import LayoutModeSelector        from './LayoutModeSelector'
 import { useLayoutStore }        from '../../store/layoutStore'
+import { bootLog }               from '../../lib/bootLogger'
 
 // ─── Resize handle ────────────────────────────────────────────────────────────
 
@@ -138,10 +139,10 @@ export default function DawLayout() {
     setPanelSizes({ mixerH: Math.max(120, Math.min(400, mixerH - dy)) })
   }, [mixerH, setPanelSizes])
 
-  // Debounced save: layout sizes are persisted via zustand/persist automatically,
-  // but we also sync the resize state on mouse-up via the handle events.
+  // Log panel mount state for startup diagnostics
   useEffect(() => {
-    // nothing extra needed — zustand/persist handles it
+    bootLog.ok(`DawLayout mounted: browser=${browserOpen} mixer=${mixerOpen} inspector=${inspectorOpen}`)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (

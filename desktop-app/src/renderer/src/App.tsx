@@ -295,9 +295,9 @@ function DAWShell() {
 
         {/* Main content */}
         <div className="flex flex-1 min-w-0 min-h-0">
-          <div className="flex-1 min-w-0 min-h-0 overflow-hidden">
+          <div className="flex-1 min-w-0 min-h-0 overflow-hidden" style={{ height: '100%' }}>
             {/* key forces remount → CSS view-enter animation fires on each view switch */}
-            <div key={activeView} className="view-enter h-full">
+            <div key={activeView} className="view-enter" style={{ height: '100%' }}>
               {renderView()}
             </div>
           </div>
@@ -351,7 +351,16 @@ async function fetchSubscription() {
 }
 
 export default function App() {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
+  const [token, setToken] = useState<string | null>(() => {
+    const stored = localStorage.getItem('token')
+    // Electron desktop app — auto-authenticate in local mode so the workspace
+    // is immediately visible without requiring cloud sign-in on first launch.
+    if (!stored && typeof window !== 'undefined' && (window as unknown as { electronAPI?: unknown }).electronAPI) {
+      localStorage.setItem('token', 'local')
+      return 'local'
+    }
+    return stored
+  })
   const perfMode = usePerfMode()
 
   // Start performance monitoring as early as possible

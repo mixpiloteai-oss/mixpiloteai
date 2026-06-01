@@ -37,16 +37,13 @@
 
 /* ─── Keyframe Animations ─────────────────────────────────────────────────── */
 
-/* View enter — fade up from below, used on view switches */
+/* View enter — subtle slide up on view switch.
+   Intentionally does NOT animate opacity so the view is always visible (opacity:1).
+   A full opacity:0→1 fade risks permanently hiding the workspace if the animation
+   is delayed, GPU-disabled, or prefers-reduced-motion is active. */
 @keyframes viewEnter {
-  from {
-    opacity: 0;
-    transform: translateY(8px) translateZ(0);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) translateZ(0);
-  }
+  from { transform: translateY(6px); }
+  to   { transform: translateY(0); }
 }
 
 /* Slide in from right — for panels and drawers */
@@ -163,10 +160,18 @@
 
 /* ─── Applied Classes ─────────────────────────────────────────────────────── */
 
-/* View transition container */
+/* View transition container. Only animates transform (not opacity) so the
+   workspace is always visible regardless of GPU/animation support. */
 .view-enter {
   animation: viewEnter var(--duration-normal) var(--ease-out) both;
-  will-change: transform, opacity;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-enter {
+    animation: none !important;
+    transform: none !important;
+  }
 }
 
 /* Shimmer loading skeleton */

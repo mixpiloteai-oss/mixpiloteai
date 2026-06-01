@@ -114,6 +114,15 @@ export default function WelcomeDashboard({ onClose }: WelcomeDashboardProps) {
   useEffect(() => {
     setRecents(loadRecents())
 
+    // Pre-load a default project in the background so the workspace is already
+    // populated when the user dismisses this overlay (or presses Escape).
+    const currentProject = useProjectStore.getState().project
+    const hasNoPicks = currentProject.tracks.length === 0
+    if (hasNoPicks) {
+      const def = buildDefaultProject()
+      useProjectStore.setState({ project: def, selectedTrackId: null, selectedClipId: null })
+    }
+
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
     }
