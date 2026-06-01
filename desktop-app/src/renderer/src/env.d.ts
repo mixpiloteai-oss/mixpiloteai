@@ -223,6 +223,27 @@ interface ElectronAPI {
   vstGetPresets:       (instanceId: string)                             => Promise<unknown[]>
   vstLoadPreset:       (instanceId: string, presetId: string)           => Promise<void>
   vstBypass:           (instanceId: string, bypassed: boolean)          => Promise<void>
+  vstSearchAdvanced:   (query: string, filters: unknown)               => Promise<unknown[]>
+  // Plugin windows
+  vstOpenWindow:       (instanceId: string, pluginName: string)        => Promise<unknown>
+  vstCloseWindow:      (instanceId: string)                            => Promise<void>
+  vstResizeWindow:     (instanceId: string, w: number, h: number)      => Promise<void>
+  vstPinWindow:        (instanceId: string, pinned: boolean)           => Promise<void>
+  // Favorites
+  vstAddFavorite:      (pluginId: string)                              => Promise<unknown>
+  vstRemoveFavorite:   (pluginId: string)                              => Promise<unknown>
+  vstGetFavorites:     ()                                              => Promise<unknown[]>
+  // Tags
+  vstAddTag:           (pluginId: string, tag: string)                 => Promise<unknown>
+  vstRemoveTag:        (pluginId: string, tag: string)                 => Promise<unknown>
+  vstGetAllTags:       ()                                              => Promise<unknown>
+  // Collections
+  vstCreateCollection: (name: string)                                  => Promise<unknown>
+  vstAddToCollection:  (collId: string, pluginId: string)              => Promise<unknown>
+  vstRemoveFromCollection: (collId: string, pluginId: string)          => Promise<unknown>
+  vstGetCollections:   ()                                              => Promise<unknown[]>
+  // Scan progress — returns remove-listener function
+  vstOnScanProgress:   (cb: (p: unknown) => void) => () => void
 }
 
 interface ImportMetaEnv {

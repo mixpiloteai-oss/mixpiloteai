@@ -16,6 +16,12 @@ export interface ScannedPlugin {
   supportsMidi: boolean
   supportsMultiOut: boolean
   scanTimestamp: number
+  // Enhanced fields (optional for backward compatibility)
+  cid?: string
+  sdkVersion?: string
+  subCategories?: string[]
+  binaryPath?: string | null
+  binaryExists?: boolean
 }
 
 export interface ParameterValue {
@@ -106,4 +112,59 @@ export interface AutomationPoint {
 
 export interface SerializedAutomation {
   instances: Record<string, Record<number, AutomationPoint[]>>
+}
+
+// ── New types for enhanced VST3 system ───────────────────────────────────────
+
+/** A user-created named group of plugins */
+export interface PluginCollection {
+  id: string
+  name: string
+  pluginIds: string[]
+}
+
+/** VST3 native plugin metadata (from vst3Adapter.scanPlugin) */
+export interface Vst3PluginInfo {
+  cid: string
+  name: string
+  vendor: string
+  version: string
+  sdkVersion: string
+  category: string
+  subCategories: string[]
+  hasEditor: boolean
+  parameterCount: number
+  inputBusCount: number
+  outputBusCount: number
+  sideChainInputCount: number
+  supportsMidi: boolean
+  supportsMultipleOutputs: boolean
+  programCount: number
+}
+
+/** Filters for searchAdvanced */
+export interface SearchFilters {
+  category?: PluginCategory
+  tags?: string[]
+  favoritesOnly?: boolean
+  collectionId?: string
+  hasEditor?: boolean
+  vendor?: string
+}
+
+/** Info about an open plugin editor window */
+export interface PluginWindowInfo {
+  instanceId: string
+  windowId: number
+  width: number
+  height: number
+  pinned: boolean
+  pluginName: string
+}
+
+/** Scan progress event payload */
+export interface ScanProgress {
+  scanned: number
+  total: number
+  currentPlugin: string
 }

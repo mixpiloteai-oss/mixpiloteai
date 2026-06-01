@@ -232,7 +232,10 @@ export class VstScanner {
 
       const subcatStr = firstClass?.Subcategories ?? ''
       const subCategories = subcatStr ? subcatStr.split('|').map(s => s.trim()).filter(Boolean) : []
-      const category = categoryFromString(firstClass?.Category ?? subcatStr)
+      // Use Subcategories for category detection; Category field is usually 'Audio Module Class'
+      // which is not meaningful for our PluginCategory type.
+      const categorySource = subcatStr || firstClass?.Category || ''
+      const category = categoryFromString(categorySource)
 
       return {
         name: firstClass?.Name ?? moduleInfo.Name ?? 'Unknown',

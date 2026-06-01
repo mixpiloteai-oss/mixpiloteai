@@ -35,6 +35,31 @@ const api = {
   vstGetPresets:       (instanceId: string)                             => ipcRenderer.invoke('vst:get-presets', instanceId),
   vstLoadPreset:       (instanceId: string, presetId: string)           => ipcRenderer.invoke('vst:load-preset', instanceId, presetId),
   vstBypass:           (instanceId: string, bypassed: boolean)          => ipcRenderer.invoke('vst:bypass', instanceId, bypassed),
+  vstSearchAdvanced:   (query: string, filters: unknown)               => ipcRenderer.invoke('vst:search-advanced', query, filters),
+  // Plugin windows
+  vstOpenWindow:       (instanceId: string, pluginName: string)        => ipcRenderer.invoke('vst:open-window', instanceId, pluginName),
+  vstCloseWindow:      (instanceId: string)                            => ipcRenderer.invoke('vst:close-window', instanceId),
+  vstResizeWindow:     (instanceId: string, w: number, h: number)      => ipcRenderer.invoke('vst:resize-window', instanceId, w, h),
+  vstPinWindow:        (instanceId: string, pinned: boolean)           => ipcRenderer.invoke('vst:pin-window', instanceId, pinned),
+  // Favorites
+  vstAddFavorite:      (pluginId: string)                              => ipcRenderer.invoke('vst:favorites', 'add', pluginId),
+  vstRemoveFavorite:   (pluginId: string)                              => ipcRenderer.invoke('vst:favorites', 'remove', pluginId),
+  vstGetFavorites:     ()                                              => ipcRenderer.invoke('vst:favorites', 'list', ''),
+  // Tags
+  vstAddTag:           (pluginId: string, tag: string)                 => ipcRenderer.invoke('vst:tags', 'add', pluginId, tag),
+  vstRemoveTag:        (pluginId: string, tag: string)                 => ipcRenderer.invoke('vst:tags', 'remove', pluginId, tag),
+  vstGetAllTags:       ()                                              => ipcRenderer.invoke('vst:tags', 'all', ''),
+  // Collections
+  vstCreateCollection: (name: string)                                  => ipcRenderer.invoke('vst:collections', 'create', name),
+  vstAddToCollection:  (collId: string, pluginId: string)              => ipcRenderer.invoke('vst:collections', 'add', collId, pluginId),
+  vstRemoveFromCollection: (collId: string, pluginId: string)          => ipcRenderer.invoke('vst:collections', 'remove', collId, pluginId),
+  vstGetCollections:   ()                                              => ipcRenderer.invoke('vst:collections', 'list'),
+  // Scan progress event listener — returns a removeListener function
+  vstOnScanProgress:   (cb: (p: unknown) => void): (() => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, p: unknown): void => cb(p)
+    ipcRenderer.on('vst:scan-progress', handler)
+    return () => ipcRenderer.removeListener('vst:scan-progress', handler)
+  },
   // Projects
 
   saveProject:       (data: unknown) => ipcRenderer.invoke('save-project', data),

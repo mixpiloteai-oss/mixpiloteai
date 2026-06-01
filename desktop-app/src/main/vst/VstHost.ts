@@ -1,8 +1,9 @@
-import type { IpcMain } from 'electron'
-import { VstDatabase, type ScannedPlugin, type PluginCategory } from './VstDatabase'
+import type { IpcMain, WebContents } from 'electron'
+import { VstDatabase, type ScannedPlugin, type PluginCategory, type SearchFilters } from './VstDatabase'
 import { VstCrashGuard } from './VstCrashGuard'
 import { VstSandboxManager, type MidiEventData } from './VstSandbox'
 import { VstScanner } from './VstScanner'
+import { VstWindowManager } from './VstWindowManager'
 
 export interface PluginInstance {
   instanceId: string
@@ -17,16 +18,26 @@ export class VstHost {
   private crashGuard: VstCrashGuard
   private sandboxManager: VstSandboxManager
   private scanner: VstScanner
+  private windowManager: VstWindowManager
   private instances: Map<string, PluginInstance> = new Map()
+  private webContents: WebContents | null = null
 
   constructor() {
     this.database = new VstDatabase()
     this.crashGuard = new VstCrashGuard()
     this.sandboxManager = new VstSandboxManager()
     this.scanner = new VstScanner()
+    this.windowManager = new VstWindowManager()
+  }
+
+  /** Provide the renderer WebContents for pushing scan progress events */
+  setWebContents(wc: WebContents): void {
+    this.webContents = wc
   }
 
   registerIpcHandlers(ipcMain: IpcMain): void {
+    // ── Core scan / list / search ──────────────────────────────────────────
+
     ipcMain.handle('vst:scan', async () => {
       return await this.triggerScan()
     })
@@ -39,6 +50,12 @@ export class VstHost {
       return this.database.search(query)
     })
 
+    ipcMain.handle('vst:search-advanced', (_e, query: string, filters: SearchFilters) => {
+      return this.database.searchAdvanced(query, filters ?? {})
+    })
+
+    // ── Instance lifecycle ────────────────────────────────────────────────
+
     ipcMain.handle('vst:load-instance', async (_e, pluginId: string) => {
       return await this.loadInstance(pluginId)
     })
@@ -46,6 +63,8 @@ export class VstHost {
     ipcMain.handle('vst:unload-instance', async (_e, instanceId: string) => {
       return await this.unloadInstance(instanceId)
     })
+
+    // ── Parameters ───────────────────────────────────────────────────────
 
     ipcMain.handle('vst:set-parameter', (_e, instanceId: string, paramIndex: number, value: number) => {
       return this.setParameter(instanceId, paramIndex, value)
@@ -59,6 +78,8 @@ export class VstHost {
       return this.getAllParameters(instanceId)
     })
 
+    // ── State ────────────────────────────────────────────────────────────
+
     ipcMain.handle('vst:get-state', (_e, instanceId: string) => {
       return this.getState(instanceId)
     })
@@ -66,6 +87,8 @@ export class VstHost {
     ipcMain.handle('vst:set-state', (_e, instanceId: string, state: number[]) => {
       return this.setState(instanceId, state)
     })
+
+    // ── MIDI / presets / bypass ───────────────────────────────────────────
 
     ipcMain.handle('vst:send-midi', (_e, instanceId: string, event: MidiEventData) => {
       return this.sendMidi(instanceId, event)
@@ -82,14 +105,122 @@ export class VstHost {
     ipcMain.handle('vst:bypass', (_e, instanceId: string, bypassed: boolean) => {
       return this.setBypass(instanceId, bypassed)
     })
+
+    // ── Plugin windows ────────────────────────────────────────────────────
+
+    ipcMain.handle('vst:open-window', async (_e, instanceId: string, pluginName: string) => {
+      return await this.windowManager.openPluginWindow(instanceId, pluginName)
+    })
+
+    ipcMain.handle('vst:close-window', (_e, instanceId: string) => {
+      this.windowManager.closePluginWindow(instanceId)
+    })
+
+    ipcMain.handle('vst:resize-window', (_e, instanceId: string, w: number, h: number) => {
+      this.windowManager.resizePluginWindow(instanceId, w, h)
+    })
+
+    ipcMain.handle('vst:pin-window', (_e, instanceId: string, pinned: boolean) => {
+      this.windowManager.pinPluginWindow(instanceId, pinned)
+    })
+
+    // ── Favorites ─────────────────────────────────────────────────────────
+
+    ipcMain.handle('vst:favorites', (_e, action: string, pluginId: string) => {
+      if (action === 'add') {
+        this.database.addFavorite(pluginId)
+        void this.database.save().catch(e => console.warn('[VstHost] save failed:', e))
+        return { ok: true }
+      } else if (action === 'remove') {
+        this.database.removeFavorite(pluginId)
+        void this.database.save().catch(e => console.warn('[VstHost] save failed:', e))
+        return { ok: true }
+      } else if (action === 'list') {
+        return this.database.getFavorites()
+      } else if (action === 'check') {
+        return { isFavorite: this.database.isFavorite(pluginId) }
+      }
+      return { ok: false, error: `Unknown favorites action: ${action}` }
+    })
+
+    // ── Tags ──────────────────────────────────────────────────────────────
+
+    ipcMain.handle('vst:tags', (_e, action: string, pluginId: string, tag?: string) => {
+      if (action === 'add' && tag) {
+        this.database.addTag(pluginId, tag)
+        void this.database.save().catch(e => console.warn('[VstHost] save failed:', e))
+        return { ok: true }
+      } else if (action === 'remove' && tag) {
+        this.database.removeTag(pluginId, tag)
+        void this.database.save().catch(e => console.warn('[VstHost] save failed:', e))
+        return { ok: true }
+      } else if (action === 'get') {
+        return this.database.getTags(pluginId)
+      } else if (action === 'all') {
+        return this.database.getAllTags()
+      }
+      return { ok: false, error: `Unknown tags action: ${action}` }
+    })
+
+    // ── Blacklist ─────────────────────────────────────────────────────────
+
+    ipcMain.handle('vst:blacklist', (_e, pluginId: string, reason?: string) => {
+      this.database.markFailed(pluginId, reason ?? 'Manually blacklisted')
+      this.crashGuard.recordCrash(pluginId)
+      void this.database.save().catch(e => console.warn('[VstHost] save failed:', e))
+      return { ok: true }
+    })
+
+    // ── Collections ───────────────────────────────────────────────────────
+
+    ipcMain.handle('vst:collections', async (_e, action: string, ...args: unknown[]) => {
+      if (action === 'list') {
+        return this.database.getAllCollections()
+      } else if (action === 'create') {
+        const name = args[0] as string
+        const coll = this.database.createCollection(name)
+        await this.database.save().catch(e => console.warn('[VstHost] save failed:', e))
+        return coll
+      } else if (action === 'add') {
+        const collId = args[0] as string
+        const pluginId = args[1] as string
+        this.database.addToCollection(collId, pluginId)
+        await this.database.save().catch(e => console.warn('[VstHost] save failed:', e))
+        return { ok: true }
+      } else if (action === 'remove') {
+        const collId = args[0] as string
+        const pluginId = args[1] as string
+        this.database.removeFromCollection(collId, pluginId)
+        await this.database.save().catch(e => console.warn('[VstHost] save failed:', e))
+        return { ok: true }
+      } else if (action === 'delete') {
+        const collId = args[0] as string
+        this.database.deleteCollection(collId)
+        await this.database.save().catch(e => console.warn('[VstHost] save failed:', e))
+        return { ok: true }
+      }
+      return { ok: false, error: `Unknown collections action: ${action}` }
+    })
   }
 
   private async triggerScan(): Promise<ScannedPlugin[]> {
     const paths = this.scanner.getPlatformVstPaths()
     const found = await this.scanner.scanDirectories(paths)
-    for (const plugin of found) {
+
+    // Report progress as we go
+    for (let i = 0; i < found.length; i++) {
+      const plugin = found[i]
       this.database.addPlugin(plugin)
+
+      if (this.webContents && !this.webContents.isDestroyed()) {
+        this.webContents.send('vst:scan-progress', {
+          scanned: i + 1,
+          total: found.length,
+          currentPlugin: plugin.name,
+        })
+      }
     }
+
     await this.database.save().catch(e => console.warn('[VstHost] save failed:', e))
     return found
   }
@@ -121,6 +252,7 @@ export class VstHost {
 
   private async unloadInstance(instanceId: string): Promise<void> {
     this.sandboxManager.terminateProcess(instanceId)
+    this.windowManager.closePluginWindow(instanceId)
     this.instances.delete(instanceId)
   }
 
@@ -192,6 +324,10 @@ export class VstHost {
 
   getSandboxManager(): VstSandboxManager {
     return this.sandboxManager
+  }
+
+  getWindowManager(): VstWindowManager {
+    return this.windowManager
   }
 
   // Expose for testing/introspection
