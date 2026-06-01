@@ -1,6 +1,6 @@
 // ─── EngineExportPanel ────────────────────────────────────────────────────────
 // Professional export dialog using the new ExportEngine / ExportQueue architecture.
-// Tabs: Settings | Queue | Loudness
+// Tabs: Settings | Queue | Loudness | History
 
 import { useState } from 'react'
 import { useEngineExportStore } from '../../store/engineExportStore'
@@ -9,21 +9,22 @@ import type { ExportFormat } from '../../audio/export/FlacEncoderPcm'
 import type { DitherType } from '../../audio/export/DitherEngine'
 import { ExportQueuePanel } from './ExportQueuePanel'
 import { LoudnessMeterDisplay } from './LoudnessMeterDisplay'
+import { ExportHistoryPanel } from './ExportHistoryPanel'
 import type { LoudnessMeasurement } from '../../audio/export/LoudnessMeter'
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
 
-type Tab = 'settings' | 'queue' | 'loudness'
+type Tab = 'settings' | 'queue' | 'loudness' | 'history'
 
 // ── Chip selector ─────────────────────────────────────────────────────────────
 
 function ChipGroup<T extends string>({
   options, value, onChange, label,
 }: {
-  options: Array<{ value: T; label: string }>
-  value:   T
+  options:  Array<{ value: T; label: string }>
+  value:    T
   onChange: (v: T) => void
-  label:   string
+  label:    string
 }) {
   return (
     <div style={{ marginBottom: '12px' }}>
@@ -59,9 +60,9 @@ function Label({ children }: { children: React.ReactNode }) {
 }
 
 function Select<T extends string | number>({ label, value, options, onChange }: {
-  label:   string
-  value:   T
-  options: Array<{ value: T; label: string }>
+  label:    string
+  value:    T
+  options:  Array<{ value: T; label: string }>
   onChange: (v: T) => void
 }) {
   return (
@@ -79,6 +80,28 @@ function Select<T extends string | number>({ label, value, options, onChange }: 
           <option key={String(opt.value)} value={String(opt.value)}>{opt.label}</option>
         ))}
       </select>
+    </div>
+  )
+}
+
+function TextInput({ label, value, onChange, placeholder }: {
+  label:       string
+  value:       string
+  onChange:    (v: string) => void
+  placeholder?: string
+}) {
+  return (
+    <div style={{ marginBottom: '10px' }}>
+      <Label>{label}</Label>
+      <input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{
+          background: '#0f172a', color: '#e2e8f0', border: '1px solid #1e293b',
+          borderRadius: '6px', padding: '6px 8px', fontSize: '12px', width: '100%', boxSizing: 'border-box',
+        }}
+      />
     </div>
   )
 }
@@ -114,11 +137,17 @@ function SettingsTab({ options, onChange }: {
   onChange: (opts: Partial<ExportOptions>) => void
 }) {
   const [exportType, setExportType] = useState<ExportType>('master')
+  const [showMetadata, setShowMetadata] = useState(false)
+  const {
+    presets, selectedPresetId, selectPreset, saveUserPreset,
+    ffmpegAvailable,
+  } = useEngineExportStore()
 
   const formats: Array<{ value: ExportFormat; label: string }> = [
     { value: 'wav',  label: 'WAV' },
     { value: 'flac', label: 'FLAC' },
     { value: 'mp3',  label: 'MP3' },
+    { value: 'ogg',  label: 'OGG' },
   ]
 
   const sampleRates: Array<{ value: ExportOptions['sampleRate']; label: string }> = [
@@ -134,7 +163,9 @@ function SettingsTab({ options, onChange }: {
     { value: 32, label: '32-bit Float' },
   ]
 
-  const mp3Bitrates: Array<{ value: 128 | 192 | 256 | 320; label: string }> = [
+  const mp3Bitrates: Array<{ value: 64 | 96 | 128 | 192 | 256 | 320; label: string }> = [
+    { value: 64,  label: '64 kbps' },
+    { value: 96,  label: '96 kbps' },
     { value: 128, label: '128 kbps' },
     { value: 192, label: '192 kbps' },
     { value: 256, label: '256 kbps' },
@@ -154,8 +185,70 @@ function SettingsTab({ options, onChange }: {
     { value: 'loop',      label: 'Loop' },
   ]
 
+  const presetOptions = [
+    { value: '', label: '— Select a preset —' },
+    ...presets.map(p => ({ value: p.id, label: p.name })),
+  ]
+
+  const handleSavePreset = () => {
+    saveUserPreset({
+      name:             `Custom ${new Date().toLocaleString()}`,
+      description:      'User-defined preset',
+      format:           options.format,
+      sampleRate:       options.sampleRate,
+      bitDepth:         options.bitDepth,
+      bitrate:          options.bitrate,
+      ditherType:       options.ditherType,
+      normalization:    options.normalization,
+      applyMasterChain: options.applyMasterChain,
+      targetLufs:       options.targetLufs,
+    })
+  }
+
+  const meta = options.metadata ?? {}
+
   return (
     <div>
+      {/* ffmpeg indicator */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '14px' }}>
+        <div style={{
+          width: '8px', height: '8px', borderRadius: '50%',
+          background: ffmpegAvailable ? '#22c55e' : '#475569',
+        }} />
+        <span style={{ fontSize: '11px', color: ffmpegAvailable ? '#4ade80' : '#475569' }}>
+          ffmpeg: {ffmpegAvailable ? 'available' : 'not found'}
+        </span>
+      </div>
+
+      {/* Preset selector */}
+      <div style={{ marginBottom: '14px' }}>
+        <Label>Preset</Label>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <select
+            value={selectedPresetId ?? ''}
+            onChange={e => { if (e.target.value) selectPreset(e.target.value) }}
+            style={{
+              flex: 1,
+              background: '#0f172a', color: '#e2e8f0', border: '1px solid #1e293b',
+              borderRadius: '6px', padding: '6px 8px', fontSize: '12px',
+            }}
+          >
+            {presetOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <button
+            onClick={handleSavePreset}
+            style={{
+              padding: '6px 10px', borderRadius: '6px', border: '1px solid #1e293b',
+              background: 'transparent', color: '#64748b', fontSize: '11px', cursor: 'pointer',
+            }}
+          >
+            Save
+          </button>
+        </div>
+      </div>
+
       <ChipGroup
         label="Format"
         options={formats}
@@ -177,7 +270,7 @@ function SettingsTab({ options, onChange }: {
         onChange={(v) => onChange({ bitDepth: v })}
       />
 
-      {options.format === 'mp3' && (
+      {(options.format === 'mp3') && (
         <Select
           label="MP3 Bitrate"
           value={options.bitrate ?? 320}
@@ -186,7 +279,7 @@ function SettingsTab({ options, onChange }: {
         />
       )}
 
-      {options.bitDepth < 32 && (
+      {options.bitDepth < 32 && options.format !== 'ogg' && (
         <Select
           label="Dither"
           value={options.ditherType}
@@ -213,6 +306,30 @@ function SettingsTab({ options, onChange }: {
         value={exportType}
         onChange={setExportType}
       />
+
+      {/* Metadata section */}
+      <div style={{ marginBottom: '12px' }}>
+        <button
+          onClick={() => setShowMetadata(!showMetadata)}
+          style={{
+            width: '100%', padding: '8px', borderRadius: '6px',
+            background: 'transparent', border: '1px solid #1e293b',
+            color: '#64748b', fontSize: '11px', cursor: 'pointer', textAlign: 'left',
+          }}
+        >
+          {showMetadata ? '▼' : '▶'} Metadata Tags
+        </button>
+        {showMetadata && (
+          <div style={{ marginTop: '10px', padding: '12px', background: '#0a0a14', borderRadius: '8px' }}>
+            <TextInput label="Title"  value={meta.title ?? ''}  onChange={v => onChange({ metadata: { ...meta, title: v } })} />
+            <TextInput label="Artist" value={meta.artist ?? ''} onChange={v => onChange({ metadata: { ...meta, artist: v } })} />
+            <TextInput label="Album"  value={meta.album ?? ''}  onChange={v => onChange({ metadata: { ...meta, album: v } })} />
+            <TextInput label="Genre"  value={meta.genre ?? ''}  onChange={v => onChange({ metadata: { ...meta, genre: v } })} />
+            <TextInput label="BPM"    value={meta.bpm !== undefined ? String(meta.bpm) : ''} onChange={v => onChange({ metadata: { ...meta, bpm: v ? Number(v) : undefined } })} placeholder="120" />
+            <TextInput label="Key"    value={meta.key ?? ''}    onChange={v => onChange({ metadata: { ...meta, key: v } })} placeholder="C major" />
+          </div>
+        )}
+      </div>
 
       <div style={{ marginBottom: '12px' }}>
         <Label>Output Directory</Label>
@@ -292,6 +409,7 @@ export function EngineExportPanel() {
     { id: 'settings', label: 'Settings' },
     { id: 'queue',    label: 'Queue' },
     { id: 'loudness', label: 'Loudness' },
+    { id: 'history',  label: 'History' },
   ]
 
   return (
@@ -342,8 +460,9 @@ export function EngineExportPanel() {
             onChange={updateDefaultOptions}
           />
         )}
-        {activeTab === 'queue' && <ExportQueuePanel />}
+        {activeTab === 'queue'    && <ExportQueuePanel />}
         {activeTab === 'loudness' && <LoudnessMeterDisplay measurement={loudness} />}
+        {activeTab === 'history'  && <ExportHistoryPanel />}
       </div>
     </div>
   )

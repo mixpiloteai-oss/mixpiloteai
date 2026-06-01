@@ -26,6 +26,7 @@ import { registerSamplesIPC } from './samples/SamplesIPC'
 import { SampleDatabaseManager } from './samples/SampleDatabase'
 import { vstHost } from './vst/VstHost'
 import { createSafetyManager } from './safety/ProjectSafetyManager'
+import { FfmpegTranscoder } from './export/FfmpegTranscoder'
 
 // ── Global crash safety net ───────────────────────────────────────────────────
 // Plugins run in forked child processes (see modules/pluginHost.ts), so most
@@ -156,6 +157,34 @@ function buildMenu(): void {
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
+
+// ── IPC: Export system ────────────────────────────────────────
+ipcMain.handle('export:check-ffmpeg', () => FfmpegTranscoder.isAvailable())
+
+ipcMain.handle('export:transcode', async (_e, opts: {
+  inputFormat:  'wav'
+  outputFormat: 'mp3' | 'flac' | 'ogg' | 'aac'
+  inputBytes:   number[]
+  bitrate?:     number
+  quality?:     number
+  sampleRate?:  number
+  metadata?:    { title?: string; artist?: string; album?: string; year?: string; genre?: string }
+}) => {
+  return FfmpegTranscoder.transcode({
+    ...opts,
+    inputBytes: Buffer.from(opts.inputBytes),
+  })
+})
+
+ipcMain.handle('export:write-file', async (_e, filePath: string, bytes: number[]) => {
+  try {
+    const { promises: fs } = await import('fs')
+    await fs.writeFile(filePath, Buffer.from(bytes))
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) }
+  }
+})
 
 // ── IPC: AI cloud assistant ───────────────────────────────────
 ipcMain.handle('ai:process-command', (_e, ctx: string, cmd: string) => {

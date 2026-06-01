@@ -6,7 +6,7 @@
 import { applyDither } from './DitherEngine'
 import { encodeWav } from './WavEncoderPcm'
 
-export type ExportFormat = 'wav' | 'flac' | 'mp3'
+export type ExportFormat = 'wav' | 'flac' | 'mp3' | 'ogg'
 
 export interface FlacEncodeOptions {
   channels:         Float32Array[]

@@ -9,6 +9,7 @@ import { convertBuffer } from './SampleRateConverter'
 import { encodeWav } from './WavEncoderPcm'
 import { encodeFlac, type ExportFormat } from './FlacEncoderPcm'
 import { encodeMp3 } from './Mp3EncoderPcm'
+import type { ExportMetadata } from './ExportMetadata'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -18,7 +19,7 @@ export interface ExportOptions {
   format:             ExportFormat
   sampleRate:         44100 | 48000 | 88200 | 96000
   bitDepth:           16 | 24 | 32
-  bitrate?:           128 | 192 | 256 | 320
+  bitrate?:           64 | 96 | 128 | 192 | 256 | 320
   ditherType:         DitherType
   normalization:      boolean
   targetLufs?:        number
@@ -26,30 +27,40 @@ export interface ExportOptions {
   masterOptions?:     Partial<MasterChainOptions>
   outputDirectory:    string
   fileNameTemplate:   string
+  metadata?:          ExportMetadata
+  oggQuality?:        number   // 0.0-1.0 (Vorbis quality scale)
+  useFfmpeg?:         boolean  // prefer ffmpeg over pure-TS encoder
 }
 
 export interface ExportJob {
-  id:           string
-  name:         string
-  status:       ExportJobStatus
-  format:       ExportFormat
-  outputPath:   string
-  job:          RenderJob
-  options:      ExportOptions
-  createdAt:    number
-  startedAt?:   number
-  completedAt?: number
-  error?:       string
-  progress:     number  // 0-100
+  id:               string
+  name:             string
+  status:           ExportJobStatus
+  format:           ExportFormat
+  outputPath:       string
+  job:              RenderJob
+  options:          ExportOptions
+  createdAt:        number
+  startedAt?:       number
+  completedAt?:     number
+  error?:           string
+  progress:         number  // 0-100
+  etaMs:            number | null
+  renderSpeedRatio: number
+  bytesWritten:     number
+  cancelRequested:  boolean
 }
 
 // ─── ExportQueue ──────────────────────────────────────────────────────────────
 
 type ProgressCallback = (job: ExportJob) => void
 
+const MAX_HISTORY = 50
+
 export class ExportQueue {
   private jobs:      Map<string, ExportJob> = new Map()
   private order:     string[]               = []
+  private _history:  ExportJob[]            = []
   private running:   boolean                = false
   private listeners: ProgressCallback[]     = []
   private idSeq      = 0
@@ -63,6 +74,7 @@ export class ExportQueue {
     const exportJob: ExportJob = {
       id, name, status: 'pending', format: options.format,
       outputPath, job, options, createdAt: Date.now(), progress: 0,
+      etaMs: null, renderSpeedRatio: 0, bytesWritten: 0, cancelRequested: false,
     }
     this.jobs.set(id, exportJob)
     this.order.push(id)
@@ -72,11 +84,30 @@ export class ExportQueue {
 
   cancelJob(id: string): void {
     const job = this.jobs.get(id)
-    if (job && (job.status === 'pending' || job.status === 'rendering')) {
-      job.status      = 'cancelled'
-      job.completedAt = Date.now()
-      this.emit(job)
+    if (job) {
+      job.cancelRequested = true
+      if (job.status === 'pending' || job.status === 'rendering' ||
+          job.status === 'encoding' || job.status === 'writing') {
+        job.status      = 'cancelled'
+        job.completedAt = Date.now()
+        this.emit(job)
+        this._moveToHistory(job)
+      }
     }
+  }
+
+  /**
+   * Get completed/failed/cancelled export history (last 50).
+   */
+  getHistory(): ExportJob[] {
+    return [...this._history]
+  }
+
+  /**
+   * Clear export history.
+   */
+  clearHistory(): void {
+    this._history = []
   }
 
   removeJob(id: string): void {
@@ -148,19 +179,52 @@ export class ExportQueue {
   private setProgress(job: ExportJob, progress: number, status?: ExportJobStatus): void {
     job.progress = progress
     if (status) job.status = status
+    // Update ETA based on elapsed time and progress
+    if (job.startedAt !== undefined && progress > 0 && progress < 100) {
+      const elapsed = Date.now() - job.startedAt
+      job.etaMs     = Math.round((elapsed / progress) * (100 - progress))
+    }
     this.emit(job)
   }
 
+  private _moveToHistory(job: ExportJob): void {
+    // Avoid duplicate entries
+    if (this._history.some(h => h.id === job.id)) return
+    this._history.unshift({ ...job })
+    if (this._history.length > MAX_HISTORY) {
+      this._history = this._history.slice(0, MAX_HISTORY)
+    }
+  }
+
   private async processJob(job: ExportJob): Promise<void> {
-    if (job.status === 'cancelled') return
+    if (job.status === 'cancelled' || job.cancelRequested) return
 
     try {
       // Step 1: Render
       job.status    = 'rendering'
       job.startedAt = Date.now()
+      job.etaMs     = null
       this.setProgress(job, 0, 'rendering')
 
       const renderResult = await offlineRenderer.render(job.job)
+
+      // Calculate render speed ratio
+      if (job.startedAt !== undefined) {
+        const elapsedMs        = Date.now() - job.startedAt
+        const audioSamples     = renderResult.totalSamples
+        if (elapsedMs > 0 && audioSamples > 0) {
+          job.renderSpeedRatio = audioSamples / (elapsedMs / 1000 * job.options.sampleRate)
+        }
+      }
+
+      if (job.cancelRequested) {
+        job.status      = 'cancelled'
+        job.completedAt = Date.now()
+        this.emit(job)
+        this._moveToHistory(job)
+        return
+      }
+
       this.setProgress(job, 40)
 
       // Step 2: Encode
@@ -192,14 +256,23 @@ export class ExportQueue {
         encoded = encodeMp3({
           channels,
           sampleRate: options.sampleRate,
-          bitrate:    options.bitrate ?? 320,
+          bitrate:    (options.bitrate ?? 320) as 128 | 192 | 256 | 320,
           quality:    2,
         })
       } else {
         encoded = encodeWav(channels, options.sampleRate, options.bitDepth)
       }
 
+      job.bytesWritten = encoded.length
       this.setProgress(job, 80)
+
+      if (job.cancelRequested) {
+        job.status      = 'cancelled'
+        job.completedAt = Date.now()
+        this.emit(job)
+        this._moveToHistory(job)
+        return
+      }
 
       // Step 3: Write file
       this.setProgress(job, 80, 'writing')
@@ -213,13 +286,16 @@ export class ExportQueue {
 
       job.status      = 'done'
       job.completedAt = Date.now()
+      job.etaMs       = 0
       this.setProgress(job, 100, 'done')
+      this._moveToHistory(job)
 
     } catch (err) {
       job.status      = 'error'
       job.completedAt = Date.now()
       job.error       = err instanceof Error ? err.message : String(err)
       this.setProgress(job, job.progress, 'error')
+      this._moveToHistory(job)
     }
   }
 }

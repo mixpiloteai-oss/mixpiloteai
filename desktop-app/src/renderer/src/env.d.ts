@@ -203,6 +203,10 @@ interface ElectronAPI {
   safetyListBackups:     () => Promise<unknown[]>
   safetyDeleteBackup:    (id: string) => Promise<void>
   safetyMarkClean:       () => Promise<void>
+  // Export system
+  exportCheckFfmpeg: () => Promise<boolean>
+  exportTranscode:   (opts: unknown) => Promise<{ success: boolean; data?: number[]; error?: string; codec?: string }>
+  exportWriteFile:   (filePath: string, bytes: number[]) => Promise<{ success: boolean; error?: string }>
   // Diagnostic logger (optional — only available when main process registers the IPC)
   diagnosticLog?:            (level: string, category: string, msg: string, data?: unknown) => Promise<void>
   diagnosticRead?:           (maxLines?: number) => Promise<unknown[]>

@@ -300,6 +300,10 @@ const api = {
   safetyListBackups:      () => ipcRenderer.invoke('safety:list-backups'),
   safetyDeleteBackup:     (id: string) => ipcRenderer.invoke('safety:delete-backup', id),
   safetyMarkClean:        () => ipcRenderer.invoke('safety:mark-clean'),
+  // Export system
+  exportCheckFfmpeg: () => ipcRenderer.invoke('export:check-ffmpeg'),
+  exportTranscode:   (opts: unknown) => ipcRenderer.invoke('export:transcode', opts),
+  exportWriteFile:   (filePath: string, bytes: number[]) => ipcRenderer.invoke('export:write-file', filePath, bytes),
   // AI Assistant cloud path
   aiProcessCommand: (ctx: string, cmd: string) => ipcRenderer.invoke('ai:process-command', ctx, cmd),
   // Crash reporting (typed namespace — does NOT expose raw ipcRenderer)
