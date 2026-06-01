@@ -7,7 +7,6 @@ import TitleBar from './components/shell/TitleBar'
 import Sidebar from './components/shell/Sidebar'
 import StatusBar from './components/shell/StatusBar'
 import TransportBar from './components/transport/TransportBar'
-import ArrangementView from './components/arrangement/ArrangementView'
 import MixerView from './components/mixer/MixerView'
 import PianoRollView from './components/piano-roll/PianoRollView'
 import AIAssistant from './components/ai-assistant/AIAssistant'
@@ -22,8 +21,11 @@ import MarketplaceBrowser from './components/marketplace/MarketplaceBrowser'
 import RecoveryDialog        from './components/save/RecoveryDialog'
 import SnapshotHistoryPanel  from './components/save/SnapshotHistoryPanel'
 import OnboardingWelcome     from './components/onboarding/OnboardingWelcome'
+import DawLayout             from './components/layout/DawLayout'
+import WelcomeDashboard      from './components/welcome/WelcomeDashboard'
 import { useOnboardingStore } from './store/onboardingStore'
 import { useUIStore }        from './store/uiStore'
+import { useProjectStore }  from './store/projectStore'
 import { useSaveStore }      from './store/saveStore'
 import { useSaveSystem }     from './hooks/useSaveSystem'
 import { useNetworkStatus }  from './hooks/useNetworkStatus'
@@ -148,38 +150,43 @@ function LoginScreen({ onAuth }: LoginProps) {
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 function Dashboard() {
-  const setView = useUIStore(s => s.setView)
+  const setView   = useUIStore(s => s.setView)
+  const project   = useProjectStore(s => s.project)
 
   const tiles = [
-    { id: 'arrangement' as const, icon: '≡', label: 'Arrangement',   sub: '8 tracks · 32 bars',       color: '#7c3aed' },
-    { id: 'mixer'       as const, icon: '⊟', label: 'Mixer',         sub: '6 channels + master',       color: '#06b6d4' },
-    { id: 'pianoroll'   as const, icon: '♪', label: 'Piano Roll',    sub: 'MIDI editor · 145 BPM',     color: '#a855f7' },
-    { id: 'ai'          as const, icon: '✦', label: 'AI Assistant',  sub: 'Claude · text-to-pattern',  color: '#10b981' },
-    { id: 'live'        as const, icon: '▶', label: 'Live Mode',     sub: '6 × 8 clip launcher',       color: '#f59e0b' },
-    { id: 'vst'         as const, icon: '⊕', label: 'Plugin Browser',sub: '10 plugins loaded',         color: '#ec4899' },
-    { id: 'routing'     as const, icon: '⊗', label: 'Routing Matrix',sub: '11 active connections',     color: '#06b6d4' },
-    { id: 'ai-local'    as const, icon: '⊙', label: 'Local AI',      sub: 'Offline analysis · no cloud', color: '#06b6d4' },
-    { id: 'performance' as const, icon: '⚙', label: 'Performance',   sub: 'Low PC / Studio / Live modes', color: '#f59e0b' },
-    { id: 'export'      as const, icon: '⬇', label: 'Export Studio', sub: 'WAV · MP3 · FLAC · Stems',     color: '#10b981' },
-    { id: 'collab'       as const, icon: '⚯', label: 'Collaboration', sub: 'Live editing · Chat · Comments', color: '#a855f7' },
-    { id: 'marketplace'  as const, icon: '⊞', label: 'Marketplace',   sub: 'Kicks · Presets · Templates · Packs', color: '#ec4899' },
+    { id: 'arrangement' as const, icon: '≡', label: 'Arrangement',   sub: `${project.tracks.length} tracks · ${project.totalBars} bars`,       color: '#7c3aed' },
+    { id: 'mixer'       as const, icon: '⊟', label: 'Mixer',         sub: `${project.tracks.length} channels + master`,                        color: '#06b6d4' },
+    { id: 'pianoroll'   as const, icon: '♪', label: 'Piano Roll',    sub: `MIDI editor · ${project.bpm} BPM`,                                  color: '#a855f7' },
+    { id: 'ai'          as const, icon: '✦', label: 'AI Assistant',  sub: 'Claude · text-to-pattern',                                          color: '#10b981' },
+    { id: 'live'        as const, icon: '▶', label: 'Live Mode',     sub: `${project.tracks.length} tracks · clip launcher`,                    color: '#f59e0b' },
+    { id: 'vst'         as const, icon: '⊕', label: 'Plugin Browser',sub: 'VST3 / AU / CLAP plugins',                                          color: '#ec4899' },
+    { id: 'routing'     as const, icon: '⊗', label: 'Routing Matrix',sub: 'Audio signal routing',                                              color: '#06b6d4' },
+    { id: 'ai-local'    as const, icon: '⊙', label: 'Local AI',      sub: 'Offline analysis · no cloud',                                       color: '#06b6d4' },
+    { id: 'performance' as const, icon: '⚙', label: 'Performance',   sub: 'Low PC / Studio / Live modes',                                      color: '#f59e0b' },
+    { id: 'export'      as const, icon: '⬇', label: 'Export Studio', sub: 'WAV · MP3 · FLAC · Stems',                                          color: '#10b981' },
+    { id: 'collab'       as const, icon: '⚯', label: 'Collaboration', sub: 'Live editing · Chat · Comments',                                   color: '#a855f7' },
+    { id: 'marketplace'  as const, icon: '⊞', label: 'Marketplace',   sub: 'Kicks · Presets · Templates · Packs',                              color: '#ec4899' },
   ]
+
+  const totalClips = project.tracks.reduce((n, t) => n + t.clips.length, 0)
 
   return (
     <div className="h-full overflow-auto p-6" style={{ background: '#08080f' }}>
       {/* Project header */}
       <div className="mb-8">
-        <h1 className="text-xl font-bold mb-1" style={{ color: '#e2e8f0' }}>Dark Hardtek Session</h1>
-        <p className="text-xs" style={{ color: '#475569' }}>145 BPM · D Minor · Last saved just now</p>
+        <h1 className="text-xl font-bold mb-1" style={{ color: '#e2e8f0' }}>{project.name}</h1>
+        <p className="text-xs" style={{ color: '#475569' }}>
+          {project.bpm} BPM · {project.timeSignatureNumerator}/{project.timeSignatureDenominator} · {project.tracks.length} tracks
+        </p>
       </div>
 
       {/* Quick stats */}
       <div className="grid grid-cols-4 gap-3 mb-8">
         {[
-          { label: 'BPM',     value: '145'   },
-          { label: 'Tracks',  value: '6'     },
-          { label: 'Bars',    value: '32'    },
-          { label: 'Plugins', value: '10'    },
+          { label: 'BPM',    value: String(project.bpm)                     },
+          { label: 'Tracks', value: String(project.tracks.length)           },
+          { label: 'Bars',   value: String(project.totalBars)               },
+          { label: 'Clips',  value: String(totalClips)                      },
         ].map((stat, i) => (
           <div
             key={stat.label}
@@ -241,7 +248,11 @@ function Dashboard() {
 function DAWShell() {
   const { activeView, aiPanelOpen, shortcutsPanelOpen, toggleShortcutsPanel } = useUIStore()
   const { historyOpen, toggleHistory } = useSaveStore()
-  const [guideOpen, setGuideOpen] = useState(false)
+  const [guideOpen, setGuideOpen]     = useState(false)
+  const [welcomeOpen, setWelcomeOpen] = useState(() => {
+    // Show welcome on first launch (no saved state)
+    return localStorage.getItem('daw-welcomed-v1') !== '1'
+  })
 
   // Initialise auto-save engine + dirty tracking + keyboard shortcuts
   useSaveSystem()
@@ -253,19 +264,20 @@ function DAWShell() {
       <SafeViewBoundary viewName={name}>{el}</SafeViewBoundary>
     )
     switch (activeView) {
-      case 'arrangement': return wrap('ArrangementView',    <ArrangementView />)
-      case 'mixer':       return wrap('MixerView',          <MixerView />)
-      case 'pianoroll':   return wrap('PianoRollView',      <PianoRollView />)
-      case 'live':        return wrap('LiveMode',           <LiveMode />)
-      case 'vst':         return wrap('PluginBrowser',      <PluginBrowser />)
-      case 'routing':     return wrap('RoutingMatrix',      <RoutingMatrix />)
-      case 'ai-local':    return wrap('LocalAIPanel',       <LocalAIPanel />)
-      case 'performance': return wrap('PerformanceSelector',<PerformanceModeSelector />)
-      case 'export':      return wrap('ExportPanel',        <ExportPanel />)
-      case 'collab':      return wrap('CollabPanel',        <CollabPanel />)
-      case 'marketplace': return wrap('MarketplaceBrowser', <MarketplaceBrowser />)
-      case 'dashboard':   return wrap('Dashboard',          <Dashboard />)
-      default:            return wrap('Dashboard',          <Dashboard />)
+      // Arrangement uses the full 4-panel DawLayout
+      case 'arrangement': return wrap('DawLayout',           <DawLayout />)
+      case 'mixer':       return wrap('MixerView',           <MixerView />)
+      case 'pianoroll':   return wrap('PianoRollView',       <PianoRollView />)
+      case 'live':        return wrap('LiveMode',            <LiveMode />)
+      case 'vst':         return wrap('PluginBrowser',       <PluginBrowser />)
+      case 'routing':     return wrap('RoutingMatrix',       <RoutingMatrix />)
+      case 'ai-local':    return wrap('LocalAIPanel',        <LocalAIPanel />)
+      case 'performance': return wrap('PerformanceSelector', <PerformanceModeSelector />)
+      case 'export':      return wrap('ExportPanel',         <ExportPanel />)
+      case 'collab':      return wrap('CollabPanel',         <CollabPanel />)
+      case 'marketplace': return wrap('MarketplaceBrowser',  <MarketplaceBrowser />)
+      case 'dashboard':   return wrap('Dashboard',           <Dashboard />)
+      default:            return wrap('DawLayout',           <DawLayout />)
     }
   }
 
@@ -307,6 +319,14 @@ function DAWShell() {
 
       {/* User guide panel */}
       {guideOpen && <UserGuidePanel onClose={() => setGuideOpen(false)} />}
+
+      {/* Welcome dashboard — first launch */}
+      {welcomeOpen && (
+        <WelcomeDashboard onClose={() => {
+          setWelcomeOpen(false)
+          localStorage.setItem('daw-welcomed-v1', '1')
+        }} />
+      )}
     </div>
   )
 }

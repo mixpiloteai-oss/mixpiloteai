@@ -22,6 +22,37 @@ const TYPE_LABEL: Record<string, string> = {
   master: 'MASTER',
 }
 
+// Inline SVG icons per track type — no external library
+function TrackTypeIcon({ type, color }: { type: string; color: string }) {
+  const s: React.CSSProperties = { display: 'block', flexShrink: 0 }
+  switch (type) {
+    case 'midi': return (
+      <svg style={s} width={12} height={12} viewBox="0 0 12 12" fill="none">
+        {[0,2,4,6,8,10].map(x => <rect key={x} x={x} y={3} width={1.5} height={6} rx={0.5} fill={color} opacity={0.8}/>)}
+        {[1,3,5,7,9].map(x => <rect key={x} x={x} y={3} width={1.2} height={4} rx={0.4} fill={color}/>)}
+      </svg>
+    )
+    case 'audio': return (
+      <svg style={s} width={12} height={12} viewBox="0 0 12 12" fill="none">
+        <path d="M1 6 Q3 2 6 6 Q9 10 11 6" stroke={color} strokeWidth={1.5} strokeLinecap="round" fill="none" opacity={0.8}/>
+      </svg>
+    )
+    case 'bus': return (
+      <svg style={s} width={12} height={12} viewBox="0 0 12 12" fill="none">
+        <circle cx={6} cy={6} r={4} stroke={color} strokeWidth={1.5} opacity={0.8}/>
+        <circle cx={6} cy={6} r={1.5} fill={color} opacity={0.8}/>
+      </svg>
+    )
+    case 'master': return (
+      <svg style={s} width={12} height={12} viewBox="0 0 12 12" fill="none">
+        <path d="M6 1 L7.5 4.5 L11 5 L8.5 7.5 L9 11 L6 9.5 L3 11 L3.5 7.5 L1 5 L4.5 4.5 Z"
+          fill={color} opacity={0.8}/>
+      </svg>
+    )
+    default: return null
+  }
+}
+
 // ─── Individual track header ──────────────────────────────────────────────────
 
 function TrackHeader({
@@ -100,8 +131,9 @@ function TrackHeader({
         opacity:    0.8,
       }} />
 
-      {/* Top row: type badge + name */}
+      {/* Top row: type icon + badge */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, paddingLeft: 10 }}>
+        <TrackTypeIcon type={track.type} color={track.color} />
         <span style={{
           fontSize:    8,
           fontWeight:  700,
