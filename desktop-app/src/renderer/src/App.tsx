@@ -143,7 +143,7 @@ function LoginScreen({ onAuth }: LoginProps) {
         </button>
 
         <p className="text-[10px] text-center mt-5" style={{ color: '#334155' }}>
-          demo@neurotek.ai · demo1234
+          No account? Use the demo to explore the app.
         </p>
       </div>
     </div>
