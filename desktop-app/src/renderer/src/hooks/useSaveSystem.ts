@@ -6,6 +6,7 @@ import { useProjectStore }      from '../store/projectStore'
 import { useTransportStore }    from '../store/transportStore'
 import { usePianoRollStore }    from '../components/piano-roll/usePianoRollStore'
 import { useMixerStore }        from '../components/mixer/useMixerStore'
+import { ipc }                  from '../ipc/ipcClient'
 
 // ─── useSaveSystem ─────────────────────────────────────────────────────────────
 // Mount once in DAWShell.  Initialises the AutoSaveEngine, wires dirty-tracking,
@@ -50,26 +51,20 @@ export function useSaveSystem(): void {
 
   // ── Electron trigger-save (menu File → Save) ─────────────────────────────────
   useEffect(() => {
-    const api = window.electronAPI
-    if (!api) return
-    api.onTriggerSave(() => void getAutoSaveEngine().saveNow('Manual save'))
-    return () => api.removeAllListeners('trigger-save')
+    ipc.onTriggerSave(() => void getAutoSaveEngine().saveNow('Manual save'))
+    return () => ipc.removeAllListeners('trigger-save')
   }, [])
 
   // ── Power-suspend → emergency save ──────────────────────────────────────────
   useEffect(() => {
-    const api = window.electronAPI
-    if (!api) return
-    api.onPowerEvent((evt) => {
+    ipc.onPowerEvent((evt) => {
       if (evt === 'suspend') void getAutoSaveEngine().saveNow('Power suspend')
     })
-    return () => api.removeAllListeners('power-event')
+    return () => ipc.removeAllListeners('power-event')
   }, [])
 
   // ── Keep crash checkpoint up-to-date on every engine save ───────────────────
   useEffect(() => {
-    const api = window.electronAPI
-    if (!api) return
     // Override saveNow to also push crash checkpoint
     const originalSave = getAutoSaveEngine().saveNow.bind(getAutoSaveEngine())
     getAutoSaveEngine().saveNow = async (label?: string) => {
@@ -77,7 +72,7 @@ export function useSaveSystem(): void {
       // After save, persist checkpoint via dedicated IPC (best-effort)
       try {
         const snap = await getAutoSaveEngine().loadLatest()
-        if (snap) await api.crashSaveCheckpoint(snap)
+        if (snap) await ipc.crashSaveCheckpoint(snap)
       } catch { /* ignore */ }
     }
   }, [])
@@ -86,9 +81,9 @@ export function useSaveSystem(): void {
   useEffect(() => {
     function onVisibility() {
       if (document.visibilityState === 'hidden') {
-        const ser = getProjectSerializer()
+        const ser  = getProjectSerializer()
         const snap = ser.makeSnapshot('Background suspend', 'auto')
-        window.electronAPI?.crashSaveCheckpoint(snap).catch(() => {})
+        void ipc.crashSaveCheckpoint(snap)
       }
     }
     document.addEventListener('visibilitychange', onVisibility)

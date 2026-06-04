@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getProjectSerializer } from '../../audio/save/ProjectSerializer'
+import { ipc }                  from '../../ipc/ipcClient'
 import type { ProjectSnapshot } from '../../audio/save/types'
 
 interface CrashInfo {
@@ -9,6 +10,7 @@ interface CrashInfo {
 
 // ─── RecoveryDialog ───────────────────────────────────────────────────────────
 // Shown once on startup when the main process detects an unclean shutdown.
+// Does NOT render anything when `hadCrash` is false.
 
 export default function RecoveryDialog() {
   const [info,    setInfo]    = useState<CrashInfo | null>(null)
@@ -17,7 +19,7 @@ export default function RecoveryDialog() {
 
   useEffect(() => {
     // Active poll — in case main process sends the event before listeners register
-    window.electronAPI?.crashCheck()
+    ipc.crashCheck()
       .then(raw => {
         const ci = raw as CrashInfo
         if (ci.hadCrash) setInfo(ci)
@@ -25,12 +27,12 @@ export default function RecoveryDialog() {
       .catch(() => {})
 
     // Passive listener — sent after window ready-to-show
-    window.electronAPI?.onCrashRecoveryAvailable(raw => {
+    ipc.onCrashRecoveryAvailable(raw => {
       const ci = raw as CrashInfo
       if (ci.hadCrash) setInfo(ci)
     })
 
-    return () => window.electronAPI?.removeAllListeners('crash-recovery-available')
+    return () => ipc.removeAllListeners('crash-recovery-available')
   }, [])
 
   async function recover() {
@@ -43,7 +45,7 @@ export default function RecoveryDialog() {
       if (!valid) throw new Error('Snapshot integrity check failed (checksum mismatch)')
       const res = ser.restore(info.checkpoint.data)
       if (!res.ok) throw new Error(`Recovery rejected: ${res.reason}`)
-      await window.electronAPI?.crashClearCheckpoint()
+      await ipc.crashClearCheckpoint()
       setInfo(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Restore failed')
@@ -52,11 +54,12 @@ export default function RecoveryDialog() {
   }
 
   async function dismiss() {
-    await window.electronAPI?.crashClearCheckpoint().catch(() => {})
+    await ipc.crashClearCheckpoint()
     setInfo(null)
   }
 
-  if (!info) return null
+  // Do not render when there is no crash to recover from
+  if (!info || !info.hadCrash) return null
 
   const cp      = info.checkpoint
   const savedAt = cp ? new Date(cp.createdAt).toLocaleString() : null
