@@ -21,19 +21,56 @@ async function bootDesktopApp(page: import('@playwright/test').Page): Promise<vo
     // Set auth token directly — App.tsx useState lazy initializer reads this
     // and returns 'local', bypassing the LoginScreen without needing Electron.
     localStorage.setItem('token', 'local')
-    // Mock the Electron API bridge for any post-mount electronAPI calls
-    Object.defineProperty(window, 'electronAPI', {
-      value: {
-        minimize:           () => Promise.resolve(),
-        maximize:           () => Promise.resolve(),
-        close:              () => Promise.resolve(),
-        onNav:              () => {},
-        removeAllListeners: () => {},
-        debugOpenDevTools:  () => Promise.resolve(),
+
+    // Build a comprehensive electronAPI mock.
+    // Known methods with meaningful return values are listed explicitly; every
+    // other property access returns a no-op via Proxy so new IPC calls added to
+    // the renderer don't break this test.
+    const base: Record<string, (...args: unknown[]) => unknown> = {
+      minimize:           () => Promise.resolve(),
+      maximize:           () => Promise.resolve(),
+      close:              () => Promise.resolve(),
+      isMaximized:        () => Promise.resolve(false),
+      onNav:              () => {},
+      removeAllListeners: () => {},
+      debugOpenDevTools:  () => Promise.resolve(),
+      // crash / recovery
+      crashCheck:              () => Promise.resolve({ hadCrash: false, checkpoint: null }),
+      crashClearCheckpoint:    () => Promise.resolve(),
+      crashSaveCheckpoint:     () => Promise.resolve(),
+      onCrashRecoveryAvailable:() => {},
+      // save triggers
+      onTriggerSave:  () => {},
+      onTriggerLoad:  () => {},
+      onMenuAction:   () => {},
+      onPowerEvent:   () => {},
+      // update events
+      onUpdateChecking:        () => {},
+      onUpdateAvailable:       () => {},
+      onUpdateNotAvailable:    () => {},
+      onUpdateProgress:        () => {},
+      onUpdateDownloaded:      () => {},
+      onUpdateError:           () => {},
+      onUpdateIntegrityReady:  () => {},
+      // plugin events
+      onPluginCrashed:          () => {},
+      onPluginRecovered:        () => {},
+      onPluginRecoveryFailed:   () => {},
+      onPluginRecoveryAbandoned:() => {},
+      onPluginResourceWarning:  () => {},
+    }
+    // Proxy: any property not in base returns a no-op that resolves to undefined
+    const mock = new Proxy(base, {
+      get(target, prop: string) {
+        return prop in target ? target[prop] : () => Promise.resolve()
       },
+    })
+    Object.defineProperty(window, 'electronAPI', {
+      value: mock,
       configurable: false,
       writable: false,
     })
+
     // Remove any persisted welcome state that might block the UI
     localStorage.removeItem('daw-welcomed-v1')
   })
