@@ -6,8 +6,10 @@ interface Props {
 }
 
 interface State {
-  hasError: boolean
-  message:  string
+  hasError:       boolean
+  message:        string
+  stack:          string
+  componentStack: string
 }
 
 // Minimal types for the preload-exposed crash API. Defined locally to avoid
@@ -37,17 +39,21 @@ function getPreloadCrash(): PreloadCrashAPI | null {
 export default class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props)
-    this.state = { hasError: false, message: '' }
+    this.state = { hasError: false, message: '', stack: '', componentStack: '' }
   }
 
   static getDerivedStateFromError(err: unknown): State {
     return {
-      hasError: true,
-      message:  err instanceof Error ? err.message : 'Unknown render error',
+      hasError:       true,
+      message:        err instanceof Error ? err.message : 'Unknown render error',
+      stack:          err instanceof Error ? (err.stack ?? '') : '',
+      componentStack: '',
     }
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
+    // Capture component stack for display
+    this.setState({ componentStack: info.componentStack ?? '' })
     reportBoundaryError(error)
 
     const payload = {
@@ -75,7 +81,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
   }
 
   private handleReset = (): void => {
-    this.setState({ hasError: false, message: '' })
+    this.setState({ hasError: false, message: '', stack: '', componentStack: '' })
   }
 
   render(): React.ReactNode {
@@ -105,10 +111,29 @@ export default class ErrorBoundary extends React.Component<Props, State> {
           background:  '#0c0c14',
           border:      '1px solid #1c1c2e',
         }}>
-          <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Something went wrong</h2>
-          <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16, wordBreak: 'break-word' }}>
+          <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, color: '#e2e8f0' }}>Something went wrong</h2>
+          <p style={{ fontSize: 12, color: '#94a3b8', marginBottom: 12, wordBreak: 'break-word' }}>
             {this.state.message}
           </p>
+          {(this.state.stack || this.state.componentStack) && (
+            <pre style={{
+              fontSize:    10,
+              color:       '#64748b',
+              background:  '#08080f',
+              border:      '1px solid #1c1c2e',
+              borderRadius: 6,
+              padding:     '8px 10px',
+              textAlign:   'left',
+              overflowX:   'auto',
+              maxHeight:   160,
+              overflowY:   'auto',
+              marginBottom: 16,
+              whiteSpace:  'pre-wrap',
+              wordBreak:   'break-all',
+            }}>
+              {this.state.stack || this.state.componentStack}
+            </pre>
+          )}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
             <button
               onClick={this.handleReset}
