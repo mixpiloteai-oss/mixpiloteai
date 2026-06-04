@@ -76,4 +76,4 @@ jobs:
           cache-dependency-path: desktop-app/package-lock.json
       - run: npm ci
       - name: Typecheck (no Electron build — runs in build-desktop-win.yml)
-        run: npx tsc --noEmit || true
+        run: npx tsc --noEmit
