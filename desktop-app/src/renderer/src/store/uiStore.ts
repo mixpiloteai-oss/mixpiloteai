@@ -18,7 +18,10 @@ interface UIStore {
   selectAllSignal: number       // incremented to signal "select all" action
   beginnerMode: boolean
   shortcutsPanelOpen: boolean
+  welcomeOpen: boolean
   setView: (v: ViewId) => void
+  openWelcome: () => void
+  closeWelcome: () => void
   toggleAIPanel: () => void
   toggleMixer: () => void
   togglePianoRoll: () => void
@@ -46,8 +49,11 @@ export const useUIStore = create<UIStore>((set) => ({
   selectAllSignal: 0,
   beginnerMode: false,
   shortcutsPanelOpen: false,
+  welcomeOpen: false,
 
   setView:               (v) => set({ activeView: v }),
+  openWelcome:           () => set({ welcomeOpen: true }),
+  closeWelcome:          () => set({ welcomeOpen: false }),
   toggleAIPanel:         () => set(s => ({ aiPanelOpen: !s.aiPanelOpen })),
   toggleMixer:           () => set(s => ({ mixerVisible: !s.mixerVisible })),
   togglePianoRoll:       () => set(s => ({ pianoRollVisible: !s.pianoRollVisible })),

@@ -116,11 +116,7 @@ export function QuickActionsBar(): JSX.Element {
       {/* File actions */}
       <Btn
         title="Nouveau projet (Ctrl+N)"
-        onClick={() => {
-          useProjectStore.setState((s) => ({
-            project: { ...s.project, name: 'Untitled Session', tracks: [] },
-          }))
-        }}
+        onClick={() => { useUIStore.getState().openWelcome() }}
       >
         N
       </Btn>

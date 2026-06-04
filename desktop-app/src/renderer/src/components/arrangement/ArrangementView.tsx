@@ -113,7 +113,7 @@ export default function ArrangementView() {
   const selCount = selectedClipIds.size
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#08080f', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#08080f', overflow: 'hidden', position: 'relative' }}>
 
       {/* ── Toolbar ─────────────────────────────────────────────────────────── */}
       <div style={{
@@ -291,6 +291,26 @@ export default function ArrangementView() {
           {project.totalBars} bars · {project.bpm} BPM
         </span>
       </div>
+
+      {/* ── Empty project fallback ─────────────────────────────────────────── */}
+      {project.tracks.length === 0 && (
+        <div style={{
+          position:       'absolute',
+          inset:          '36px 0 0 0',
+          display:        'flex',
+          flexDirection:  'column',
+          alignItems:     'center',
+          justifyContent: 'center',
+          gap:            12,
+          pointerEvents:  'none',
+          zIndex:         1,
+        }}>
+          <span style={{ fontSize: 32, opacity: 0.08 }}>≡</span>
+          <p style={{ fontSize: 12, color: '#2a2a3e', margin: 0 }}>
+            Fichier → Nouveau projet pour charger un template
+          </p>
+        </div>
+      )}
 
       {/* ── Body ────────────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', flexDirection: 'column' }}>

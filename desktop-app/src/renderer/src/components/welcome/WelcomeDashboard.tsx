@@ -106,7 +106,7 @@ interface WelcomeDashboardProps {
 
 export default function WelcomeDashboard({ onClose }: WelcomeDashboardProps) {
   const setView         = useUIStore(s => s.setView)
-  const completeOnboard = useOnboardingStore(s => s.startOnboarding)
+  const completeOnboard = useOnboardingStore(s => s.skipOnboarding)
 
   const [recents, setRecents] = useState<RecentEntry[]>([])
   const [dontShow, setDontShow] = useState(false)

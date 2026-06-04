@@ -26,6 +26,7 @@ import WelcomeDashboard      from './components/welcome/WelcomeDashboard'
 import { useOnboardingStore } from './store/onboardingStore'
 import { useUIStore }        from './store/uiStore'
 import { useProjectStore }  from './store/projectStore'
+import { useLayoutStore }   from './store/layoutStore'
 import { useSaveStore }      from './store/saveStore'
 import { useSaveSystem }     from './hooks/useSaveSystem'
 import { useNetworkStatus }  from './hooks/useNetworkStatus'
@@ -248,13 +249,9 @@ function Dashboard() {
 // ─── DAW Shell ────────────────────────────────────────────────────────────────
 
 function DAWShell() {
-  const { activeView, aiPanelOpen, shortcutsPanelOpen, toggleShortcutsPanel } = useUIStore()
+  const { activeView, aiPanelOpen, shortcutsPanelOpen, toggleShortcutsPanel, welcomeOpen, closeWelcome } = useUIStore()
   const { historyOpen, toggleHistory } = useSaveStore()
   const [guideOpen, setGuideOpen]     = useState(false)
-  const [welcomeOpen, setWelcomeOpen] = useState(() => {
-    // Show welcome on first launch (no saved state)
-    return localStorage.getItem('daw-welcomed-v1') !== '1'
-  })
 
   // Initialise auto-save engine + dirty tracking + keyboard shortcuts
   useSaveSystem()
@@ -322,12 +319,9 @@ function DAWShell() {
       {/* User guide panel */}
       {guideOpen && <UserGuidePanel onClose={() => setGuideOpen(false)} />}
 
-      {/* Welcome dashboard — first launch */}
+      {/* Welcome dashboard — opened via File → New Project */}
       {welcomeOpen && (
-        <WelcomeDashboard onClose={() => {
-          setWelcomeOpen(false)
-          localStorage.setItem('daw-welcomed-v1', '1')
-        }} />
+        <WelcomeDashboard onClose={closeWelcome} />
       )}
     </div>
   )
@@ -373,6 +367,16 @@ export default function App() {
   useEffect(() => {
     bootLog.preload(typeof window !== 'undefined' && !!window.electronAPI)
     bootLog.ok('App mounted')
+
+    // Log initial store states for startup diagnostics
+    const { project } = useProjectStore.getState()
+    bootLog.ok(`project loaded: "${project.name}" — ${project.tracks.length} tracks, ${project.bpm} BPM`)
+
+    const { mode, panelSizes } = useLayoutStore.getState()
+    bootLog.ok(`layout: mode=${mode} browser=${panelSizes.browserOpen} mixer=${panelSizes.mixerOpen} inspector=${panelSizes.inspectorOpen}`)
+
+    bootLog.ok(`activeView: ${useUIStore.getState().activeView}`)
+
     if (import.meta.env.DEV) {
       window.electronAPI?.debugOpenDevTools?.().catch?.(() => {})
     }

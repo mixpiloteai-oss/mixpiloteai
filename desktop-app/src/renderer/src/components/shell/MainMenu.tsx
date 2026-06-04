@@ -181,11 +181,7 @@ export function MainMenu(): JSX.Element {
           id: 'new',
           label: 'Nouveau projet',
           shortcut: 'Ctrl+N',
-          action: () => {
-            useProjectStore.setState((s) => ({
-              project: { ...s.project, name: 'Untitled Session', tracks: [] },
-            }))
-          },
+          action: () => { useUIStore.getState().openWelcome() },
         },
         {
           id: 'open',
@@ -424,11 +420,14 @@ export function MainMenu(): JSX.Element {
   return (
     <div
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4,
-        padding: '0 8px',
-        height: '100%',
+        display:      'flex',
+        alignItems:   'center',
+        gap:          4,
+        padding:      '0 8px',
+        height:       28,
+        flexShrink:   0,
+        background:   '#07070e',
+        borderBottom: '1px solid #141422',
       }}
     >
       {menus.map((menu) => (

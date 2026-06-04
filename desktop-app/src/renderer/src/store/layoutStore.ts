@@ -17,17 +17,17 @@ export interface PanelSizes {
 }
 
 const ABLETON_DEFAULTS: PanelSizes = {
-  browserW:      240,
-  inspectorW:    240,
+  browserW:      220,
+  inspectorW:    220,
   mixerH:        200,
   mixerOpen:     true,
   browserOpen:   true,
-  inspectorOpen: false,
+  inspectorOpen: true,
 }
 
 const FL_STUDIO_DEFAULTS: PanelSizes = {
   browserW:      200,
-  inspectorW:    280,
+  inspectorW:    260,
   mixerH:        220,
   mixerOpen:     true,
   browserOpen:   true,
@@ -35,8 +35,8 @@ const FL_STUDIO_DEFAULTS: PanelSizes = {
 }
 
 const LOGIC_DEFAULTS: PanelSizes = {
-  browserW:      260,
-  inspectorW:    220,
+  browserW:      240,
+  inspectorW:    200,
   mixerH:        180,
   mixerOpen:     true,
   browserOpen:   true,
@@ -80,6 +80,6 @@ export const useLayoutStore = create<LayoutStore>()(
       toggleInspector: () =>
         set(s => ({ panelSizes: { ...s.panelSizes, inspectorOpen: !s.panelSizes.inspectorOpen } })),
     }),
-    { name: 'daw-layout-v1' }
+    { name: 'daw-layout-v2' }
   )
 )
