@@ -115,27 +115,46 @@ jobs:
           cache: 'npm'
           cache-dependency-path: e2e/package-lock.json
       - run: npm ci
-      - run: npx playwright install --with-deps
+
+      - name: Verify sandbox credentials
+        id: creds
+        run: |
+          if [ -z "$E2E_ADMIN_EMAIL" ] || [ -z "$E2E_BACKEND_URL" ] || [ -z "$E2E_STRIPE_SECRET_KEY" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Full E2E skipped::Sandbox credentials not configured (E2E_ADMIN_EMAIL, E2E_BACKEND_URL, E2E_STRIPE_SECRET_KEY). Add these as repository secrets/variables to enable the full suite."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Playwright browsers
+        if: steps.creds.outputs.skip != 'true'
+        run: npx playwright install --with-deps
+
       - name: Run full suite
+        if: steps.creds.outputs.skip != 'true'
         run: npx playwright test
+
       - name: Upload HTML report
-        if: always()
+        if: always() && steps.creds.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: playwright-full-${{ github.sha }}
           path: e2e/playwright-report/
           retention-days: 30
+
       - name: Upload traces (failures only)
-        if: failure()
+        if: failure() && steps.creds.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: playwright-traces-${{ github.sha }}
           path: e2e/test-results/
           retention-days: 14
+
       - name: Notify Slack on failure
-        if: failure() && env.E2E_SLACK_WEBHOOK_URL != ''
+        if: failure() && steps.creds.outputs.skip != 'true'
         env:
           E2E_SLACK_WEBHOOK_URL: ${{ secrets.E2E_SLACK_WEBHOOK_URL }}
         run: |
+          [ -z "$E2E_SLACK_WEBHOOK_URL" ] && exit 0
           curl -X POST -H 'Content-Type: application/json' "$E2E_SLACK_WEBHOOK_URL" \
             -d "{\"text\":\":x: E2E failed on ${{ github.ref_name }} — run ${{ github.run_id }}\"}"
