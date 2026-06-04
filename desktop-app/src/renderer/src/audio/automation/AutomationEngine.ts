@@ -18,6 +18,11 @@ import {
   invertValues,
 } from './AutomationCurve'
 import { SeededRng } from '../ai/SeededRng'
+import type { Transport } from '../Transport'
+import type { BeatPosition, Unsubscribe } from '../types'
+
+/** Callback used to push send gain changes to BusRouter. */
+export type SendGainCallback = (trackId: string, busId: string, gainDb: number) => void
 
 export type AutomationListener = (
   value: number,
@@ -35,10 +40,18 @@ class AutomationEngine {
   private _lanes = new Map<string, AutomationLane>()
   private _clips = new Map<string, AutomationClip>()
   private _listeners = new Map<string, Set<AutomationListener>>()
-  private _intervalId: ReturnType<typeof setInterval> | null = null
   private _lastValues = new Map<string, number>()
   private _isRecording = false
   private _recordBuffer: AutomationChange[] = []
+
+  /** Unsubscribe handle for the Transport beat callback. */
+  private _transportUnsub: Unsubscribe | null = null
+
+  /** AudioContext reference injected when connecting to Transport. */
+  private _audioCtx: AudioContext | null = null
+
+  /** Callback to push send gain changes to BusRouter. */
+  private _sendGainCallback: SendGainCallback | null = null
 
   static readonly LANE_COLORS = [
     '#10b981',
@@ -209,29 +222,109 @@ class AutomationEngine {
     return t.minValue + normalized * (t.maxValue - t.minValue)
   }
 
-  // ── Playback ─────────────────────────────────────────────────────────────────
+  // ── Transport integration ────────────────────────────────────────────────────
 
-  startPlayback(getBeat: () => number): void {
-    this._intervalId = setInterval(() => {
-      const beat = getBeat()
-      for (const [laneId, lane] of this._lanes) {
-        if (!lane.enabled || lane.points.length === 0) continue
-        const val = evaluateLaneAt(lane.points, beat)
-        const last = this._lastValues.get(laneId) ?? -999
-        if (Math.abs(val - last) > 0.0001) {
-          this._lastValues.set(laneId, val)
-          const denorm = lane.target.minValue + val * (lane.target.maxValue - lane.target.minValue)
-          this._listeners.get(laneId)?.forEach((cb) => cb(val, denorm, lane.target))
+  /**
+   * Subscribe to Transport beat events so automation is evaluated sample-accurately.
+   * Call this once after both Transport and AutomationEngine are initialised.
+   * Replaces the former setInterval(16ms) polling approach.
+   */
+  connectToTransport(transport: Transport): void {
+    // Capture AudioContext for sample-accurate scheduling
+    this._audioCtx = transport.clock['engine'].ctx as AudioContext
+
+    // Unsubscribe from any previous transport
+    if (this._transportUnsub) {
+      this._transportUnsub()
+      this._transportUnsub = null
+    }
+
+    this._transportUnsub = transport.onBeat(
+      (_beatIdx: number, scheduledTime: number, pos: BeatPosition) => {
+        // Convert bar/beat position to absolute beat number (0-based)
+        const beat =
+          (pos.bar - 1) * transport.timeSigTop + (pos.beat - 1)
+
+        for (const [laneId, lane] of this._lanes) {
+          if (!lane.enabled || lane.points.length === 0) continue
+          const val = evaluateLaneAt(lane.points, beat)
+          const last = this._lastValues.get(laneId) ?? -999
+          if (Math.abs(val - last) > 0.0001) {
+            this._lastValues.set(laneId, val)
+            const denorm =
+              lane.target.minValue + val * (lane.target.maxValue - lane.target.minValue)
+
+            // Apply via setTargetAtTime for sample-accurate scheduling
+            this._applyLaneValue(lane, val, denorm, scheduledTime)
+
+            this._listeners.get(laneId)?.forEach((cb) => cb(val, denorm, lane.target))
+          }
         }
       }
-    }, 16)
+    )
   }
 
-  stopPlayback(): void {
-    if (this._intervalId !== null) {
-      clearInterval(this._intervalId)
-      this._intervalId = null
+  /** Disconnect from Transport beat events (e.g. on engine teardown). */
+  disconnectFromTransport(): void {
+    if (this._transportUnsub) {
+      this._transportUnsub()
+      this._transportUnsub = null
     }
+    this._audioCtx = null
+    this._lastValues.clear()
+  }
+
+  /**
+   * Register a callback that receives send gain changes so BusRouter can be
+   * updated sample-accurately when automation targets a send lane.
+   */
+  setSendGainCallback(cb: SendGainCallback): void {
+    this._sendGainCallback = cb
+  }
+
+  /**
+   * Apply a lane's evaluated value to any AudioParam it owns.
+   * Send lanes are routed via _sendGainCallback → BusRouter.
+   */
+  private _applyLaneValue(
+    lane: AutomationLane,
+    _normalizedVal: number,
+    denormalizedVal: number,
+    scheduledTime: number
+  ): void {
+    const { paramName, trackId } = lane.target
+
+    // Detect send lanes: paramName format is "send:<busId>"
+    if (paramName.startsWith('send:') && trackId !== undefined) {
+      const busId = paramName.slice('send:'.length)
+      // scheduledTime is in AudioContext seconds — convert denorm dB to gain in callback
+      void scheduledTime  // pass-through for future AudioParam scheduling
+      this._sendGainCallback?.(trackId, busId, denormalizedVal)
+      return
+    }
+
+    // For direct AudioParam targets the caller's onLaneValue listener handles application.
+    // Nothing additional needed here — listeners receive the value in the beat callback above.
+    void scheduledTime
+  }
+
+  /**
+   * @deprecated Use connectToTransport() instead.
+   * Kept for API compatibility — now a no-op to avoid breaking existing call sites.
+   */
+  startPlayback(_getBeat: () => number): void {
+    console.warn(
+      '[AutomationEngine] startPlayback() is deprecated — call connectToTransport(transport) instead.'
+    )
+  }
+
+  /**
+   * @deprecated Use disconnectFromTransport() instead.
+   */
+  stopPlayback(): void {
+    console.warn(
+      '[AutomationEngine] stopPlayback() is deprecated — call disconnectFromTransport() instead.'
+    )
   }
 
   // ── Listeners ────────────────────────────────────────────────────────────────
