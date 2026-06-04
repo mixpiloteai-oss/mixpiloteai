@@ -7,6 +7,9 @@ const BACKEND_URL = process.env.E2E_BACKEND_URL ?? 'http://127.0.0.1:3000'
 
 export default defineConfig({
   testDir: './tests',
+  // desktop-ui.spec.ts targets the Electron renderer (port 5174) — excluded from
+  // the general website smoke suite and run only via desktop-smoke.yml
+  testIgnore: ['**/desktop-ui.spec.ts'],
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: true,

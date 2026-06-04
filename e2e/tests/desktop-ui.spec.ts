@@ -16,15 +16,19 @@ const DESKTOP_URL = process.env.E2E_DESKTOP_URL ?? process.env.E2E_WEBSITE_URL ?
 // Inject electronAPI mock + auth token so the workspace shows without Electron
 async function bootDesktopApp(page: import('@playwright/test').Page): Promise<void> {
   await page.addInitScript(() => {
-    // Mock the Electron API bridge so App.tsx auto-sets token='local'
+    // Set auth token directly so App.tsx's useState initializer sees 'local'
+    // and renders the DAW workspace instead of LoginScreen — more reliable
+    // than relying on electronAPI detection timing.
+    localStorage.setItem('token', 'local')
+    // Mock the Electron API bridge for any electronAPI calls after mount
     Object.defineProperty(window, 'electronAPI', {
       value: {
-        minimize:         () => Promise.resolve(),
-        maximize:         () => Promise.resolve(),
-        close:            () => Promise.resolve(),
-        onNav:            () => {},
+        minimize:           () => Promise.resolve(),
+        maximize:           () => Promise.resolve(),
+        close:              () => Promise.resolve(),
+        onNav:              () => {},
         removeAllListeners: () => {},
-        debugOpenDevTools: () => Promise.resolve(),
+        debugOpenDevTools:  () => Promise.resolve(),
       },
       configurable: false,
       writable: false,
