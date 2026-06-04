@@ -24,6 +24,7 @@ import {
   TICKS_PER_BEAT, SCHEDULER_AHEAD, SCHEDULER_MS,
 } from './types'
 import { AudioEngine } from './AudioEngine'
+import { getTempoMap } from './TempoMap'
 
 export class Clock {
   private readonly engine: AudioEngine
@@ -223,6 +224,14 @@ export class Clock {
     const bar       = Math.floor(beatIndex / this._timeSigTop)
     const beatInBar = beatIndex % this._timeSigTop
     const pos: BeatPosition = { bar: bar + 1, beat: beatInBar + 1, tick: 0 }
+
+    // ── TempoMap: update BPM if tempo changed at this bar ────────────────────
+    const tempoMapBpm = getTempoMap().getBpmAtBar(pos.bar)
+    if (tempoMapBpm !== this._bpm) {
+      this._bpm = Math.max(MIN_BPM, Math.min(MAX_BPM, tempoMapBpm))
+      // secondsPerBeat is derived from _bpm via the getter; no reset needed —
+      // _advance() will use the updated value for the very next beat.
+    }
 
     // Apply swing: delay off-beats (odd beat index) by swingAmount * halfBeat
     const isOffBeat    = beatIndex % 2 !== 0
