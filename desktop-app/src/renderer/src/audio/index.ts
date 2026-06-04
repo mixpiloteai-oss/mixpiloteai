@@ -96,8 +96,28 @@ export function getBusRouter(): BusRouter {
 }
 
 export function getAutomationEngine(): AutomationEngine {
-  if (!_automation) _automation = new AutomationEngine()
+  if (!_automation) {
+    _automation = new AutomationEngine()
+  }
   return _automation
+}
+
+/**
+ * Wire AutomationEngine to Transport beat callbacks and connect send gain
+ * changes to BusRouter. Called once during initAudioEngine().
+ */
+function _wireAutomation(): void {
+  const automation = getAutomationEngine()
+  const transport  = getTransport()
+  const busRouter  = getBusRouter()
+
+  // Replace setInterval polling with sample-accurate Transport beat callbacks
+  automation.connectToTransport(transport)
+
+  // Route send gain automation → BusRouter
+  automation.setSendGainCallback((trackId, busId, gainDb) => {
+    busRouter.setSendGain(trackId, busId, gainDb)
+  })
 }
 
 export function getLatencyCompensator(): LatencyCompensator {
@@ -221,6 +241,9 @@ export function initAudioEngine(): void {
   getTrackManager()
   getClipPlaybackCoordinator()
 
+  // Wire AutomationEngine → Transport beat callbacks + BusRouter send gains
+  _wireAutomation()
+
   // Wire mixer store EQ state to AudioTrackNode EQ chains
   _wireMixerStoreToEq()
 }
@@ -250,4 +273,6 @@ export { computePanGains }                      from './PanLaw'
 export type { PanLawType, PanGains }            from './PanLaw'
 export { runAudioBenchmark }                    from './AudioPerformanceBenchmark'
 export type { BenchmarkResult }                 from './AudioPerformanceBenchmark'
+export { TempoMap, getTempoMap }                from './TempoMap'
+export type { TempoEvent }                      from './TempoMap'
 export * from './types'
