@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react'
 import { useProjectStore }         from '../../store/projectStore'
 import { useTransportStore }       from '../../store/transportStore'
 import { useArrangementViewStore } from './useArrangementViewStore'
+import { getTransport }            from '../../audio/index'
 
 interface Props {
   height: number
@@ -302,8 +303,9 @@ export default function TimeRuler({ height }: Props) {
         const bar = Math.round(Math.max(1, pxToBar(px)))
         useArrangementViewStore.getState().addMarker(bar)
       } else {
+        const seekBar = Math.max(1, pxToBar(px))
+        getTransport().seekToBar(seekBar)
         dragRef.current = { type: 'seek' }
-        // Just update transport position display (no actual seek yet, transport controls that)
       }
     }
   }
@@ -329,6 +331,9 @@ export default function TimeRuler({ height }: Props) {
       const deltaBars = (px - drag.x0) / (zoomX * tsTop)
       const newBar    = Math.max(1, Math.round(drag.origBar + deltaBars))
       useArrangementViewStore.getState().moveMarker(drag.markerId, newBar)
+    } else if (drag.type === 'seek') {
+      const seekBar = Math.max(1, pxToBar(px))
+      getTransport().seekToBar(seekBar)
     }
   }
 
