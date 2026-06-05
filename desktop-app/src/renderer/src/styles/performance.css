@@ -1,0 +1,107 @@
+/* ─── Performance Mode CSS — NeuroTek Studio ─────────────────────────────────
+   Applied via `document.body.dataset.perfMode` set by App.tsx.
+   Use data-perf-mode attribute selectors to target each mode.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ── GPU layer promotion for hot scroll/canvas surfaces ───────────────────── */
+
+/* Arrangement scroll container and canvases */
+.arrangement-canvas-wrapper,
+.arrangement-scroll,
+[class*="arrangement"] canvas {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Piano roll canvas */
+.piano-roll-canvas,
+.note-grid-canvas,
+[class*="piano-roll"] canvas {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Playhead (position updated at audio-thread rate) */
+.playhead,
+[class*="playhead"] {
+  will-change: left, transform;
+  transform: translateZ(0);
+}
+
+/* Mixer scroll container — contain layout to avoid full-page reflow */
+.mixer-strip-list,
+.mixer-channels {
+  will-change: transform;
+  contain: layout;
+}
+
+/* Sample browser list */
+.sample-list,
+.sample-browser-list {
+  will-change: transform;
+  contain: layout;
+}
+
+/* ── Studio + Low-config: kill all CSS transitions and animations ──────────── */
+
+[data-perf-mode="studio"] *,
+[data-perf-mode="low-config"] * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* ── Low-config: drop expensive backdrop-filter (GPU fill-rate cost) ────────── */
+
+[data-perf-mode="low-config"] .glass,
+[data-perf-mode="low-config"] .glass-card,
+[data-perf-mode="low-config"] .glass-transport,
+[data-perf-mode="low-config"] [class*="glass"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ── Low-config: remove box shadows that trigger compositing layers ─────────── */
+
+[data-perf-mode="low-config"] [class*="glow"],
+[data-perf-mode="low-config"] [class*="shadow"] {
+  box-shadow: none !important;
+}
+
+/* ── Fade-in animations respect mode ────────────────────────────────────────── */
+
+[data-perf-mode="studio"] .admin-fade-in,
+[data-perf-mode="low-config"] .admin-fade-in {
+  animation: none !important;
+  opacity: 1 !important;
+}
+
+/* View-enter animation is disabled in studio/low-config */
+[data-perf-mode="studio"] .view-enter,
+[data-perf-mode="low-config"] .view-enter {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* ── Studio mode: hide non-essential visual elements ─────────────────────── */
+
+[data-perf-mode="studio"] .spectrum-canvas,
+[data-perf-mode="studio"] [class*="spectrum"] {
+  display: none;
+}
+
+/* ── Low-config: hide waveforms, spectrum, and gradient bling ────────────── */
+
+[data-perf-mode="low-config"] .waveform-canvas,
+[data-perf-mode="low-config"] [class*="waveform"],
+[data-perf-mode="low-config"] [class*="spectrum"] {
+  display: none;
+}
+
+/* ── Quality mode: ensure all GPU layers are promoted ───────────────────── */
+
+[data-perf-mode="quality"] .gpu {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}

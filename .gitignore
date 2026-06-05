@@ -30,8 +30,6 @@ env/
 .env.development
 .env.production
 backend/.env
-ai-service/.env
-frontend/.env.local
 # Keep .env.example files (they have no real keys)
 !.env.example
 !**/.env.example
@@ -58,11 +56,19 @@ lerna-debug.log*
 coverage/
 .nyc_output/
 
-# Electron
-electron/node_modules/
-electron/dist/
+# Rust
+native/*/target/
+
+# Native addon binaries
+desktop-app/native/*/build/
 
 # Misc
 .cache/
 .parcel-cache/
 *.orig
+.claude/
+
+# Legacy directories (removed in v0.4.0 cleanup)
+electron/
+frontend/
+ai-service/

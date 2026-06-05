@@ -1,0 +1,16 @@
+// ── Repository barrel export ───────────────────────────────────────────────────
+export { userRepository }          from './userRepository'
+export { projectRepository }       from './projectRepository'
+export { saveRepository }          from './saveRepository'
+export { marketplaceRepository }   from './marketplaceRepository'
+export { packRepository }          from './packRepository'
+export { teamRepository }          from './teamRepository'
+export { couponRepository }        from './couponRepository'
+export { collabRepository }        from './collabRepository'
+export { billingRepository }       from './billingRepository'
+export { adminRepository }         from './adminRepository'
+
+export type { UserRow, SubscriptionRow } from './userRepository'
+export type { ProjectRow, TemplateRow }  from './projectRepository'
+export type { VersionRow }               from './saveRepository'
+export type { BillingHistoryRow }        from './billingRepository'

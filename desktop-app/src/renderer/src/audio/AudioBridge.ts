@@ -78,7 +78,7 @@ export class WebAudioBridge implements IAudioBridge {
 
   // ── Buffers ──────────────────────────────────────────────────────────────
 
-  loadBuffer(url: string): Promise<AudioBuffer> {
+  loadBuffer(url: string): Promise<AudioBuffer | null> {
     return this._loader.load(url)
   }
 

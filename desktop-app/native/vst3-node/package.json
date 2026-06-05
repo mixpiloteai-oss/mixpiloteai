@@ -1,0 +1,15 @@
+{
+  "name": "vst3-node",
+  "version": "1.0.0",
+  "description": "Native N-API addon for VST3 plugin hosting",
+  "main": "build/Release/vst3-node.node",
+  "scripts": {
+    "build": "node-gyp rebuild",
+    "build:debug": "node-gyp build --debug",
+    "clean": "node-gyp clean"
+  },
+  "dependencies": {
+    "node-addon-api": "^8.0.0"
+  },
+  "gypfile": true
+}

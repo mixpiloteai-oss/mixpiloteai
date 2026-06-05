@@ -1,0 +1,158 @@
+/* ============================================================
+   Billing Page — NeuroTek AI
+   ============================================================ */
+
+.billing-page { padding-top: 80px; padding-bottom: 80px; min-height: 100vh; }
+
+/* Hero */
+.billing-hero { padding: 60px 0 40px; border-bottom: 1px solid var(--border); }
+.billing-title { font-size: clamp(32px, 4vw, 52px); font-weight: 900; letter-spacing: -0.04em; margin: 12px 0 0; }
+
+/* Login prompt */
+.billing-login-prompt { max-width: 460px; margin: 80px auto; padding: 48px 40px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+.login-prompt-icon { font-size: 40px; }
+.billing-login-prompt h2 { font-size: 22px; font-weight: 800; }
+.billing-login-prompt p { font-size: 14px; color: var(--text-secondary); line-height: 1.7; }
+.billing-login-prompt .btn-primary { padding: 13px 28px; }
+
+/* Tabs */
+.billing-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 32px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.billing-tab { background: none; border: none; font-family: inherit; font-size: 14px; font-weight: 600; color: var(--muted); padding: 12px 18px; cursor: pointer; border-bottom: 2px solid transparent; transition: color 0.2s, border-color 0.2s; white-space: nowrap; }
+.billing-tab:hover { color: var(--text); }
+.billing-tab.active { color: var(--purple); border-bottom-color: var(--purple); }
+
+/* Tab content */
+.billing-tab-content { display: flex; flex-direction: column; gap: 24px; }
+.billing-section-card { padding: 28px 32px; }
+.billing-section-title { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 20px; }
+.billing-empty { padding: 32px; text-align: center; color: var(--muted); font-size: 14px; }
+
+/* Plan card */
+.billing-plan-card { padding: 32px; }
+.billing-plan-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.billing-plan-name { font-size: 20px; font-weight: 800; margin-right: 10px; }
+.billing-plan-price { font-size: 28px; font-weight: 900; color: var(--text); }
+.billing-plan-period { font-size: 14px; color: var(--muted); font-weight: 400; }
+.billing-plan-renews { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+.billing-plan-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+.billing-plan-btn { padding: 10px 20px; font-size: 14px; }
+.billing-cancel-btn { background: none; border: none; font-size: 13px; color: var(--muted); cursor: pointer; font-family: inherit; padding: 0; transition: color 0.2s; }
+.billing-cancel-btn:hover { color: #f87171; }
+
+/* Usage bar */
+.billing-usage { margin-top: 4px; }
+.billing-usage-label-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.billing-usage-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.billing-usage-count { font-size: 13px; color: var(--muted); }
+.billing-usage-bar { height: 8px; background: rgba(255,255,255,0.06); border-radius: 100px; overflow: hidden; }
+.billing-usage-fill { height: 100%; background: linear-gradient(90deg, var(--purple-dark), var(--purple)); border-radius: 100px; transition: width 0.5s ease; }
+.credits-fill { background: linear-gradient(90deg, #06b6d4, #22d3ee); }
+.billing-usage-note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+/* Annual note */
+.billing-annual-note { padding: 20px 24px; }
+.billing-annual-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.billing-annual-title { font-size: 15px; font-weight: 700; }
+.billing-annual-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.billing-annual-btn { padding: 10px 18px; font-size: 13px; white-space: nowrap; }
+
+/* Payment methods */
+.payment-methods-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+.payment-method-item { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius); transition: border-color 0.2s; }
+.payment-method-item.default { border-color: rgba(167,139,250,0.4); background: rgba(167,139,250,0.04); }
+.payment-method-radio input { accent-color: var(--purple); width: 16px; height: 16px; cursor: pointer; }
+.payment-method-icon { font-size: 20px; }
+.payment-method-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.payment-method-label { font-size: 14px; font-weight: 600; }
+.payment-method-detail { font-size: 12px; color: var(--muted); }
+.payment-method-default-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; background: rgba(167,139,250,0.15); border: 1px solid rgba(167,139,250,0.3); border-radius: 100px; color: var(--purple); }
+.payment-method-remove { background: none; border: none; font-size: 12px; color: var(--muted); cursor: pointer; font-family: inherit; padding: 4px 8px; border-radius: 6px; transition: color 0.2s, background 0.2s; }
+.payment-method-remove:hover:not(:disabled) { color: #f87171; background: rgba(248,113,113,0.1); }
+.payment-method-remove:disabled { opacity: 0.3; cursor: not-allowed; }
+.billing-add-method-btn { padding: 10px 18px; font-size: 13px; }
+
+/* Invoice table */
+.invoice-table-wrap { overflow-x: auto; border-radius: var(--radius); }
+.invoice-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.invoice-table th { text-align: left; padding: 10px 12px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
+.invoice-table td { padding: 13px 12px; color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); }
+.invoice-table tr:last-child td { border-bottom: none; }
+.invoice-table tr:hover td { background: rgba(255,255,255,0.02); }
+.invoice-id { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: var(--muted); }
+.invoice-date { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.invoice-total { font-weight: 600; color: var(--text); }
+.invoice-download-btn { background: none; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; font-weight: 600; color: var(--muted); padding: 4px 10px; cursor: pointer; font-family: inherit; transition: border-color 0.2s, color 0.2s; white-space: nowrap; }
+.invoice-download-btn:hover:not(:disabled) { border-color: rgba(167,139,250,0.4); color: var(--purple); }
+.invoice-download-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* History badges */
+.history-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 100px; }
+.badge-green  { background: rgba(52,211,153,0.12); color: #34d399; border: 1px solid rgba(52,211,153,0.2); }
+.badge-red    { background: rgba(248,113,113,0.12); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
+.badge-orange { background: rgba(251,191,36,0.12);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.2); }
+.badge-purple { background: rgba(167,139,250,0.12); color: var(--purple); border: 1px solid rgba(167,139,250,0.2); }
+.badge-grey   { background: rgba(255,255,255,0.06); color: var(--muted); border: 1px solid var(--border); }
+.refund-btn { background: none; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; font-weight: 600; color: var(--muted); padding: 4px 10px; cursor: pointer; font-family: inherit; transition: border-color 0.2s, color 0.2s; white-space: nowrap; }
+.refund-btn:hover { border-color: rgba(251,191,36,0.4); color: #fbbf24; }
+
+/* Credits balance */
+.credits-balance-display { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+.credits-balance-num { font-size: 56px; font-weight: 900; letter-spacing: -0.04em; background: linear-gradient(135deg, var(--cyan), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1; }
+.credits-balance-label { font-size: 16px; color: var(--text-secondary); font-weight: 600; }
+
+/* Sparkline */
+.credits-sparkline { display: flex; align-items: flex-end; gap: 6px; height: 60px; padding: 0 4px; margin-bottom: 20px; }
+.sparkline-bar { flex: 1; background: linear-gradient(to top, var(--purple-dark), var(--purple)); border-radius: 3px 3px 0 0; opacity: 0.7; transition: opacity 0.2s; }
+.sparkline-bar:hover { opacity: 1; }
+
+/* Credits activity */
+.credits-activity-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.credits-activity-table th { text-align: left; padding: 8px 10px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
+.credits-activity-table td { padding: 10px; color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); }
+.credits-activity-table tr:last-child td { border-bottom: none; }
+.credits-positive { color: #34d399; font-weight: 600; }
+.credits-negative { color: var(--muted); }
+
+/* Buy packs */
+.billing-credit-packs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.billing-credit-pack { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; text-decoration: none; transition: transform 0.2s ease; }
+.billing-credit-pack:hover { transform: translateY(-3px); }
+.billing-pack-credits { font-size: 32px; font-weight: 900; letter-spacing: -0.04em; background: linear-gradient(135deg, var(--purple), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1; }
+.billing-pack-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.billing-pack-price { font-size: 20px; font-weight: 800; color: var(--text); margin-top: 4px; }
+.billing-pack-cta { font-size: 13px; color: var(--purple); font-weight: 600; }
+
+/* Modals */
+.billing-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+.billing-modal { max-width: 440px; width: 100%; padding: 36px; display: flex; flex-direction: column; gap: 16px; }
+.modal-title { font-size: 20px; font-weight: 800; letter-spacing: -0.03em; }
+.modal-body { font-size: 14px; color: var(--text-secondary); line-height: 1.7; }
+.modal-actions { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+.billing-cancel-confirm-btn { background: none; border: none; font-size: 14px; color: #f87171; cursor: pointer; font-family: inherit; padding: 8px 0; }
+.billing-cancel-confirm-btn:hover { text-decoration: underline; }
+.modal-done { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 0; }
+.modal-done-icon { font-size: 40px; color: #34d399; }
+.modal-done-text { font-size: 16px; font-weight: 700; color: var(--text); }
+
+/* Form reuse in modal */
+.billing-modal .form-group { display: flex; flex-direction: column; gap: 7px; }
+.billing-modal .form-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.billing-modal .form-input { background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: var(--radius); padding: 11px 14px; font-size: 14px; color: var(--text); font-family: inherit; outline: none; transition: border-color 0.2s; width: 100%; }
+.billing-modal .form-input:focus { border-color: rgba(167,139,250,0.5); }
+.billing-modal .form-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; cursor: pointer; background-color: rgba(255,255,255,0.05); }
+.billing-modal .form-select option { background: #1a1a2e; }
+
+/* Responsive */
+@media (max-width: 700px) {
+  .billing-section-card { padding: 20px 16px; }
+  .billing-plan-card { padding: 20px; }
+  .billing-credit-packs { grid-template-columns: 1fr; }
+  .billing-plan-actions { flex-direction: column; align-items: flex-start; }
+  .billing-tabs { gap: 0; }
+  .billing-tab { padding: 12px 12px; font-size: 13px; }
+  .invoice-table-wrap { font-size: 13px; }
+  .credits-balance-num { font-size: 40px; }
+}
+@media (max-width: 480px) {
+  .billing-annual-row { flex-direction: column; align-items: flex-start; }
+}

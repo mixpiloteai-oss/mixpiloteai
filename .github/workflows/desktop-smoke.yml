@@ -1,0 +1,92 @@
+name: Desktop UI — smoke tests
+
+on:
+  push:
+    branches: [main, 'claude/**']
+    paths:
+      - 'desktop-app/src/renderer/**'
+      - 'desktop-app/vite.ci.config.ts'
+      - 'e2e/tests/desktop-ui.spec.ts'
+      - '.github/workflows/desktop-smoke.yml'
+  pull_request:
+    paths:
+      - 'desktop-app/src/renderer/**'
+      - 'desktop-app/vite.ci.config.ts'
+      - 'e2e/tests/desktop-ui.spec.ts'
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop-ui:
+    name: Desktop UI — startup smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: |
+            desktop-app/package-lock.json
+            e2e/package-lock.json
+
+      - name: Install desktop-app dependencies
+        working-directory: desktop-app
+        run: npm ci
+
+      - name: Install e2e dependencies
+        working-directory: e2e
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Start renderer dev server
+        working-directory: desktop-app
+        run: npx vite --config vite.ci.config.ts &
+        env:
+          NODE_ENV: development
+
+      - name: Wait for renderer server to be ready
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:5174 && echo "Server ready" && exit 0
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+          echo "::error::Renderer dev server failed to start after 60s"
+          exit 1
+
+      - name: Run desktop UI smoke tests
+        working-directory: e2e
+        run: npx playwright test --config playwright.desktop.config.ts --project=chromium --reporter=list,html
+        env:
+          CI: 'true'
+          E2E_WEBSITE_URL: 'http://127.0.0.1:5174'
+          E2E_DESKTOP_URL: 'http://127.0.0.1:5174'
+
+      - name: Upload startup screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-startup-screenshot-${{ github.sha }}
+          path: e2e/test-results/desktop-startup.png
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload full test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-smoke-report-${{ github.sha }}
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 14

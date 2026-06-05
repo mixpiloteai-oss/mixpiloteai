@@ -1,134 +1,492 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import './Pricing.css'
 
-interface PlanFeature { text: string; included: boolean }
-interface Plan { name: string; price: string; period: string; description: string; features: PlanFeature[]; cta: string; ctaLink: string; popular: boolean; badge?: string }
+interface PlanDef {
+  id: string
+  name: string
+  monthlyPrice: number
+  annualPrice: number
+  badge: string | null
+  popular: boolean
+  color: string
+  description: string
+  features: string[]
+  notIncluded: string[]
+  cta: string
+}
 
-const plans: Plan[] = [
-  {
-    name: 'Free', price: '$0', period: 'forever', description: 'Perfect for getting started and exploring what AI music production can do.',
-    features: [
-      { text: '10 AI generations / month', included: true }, { text: 'Piano Roll editor', included: true }, { text: 'Arrangement timeline', included: true },
-      { text: '5 project slots', included: true }, { text: 'WAV & MIDI export', included: true }, { text: 'Community support', included: true },
-      { text: 'Sample browser + packs marketplace', included: false }, { text: 'Priority support', included: false }, { text: 'VST plugin hosting', included: false },
-    ],
-    cta: 'Download Free', ctaLink: '/download', popular: false,
-  },
-  {
-    name: 'Pro', price: '$9', period: 'per month', description: 'For serious producers who want unlimited creative power and access to pro tools.',
-    features: [
-      { text: '200 AI generations / month', included: true }, { text: 'Piano Roll editor', included: true }, { text: 'Arrangement timeline', included: true },
-      { text: 'Unlimited project slots', included: true }, { text: 'WAV, MP3 & MIDI export', included: true }, { text: 'Priority support', included: true },
-      { text: 'Sample browser + packs marketplace', included: true }, { text: 'Early access to beta features', included: true }, { text: 'VST plugin hosting', included: false },
-    ],
-    cta: 'Start Pro — $9/mo', ctaLink: '#', popular: true, badge: 'Most Popular',
-  },
-  {
-    name: 'Studio', price: '$19', period: 'per month', description: 'The full professional suite for power users, studios, and music educators.',
-    features: [
-      { text: 'Unlimited AI generations', included: true }, { text: 'Piano Roll editor', included: true }, { text: 'Arrangement timeline', included: true },
-      { text: 'Unlimited project slots', included: true }, { text: 'WAV, MP3 & MIDI export', included: true }, { text: 'Sample browser + packs marketplace', included: true },
-      { text: 'Early access to beta features', included: true }, { text: 'VST plugin hosting (VST/VST3)', included: true }, { text: 'Commercial license included', included: true },
-    ],
-    cta: 'Start Studio — $19/mo', ctaLink: '#', popular: false,
-  },
-]
+interface ApiPlan {
+  id: string
+  name: string
+  priceMonthly: number
+  priceYearly: number
+  dailyAIRequests: number
+  maxProjects: number
+  features: string[]
+  trialDays: number
+  active: boolean
+}
 
-const faqs = [
+interface CreditPackApi {
+  id: string
+  credits: number
+  amountCents: number
+  active: boolean
+  sortOrder: number
+}
+
+const FAQS = [
   { question: 'Can I switch between plans at any time?', answer: 'Yes, you can upgrade or downgrade your plan at any time from your account settings. Upgrades take effect immediately; downgrades take effect at the end of the billing period.' },
-  { question: 'How does billing work?', answer: 'We bill monthly or annually (annual billing saves 20%). We accept all major credit cards. For Studio plans, you can request an invoice.' },
-  { question: 'What happens to my projects if I cancel?', answer: "Your projects are never deleted. Cancelling downgrades you to Free. Projects beyond the 5-slot limit are archived (not deleted) and restored if you resubscribe." },
-  { question: 'Do I own the music I create with NeuroTek AI?', answer: 'Yes — 100%. Free and Pro plans include a personal use license. Studio includes a full commercial license.' },
+  { question: 'How does billing work?', answer: 'We bill monthly or annually (annual billing saves 20%). We accept all major credit cards via Stripe, plus PayPal. For Label plans, we can also issue invoices.' },
+  { question: 'What happens to my projects if I cancel?', answer: "Your projects are never deleted. Cancelling downgrades you to Free. Projects beyond the Free limit are archived (not deleted) and restored if you resubscribe." },
+  { question: 'Do I own the music I create with NeuroTek AI?', answer: 'Yes — 100%. Free plans include personal use. Pro, Studio, and Label plans include a full commercial license so you can monetise your tracks.' },
+  { question: 'What payment methods do you accept?', answer: 'We accept all major credit and debit cards (Visa, Mastercard, Amex, Discover) through Stripe, as well as PayPal. EU customers can also provide a VAT number for B2B invoicing.' },
+  { question: 'Is there a free trial?', answer: 'The Free plan is your trial — use it as long as you like with no credit card required. Paid plans don\'t have a separate trial period, but you get a 14-day money-back guarantee.' },
+  { question: 'How does VAT work for EU customers?', answer: 'EU customers are charged VAT at their local rate (e.g. 20% in France, 19% in Germany). If you have a valid EU VAT number, enter it at checkout and VAT will be zero-rated for B2B transactions.' },
+  { question: 'Can I get a refund?', answer: 'Yes. We offer a 14-day money-back guarantee on all paid plans. Contact support within 14 days of your first payment and we\'ll issue a full refund, no questions asked.' },
+  { question: 'What happens to my data if I cancel?', answer: 'Your account and all project data are retained for 90 days after cancellation. After that, inactive accounts are anonymised. You can request a full export of your data at any time.' },
 ]
+
+const COMPARISON_ROWS: { feature: string; free: string; pro: string; studio: string; label: string }[] = [
+  { feature: 'AI Generations', free: '10/mo', pro: '200/mo', studio: '1,000/mo', label: 'Unlimited' },
+  { feature: 'Project Slots', free: '3', pro: 'Unlimited', studio: 'Unlimited', label: 'Unlimited' },
+  { feature: 'Export Formats', free: 'WAV+MIDI', pro: '+MP3+FLAC', studio: 'All', label: 'All' },
+  { feature: 'Marketplace', free: '—', pro: '✓', studio: '✓', label: '✓' },
+  { feature: 'VST Hosting', free: '—', pro: '—', studio: '✓', label: '✓' },
+  { feature: 'Cloud Sync', free: '—', pro: '—', studio: '✓', label: '✓' },
+  { feature: 'Collaboration', free: '—', pro: '—', studio: '3 members', label: '10 members' },
+  { feature: 'API Access', free: '—', pro: '—', studio: '✓', label: '✓' },
+  { feature: 'Commercial License', free: '—', pro: '✓', studio: '✓', label: '✓' },
+  { feature: 'Support', free: 'Community', pro: 'Priority', studio: 'Dedicated', label: 'SLA' },
+  { feature: 'Creator Dashboard', free: '—', pro: '—', studio: '✓', label: '✓' },
+]
+
+type CouponStatus = 'idle' | 'valid' | 'invalid'
+
+// Map API plan to PlanDef for rendering (preserves existing card UI)
+function apiPlanToPlanDef(ap: ApiPlan): PlanDef {
+  const PLAN_COLORS: Record<string, string> = {
+    free: '#475569', pro: '#7c3aed', studio: '#06b6d4', label: '#f59e0b',
+  }
+  const PLAN_BADGES: Record<string, string | null> = {
+    free: null, pro: 'Most Popular', studio: 'Best Value', label: 'For Labels & Studios',
+  }
+  const PLAN_POPULAR: Record<string, boolean> = {
+    free: false, pro: true, studio: false, label: false,
+  }
+  const PLAN_DESC: Record<string, string> = {
+    free: 'Explore AI music production at zero cost.',
+    pro: 'Everything you need for serious production.',
+    studio: 'The full professional suite for power users.',
+    label: 'Built for professional studios and record labels.',
+  }
+  const PLAN_NOTINCLUDED: Record<string, string[]> = {
+    free: ['Marketplace access', 'Plugin hosting', 'Cloud sync', 'Commercial license'],
+    pro: ['VST plugin hosting', 'Team collaboration', 'API access'],
+    studio: ['Unlimited AI (no cap)', 'White-label exports', 'Full team (10+)'],
+    label: [],
+  }
+  const PLAN_CTA: Record<string, string> = {
+    free: 'Download Free', pro: 'Start Pro', studio: 'Start Studio', label: 'Contact Sales',
+  }
+  return {
+    id: ap.id,
+    name: ap.name,
+    monthlyPrice: ap.priceMonthly,
+    annualPrice: ap.priceYearly,
+    badge: PLAN_BADGES[ap.id] ?? null,
+    popular: PLAN_POPULAR[ap.id] ?? false,
+    color: PLAN_COLORS[ap.id] ?? '#475569',
+    description: PLAN_DESC[ap.id] ?? '',
+    features: ap.features,
+    notIncluded: PLAN_NOTINCLUDED[ap.id] ?? [],
+    cta: PLAN_CTA[ap.id] ?? 'Get Started',
+  }
+}
 
 function Pricing() {
+  const navigate = useNavigate()
   const [annual, setAnnual] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
+  const [couponCode, setCouponCode] = useState('')
+  const [couponStatus, setCouponStatus] = useState<CouponStatus>('idle')
+  const [couponMessage, setCouponMessage] = useState('')
+  const [apiPlans, setApiPlans] = useState<ApiPlan[]>([])
+  const [plansLoading, setPlansLoading] = useState(true)
+  const [creditPacks, setCreditPacks] = useState<CreditPackApi[]>([])
+  const [plansError, setPlansError] = useState(false)
 
-  const getDisplayPrice = (plan: Plan) => {
-    if (plan.price === '$0') return '$0'
-    const base = parseInt(plan.price.replace('$', ''))
-    return annual ? `$${Math.floor(base * 0.8)}` : plan.price
+  useEffect(() => {
+    import('../lib/api').then(({ apiGet }) => {
+      const fetchFn = apiGet as (path: string) => Promise<{ success: boolean; data: unknown }>
+      Promise.all([
+        fetchFn('/api/subscriptions/plans')
+          .then(res => {
+            const data = (res as { success: boolean; data: ApiPlan[] }).data
+            if (Array.isArray(data) && data.length > 0) setApiPlans(data)
+            else setPlansError(true)
+          })
+          .catch(() => setPlansError(true)),
+        fetchFn('/api/subscriptions/credit-packs')
+          .then(res => {
+            const data = (res as { success: boolean; data: CreditPackApi[] }).data
+            if (Array.isArray(data)) setCreditPacks(data)
+          })
+          .catch(() => {}),
+      ]).finally(() => setPlansLoading(false))
+    }).catch(() => setPlansLoading(false))
+
+    const intervalId = setInterval(() => {
+      import('../lib/api').then(({ apiGet }) => {
+        const fetchFn = apiGet as (path: string) => Promise<{ success: boolean; data: unknown }>
+        fetchFn('/api/subscriptions/plans')
+          .then(res => {
+            const data = (res as { success: boolean; data: ApiPlan[] }).data
+            if (Array.isArray(data) && data.length > 0) setApiPlans(data)
+          })
+          .catch(() => {})
+        fetchFn('/api/subscriptions/credit-packs')
+          .then(res => {
+            const data = (res as { success: boolean; data: CreditPackApi[] }).data
+            if (Array.isArray(data)) setCreditPacks(data)
+          })
+          .catch(() => {})
+      }).catch(() => {})
+    }, 5 * 60 * 1000) // poll every 5 minutes
+    return () => clearInterval(intervalId)
+  }, [])
+
+  const displayPlans: PlanDef[] = apiPlans.filter(ap => ap.active).map(apiPlanToPlanDef)
+
+  const getPrice = (plan: PlanDef): number =>
+    annual ? plan.annualPrice : plan.monthlyPrice
+
+  const formatPrice = (price: number) =>
+    price === 0 ? '$0' : `$${price.toFixed(2)}`
+
+  const handleCoupon = async () => {
+    const trimmed = couponCode.trim().toUpperCase()
+    if (!trimmed) return
+    setCouponStatus('idle')
+    try {
+      const { apiPost } = await import('../lib/api')
+      const res = await (apiPost as (path: string, body: unknown) => Promise<{ success: boolean; message?: string; discount?: string }>)(
+        '/api/payments/coupon/apply', { code: trimmed }
+      )
+      if (res.success) {
+        setCouponStatus('valid')
+        setCouponMessage(res.message ?? res.discount ?? 'Coupon applied!')
+      } else {
+        setCouponStatus('invalid')
+        setCouponMessage('Invalid coupon code. Please try again.')
+      }
+    } catch {
+      setCouponStatus('invalid')
+      setCouponMessage('Invalid coupon code. Please try again.')
+    }
+  }
+
+  const handlePlanCta = (plan: PlanDef) => {
+    if (plan.id === 'free') { navigate('/download'); return }
+    if (plan.id === 'label') { navigate('/support'); return }
+    navigate(`/checkout?plan=${plan.id}${annual ? '&annual=true' : ''}`)
+  }
+
+  const cellClass = (val: string) => {
+    if (val === '✓') return 'comparison-check'
+    if (val === '—') return 'comparison-dash'
+    return 'comparison-val'
   }
 
   return (
     <div className="pricing-page">
+      {/* Hero */}
       <div className="pricing-hero">
-        <div className="pricing-hero-bg" aria-hidden="true"><div className="pricing-orb-1" /><div className="pricing-orb-2" /></div>
+        <div className="pricing-hero-bg" aria-hidden="true">
+          <div className="pricing-orb-1" />
+          <div className="pricing-orb-2" />
+        </div>
         <div className="container">
           <div className="section-label" style={{ justifyContent: 'center' }}>Pricing</div>
           <h1 className="pricing-title">Simple, transparent <span className="gradient-text">pricing</span></h1>
           <p className="pricing-subtitle">Start free and upgrade when you need more power. No hidden fees, no surprises.</p>
+
+          {/* Billing toggle */}
           <div className="billing-toggle">
             <span className={!annual ? 'billing-option active' : 'billing-option'}>Monthly</span>
-            <button className={`toggle-switch${annual ? ' annual' : ''}`} onClick={() => setAnnual(!annual)} aria-label="Toggle annual billing" role="switch" aria-checked={annual}>
+            <button
+              className={`toggle-switch${annual ? ' annual' : ''}`}
+              onClick={() => setAnnual(!annual)}
+              aria-label="Toggle annual billing"
+              role="switch"
+              aria-checked={annual}
+            >
               <span className="toggle-knob" />
             </button>
-            <span className={annual ? 'billing-option active' : 'billing-option'}>Annual <span className="billing-save-badge">Save 20%</span></span>
+            <span className={annual ? 'billing-option active' : 'billing-option'}>
+              Annual <span className="billing-save-badge">Save 20%</span>
+            </span>
           </div>
         </div>
       </div>
 
+      {/* Plan cards */}
       <section className="section-sm">
         <div className="container">
-          <div className="plans-grid">
-            {plans.map((plan) => (
-              <div key={plan.name} className={`plan-card glass-card${plan.popular ? ' plan-popular' : ''}`}>
-                {plan.badge && <div className="plan-popular-badge"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1l1.5 3 3.5.5-2.5 2.5.5 3.5L6 9 3 11l.5-3.5L1 5l3.5-.5L6 1z" fill="currentColor" /></svg>{plan.badge}</div>}
-                <div className="plan-header">
-                  <h2 className="plan-name">{plan.name}</h2>
-                  <div className="plan-price">
-                    <span className="plan-price-amount">{getDisplayPrice(plan)}</span>
-                    <span className="plan-price-period">{plan.price !== '$0' ? (annual ? '/ mo, billed annually' : '/ month') : 'forever'}</span>
-                  </div>
-                  <p className="plan-desc">{plan.description}</p>
+          {plansLoading && displayPlans.length === 0 ? (
+            <div className="pricing-grid">
+              {[0,1,2,3].map(i => (
+                <div key={i} className="plan-card glass-card" style={{ minHeight: 400, opacity: 0.4 }}>
+                  <div style={{ background: 'var(--nt-surface-2)', borderRadius: 8, height: 24, width: '60%', marginBottom: 12 }} />
+                  <div style={{ background: 'var(--nt-surface-2)', borderRadius: 8, height: 48, width: '40%', marginBottom: 16 }} />
+                  <div style={{ background: 'var(--nt-surface-2)', borderRadius: 8, height: 36, width: '80%', marginBottom: 24 }} />
                 </div>
-                <Link to={plan.ctaLink} className={plan.popular ? 'btn-primary plan-cta' : 'btn-secondary plan-cta'}>{plan.cta}</Link>
-                <div className="plan-divider" />
-                <ul className="plan-features">
-                  {plan.features.map((feature, i) => (
-                    <li key={i} className={`plan-feature${!feature.included ? ' plan-feature-missing' : ''}`}>
-                      {feature.included
-                        ? <svg className="plan-check" width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill="rgba(167,139,250,0.15)" /><path d="M5 8l2.5 2.5L11 5.5" stroke="var(--purple)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                        : <svg className="plan-x" width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" fill="rgba(255,255,255,0.03)" /><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="var(--muted)" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                      }
-                      <span>{feature.text}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+              ))}
+            </div>
+          ) : plansError && displayPlans.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--nt-text-2)' }}>
+              <p>Unable to load plans. Please refresh the page.</p>
+              <button className="btn-secondary" style={{ marginTop: 16 }} onClick={() => window.location.reload()}>Retry</button>
+            </div>
+          ) : (
+            <div className="pricing-grid">
+              {displayPlans.map((plan) => {
+                const price = getPrice(plan)
+                const monthlyFull = plan.monthlyPrice
+                const isPopular = plan.popular
+                return (
+                  <div
+                    key={plan.id}
+                    className={`plan-card glass-card${isPopular ? ' plan-card-popular' : ''}`}
+                    style={{ '--plan-color': plan.color } as React.CSSProperties}
+                  >
+                    {plan.badge && (
+                      <div className="plan-badge" style={{ background: plan.color }}>
+                        {plan.badge}
+                      </div>
+                    )}
+
+                    <div className="plan-header">
+                      <h2 className="plan-name" style={{ color: plan.color }}>{plan.name}</h2>
+                      <div className="plan-price-wrap">
+                        <div className="plan-price-row">
+                          <span className="plan-price-amount">{formatPrice(price)}</span>
+                          {price > 0 && <span className="plan-price-period">/ mo</span>}
+                          {price === 0 && <span className="plan-price-period">forever</span>}
+                        </div>
+                        {annual && plan.monthlyPrice > 0 && (
+                          <div className="plan-price-was">
+                            <span className="plan-price-strike">${monthlyFull.toFixed(2)}/mo</span>
+                            <span className="plan-price-billed">billed annually</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="plan-desc">{plan.description}</p>
+                    </div>
+
+                    <button
+                      className={isPopular ? 'btn-primary plan-cta' : 'btn-secondary plan-cta'}
+                      onClick={() => handlePlanCta(plan)}
+                    >
+                      {plan.cta}
+                    </button>
+                    {plan.id !== 'free' && plan.id !== 'label' && (
+                      <p className="plan-trial-note">Start free trial — no credit card required</p>
+                    )}
+
+                    <div className="plan-divider" />
+
+                    <ul className="plan-feature-list">
+                      {plan.features.map((f, i) => (
+                        <li key={i} className="plan-feature plan-feature-included">
+                          <span className="plan-feature-icon plan-feature-check">✓</span>
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                      {plan.notIncluded.map((f, i) => (
+                        <li key={`x-${i}`} className="plan-feature plan-feature-excluded">
+                          <span className="plan-feature-icon plan-feature-dash">—</span>
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Enterprise note */}
+          <div className="enterprise-note">
+            <p>Need a custom plan for a studio or team of 10+?{' '}
+              <a href="mailto:sales@neurotek.ai">Contact us for Enterprise pricing →</a>
+            </p>
           </div>
-          <div className="enterprise-note"><p>Need a custom plan for a studio or team of 10+? <a href="mailto:sales@neurotek.ai">Contact us for Enterprise pricing →</a></p></div>
         </div>
       </section>
 
+      {/* Coupon banner */}
+      <section className="section-sm coupon-section">
+        <div className="container">
+          <div className="coupon-banner glass-card">
+            <span className="coupon-label">Have a coupon?</span>
+            <div className="coupon-input-row">
+              <input
+                type="text"
+                className="coupon-input"
+                placeholder="Enter code (e.g. LAUNCH50)"
+                value={couponCode}
+                onChange={e => { setCouponCode(e.target.value); setCouponStatus('idle') }}
+                onKeyDown={e => e.key === 'Enter' && handleCoupon()}
+              />
+              <button className="btn-primary coupon-apply-btn" onClick={() => handleCoupon()}>Apply</button>
+            </div>
+            {couponStatus === 'valid' && (
+              <p className="coupon-msg coupon-msg-valid">✓ {couponMessage}</p>
+            )}
+            {couponStatus === 'invalid' && (
+              <p className="coupon-msg coupon-msg-invalid">✗ {couponMessage}</p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Comparison table */}
+      <section className="section">
+        <div className="container">
+          <div className="faq-header">
+            <div className="section-label">Compare</div>
+            <h2 className="section-title">Full feature <span className="gradient-text">comparison</span></h2>
+          </div>
+          <div className="comparison-table-wrap">
+            <table className="comparison-table">
+              <thead>
+                <tr>
+                  <th className="comparison-feature-col">Feature</th>
+                  {displayPlans.map(p => (
+                    <th key={p.id} className={p.popular ? 'comparison-plan-col comparison-plan-popular' : 'comparison-plan-col'}>
+                      {p.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARISON_ROWS.map((row) => (
+                  <tr key={row.feature}>
+                    <td className="comparison-feature-name">{row.feature}</td>
+                    {(['free', 'pro', 'studio', 'label'] as const).map(col => (
+                      <td key={col} className={`comparison-cell ${cellClass(row[col])}`}>
+                        {row[col]}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* AI Credits add-on */}
+      <section className="section-sm credits-section">
+        <div className="container">
+          <div className="faq-header">
+            <div className="section-label">Add-ons</div>
+            <h2 className="section-title">AI Credit <span className="gradient-text">packs</span></h2>
+            <p className="pricing-subtitle" style={{ marginTop: 8 }}>Top up your AI generations any time. Credits never expire.</p>
+          </div>
+          <div className="credits-grid">
+            {creditPacks.map(pack => (
+              <div key={pack.id} className="credit-card glass-card">
+                <div className="credit-amount">{pack.credits.toLocaleString()}</div>
+                <div className="credit-label">AI Credits</div>
+                <div className="credit-price">${(pack.amountCents / 100).toFixed(2)}</div>
+                <div className="credit-per">${(pack.amountCents / pack.credits / 100).toFixed(3)} per credit</div>
+                <Link
+                  to={`/checkout?type=credits&pkg=${pack.id}`}
+                  className="btn-secondary credit-btn"
+                >
+                  Buy Credits →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Trust badges */}
+      <section className="section-sm trust-section">
+        <div className="container">
+          <div className="trust-badges">
+            <div className="trust-badge">
+              <span className="trust-icon">🔒</span>
+              <span>SSL Encrypted</span>
+            </div>
+            <div className="trust-badge">
+              <span className="trust-icon">↩️</span>
+              <span>14-day refund</span>
+            </div>
+            <div className="trust-badge">
+              <span className="trust-icon">✓</span>
+              <span>Cancel anytime</span>
+            </div>
+            <div className="trust-badge">
+              <span className="trust-icon">💳</span>
+              <span>Stripe + PayPal</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
       <section className="section faq-section">
         <div className="container">
-          <div className="faq-header"><div className="section-label">FAQ</div><h2 className="section-title">Frequently asked <span className="gradient-text">questions</span></h2></div>
+          <div className="faq-header">
+            <div className="section-label">FAQ</div>
+            <h2 className="section-title">Frequently asked <span className="gradient-text">questions</span></h2>
+          </div>
           <div className="faq-list">
-            {faqs.map((item, i) => (
+            {FAQS.map((item, i) => (
               <div key={i} className={`faq-item${openFaq === i ? ' open' : ''}`}>
-                <button className="faq-question" onClick={() => setOpenFaq(openFaq === i ? null : i)} aria-expanded={openFaq === i}>
+                <button
+                  className="faq-question"
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  aria-expanded={openFaq === i}
+                >
                   <span>{item.question}</span>
-                  <svg className="faq-chevron" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M5 7.5l5 5 5-5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  <svg className="faq-chevron" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path d="M5 7.5l5 5 5-5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </button>
-                <div className="faq-answer"><div className="faq-answer-inner"><p>{item.answer}</p></div></div>
+                <div className="faq-answer">
+                  <div className="faq-answer-inner"><p>{item.answer}</p></div>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
+      {/* Bottom CTA */}
       <section className="section-sm pricing-cta-section">
         <div className="container">
           <div className="pricing-cta">
             <h2>Start making music <span className="gradient-text">today</span></h2>
             <p>No commitment. Download the free version and upgrade anytime.</p>
             <div className="pricing-cta-btns">
-              <Link to="/download" className="btn-primary"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M5 7l3 3 3-3M2 12h12" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" /></svg>Download Free</Link>
-              <a href="#" className="btn-secondary">Start Pro — $9/mo</a>
+              <Link to="/download" className="btn-primary">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 1v9M5 7l3 3 3-3M2 12h12" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Download Free
+              </Link>
+              <Link to="/checkout?plan=pro" className="btn-secondary">
+                {(() => {
+                  const pro = displayPlans.find(p => p.id === 'pro')
+                  return pro ? `Start Pro — $${pro.monthlyPrice.toFixed(2)}/mo` : 'Start Pro'
+                })()}
+              </Link>
             </div>
           </div>
         </div>

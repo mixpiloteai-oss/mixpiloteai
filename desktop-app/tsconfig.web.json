@@ -3,6 +3,7 @@
   "include": ["src/renderer/**/*"],
   "compilerOptions": {
     "composite": true,
+    "ignoreDeprecations": "5.0",
     "baseUrl": ".",
     "paths": {
       "@renderer/*": ["src/renderer/src/*"],

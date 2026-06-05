@@ -12,12 +12,56 @@ const api = {
   // System
   getSystemInfo:     () => ipcRenderer.invoke('get-system-info'),
   checkUpdate:       () => ipcRenderer.invoke('check-update'),
+  downloadUpdate:    () => ipcRenderer.invoke('download-update'),
+  installUpdate:     () => ipcRenderer.invoke('install-update'),
+  getVersion:        () => ipcRenderer.invoke('get-version'),
   // MIDI
   getMidiDevices:    () => ipcRenderer.invoke('get-midi-devices'),
-  // VST
+  // VST (legacy)
   scanVSTPlugins:    () => ipcRenderer.invoke('scan-vst-plugins'),
   getVSTPlugins:     () => ipcRenderer.invoke('get-vst-plugins'),
+  // VST3 professional plugin system
+  vstScan:             ()                                               => ipcRenderer.invoke('vst:scan'),
+  vstList:             ()                                               => ipcRenderer.invoke('vst:list'),
+  vstSearch:           (query: string)                                  => ipcRenderer.invoke('vst:search', query),
+  vstLoadInstance:     (pluginId: string)                               => ipcRenderer.invoke('vst:load-instance', pluginId),
+  vstUnloadInstance:   (instanceId: string)                             => ipcRenderer.invoke('vst:unload-instance', instanceId),
+  vstSetParameter:     (instanceId: string, paramIndex: number, value: number) => ipcRenderer.invoke('vst:set-parameter', instanceId, paramIndex, value),
+  vstGetParameter:     (instanceId: string, paramIndex: number)         => ipcRenderer.invoke('vst:get-parameter', instanceId, paramIndex),
+  vstGetAllParameters: (instanceId: string)                             => ipcRenderer.invoke('vst:get-all-parameters', instanceId),
+  vstGetState:         (instanceId: string)                             => ipcRenderer.invoke('vst:get-state', instanceId),
+  vstSetState:         (instanceId: string, state: number[])            => ipcRenderer.invoke('vst:set-state', instanceId, state),
+  vstSendMidi:         (instanceId: string, event: unknown)             => ipcRenderer.invoke('vst:send-midi', instanceId, event),
+  vstGetPresets:       (instanceId: string)                             => ipcRenderer.invoke('vst:get-presets', instanceId),
+  vstLoadPreset:       (instanceId: string, presetId: string)           => ipcRenderer.invoke('vst:load-preset', instanceId, presetId),
+  vstBypass:           (instanceId: string, bypassed: boolean)          => ipcRenderer.invoke('vst:bypass', instanceId, bypassed),
+  vstSearchAdvanced:   (query: string, filters: unknown)               => ipcRenderer.invoke('vst:search-advanced', query, filters),
+  // Plugin windows
+  vstOpenWindow:       (instanceId: string, pluginName: string)        => ipcRenderer.invoke('vst:open-window', instanceId, pluginName),
+  vstCloseWindow:      (instanceId: string)                            => ipcRenderer.invoke('vst:close-window', instanceId),
+  vstResizeWindow:     (instanceId: string, w: number, h: number)      => ipcRenderer.invoke('vst:resize-window', instanceId, w, h),
+  vstPinWindow:        (instanceId: string, pinned: boolean)           => ipcRenderer.invoke('vst:pin-window', instanceId, pinned),
+  // Favorites
+  vstAddFavorite:      (pluginId: string)                              => ipcRenderer.invoke('vst:favorites', 'add', pluginId),
+  vstRemoveFavorite:   (pluginId: string)                              => ipcRenderer.invoke('vst:favorites', 'remove', pluginId),
+  vstGetFavorites:     ()                                              => ipcRenderer.invoke('vst:favorites', 'list', ''),
+  // Tags
+  vstAddTag:           (pluginId: string, tag: string)                 => ipcRenderer.invoke('vst:tags', 'add', pluginId, tag),
+  vstRemoveTag:        (pluginId: string, tag: string)                 => ipcRenderer.invoke('vst:tags', 'remove', pluginId, tag),
+  vstGetAllTags:       ()                                              => ipcRenderer.invoke('vst:tags', 'all', ''),
+  // Collections
+  vstCreateCollection: (name: string)                                  => ipcRenderer.invoke('vst:collections', 'create', name),
+  vstAddToCollection:  (collId: string, pluginId: string)              => ipcRenderer.invoke('vst:collections', 'add', collId, pluginId),
+  vstRemoveFromCollection: (collId: string, pluginId: string)          => ipcRenderer.invoke('vst:collections', 'remove', collId, pluginId),
+  vstGetCollections:   ()                                              => ipcRenderer.invoke('vst:collections', 'list'),
+  // Scan progress event listener — returns a removeListener function
+  vstOnScanProgress:   (cb: (p: unknown) => void): (() => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, p: unknown): void => cb(p)
+    ipcRenderer.on('vst:scan-progress', handler)
+    return () => ipcRenderer.removeListener('vst:scan-progress', handler)
+  },
   // Projects
+
   saveProject:       (data: unknown) => ipcRenderer.invoke('save-project', data),
   loadProject:       () => ipcRenderer.invoke('load-project'),
   // Offline store
@@ -26,8 +70,8 @@ const api = {
   offlineList:       () => ipcRenderer.invoke('offline-list'),
   offlineDelete:     (id: string) => ipcRenderer.invoke('offline-delete', id),
   // Settings
-  saveSetting:       (key: string, val: unknown) => ipcRenderer.invoke('save-setting', key, val),
-  loadSetting:       (key: string) => ipcRenderer.invoke('load-setting', key),
+  saveSetting:       (key: string, val: unknown) => ipcRenderer.invoke('settings-set', key, val),
+  loadSetting:       (key: string) => ipcRenderer.invoke('settings-get', key),
   settingsGet:       (key: string) => ipcRenderer.invoke('settings-get', key),
   settingsSet:       (key: string, val: unknown) => ipcRenderer.invoke('settings-set', key, val),
   settingsGetAll:    () => ipcRenderer.invoke('settings-get-all'),
@@ -41,6 +85,9 @@ const api = {
   // Crash
   crashCheck:             () => ipcRenderer.invoke('crash-check'),
   crashClearCheckpoint:   () => ipcRenderer.invoke('crash-clear-checkpoint'),
+  crashSaveCheckpoint:    (data: unknown) => ipcRenderer.invoke('crash-save-checkpoint', data),
+  autosaveGetVersion:     (filename: string) => ipcRenderer.invoke('autosave-get-version', filename),
+  autosaveDeleteVersion:  (filename: string) => ipcRenderer.invoke('autosave-delete-version', filename),
   // Audio
   getAudioDevices:        () => ipcRenderer.invoke('get-audio-devices'),
   getLatencyProfiles:     () => ipcRenderer.invoke('get-latency-profiles'),
@@ -55,6 +102,61 @@ const api = {
   audioCacheList:         () => ipcRenderer.invoke('audio-cache-list'),
   audioCachePrune:        () => ipcRenderer.invoke('audio-cache-prune'),
   audioCacheClear:        () => ipcRenderer.invoke('audio-cache-clear'),
+  // ── Native audio engine ─────────────────────────────────────────────────
+  audioEngineStart:     (opts?: unknown) => ipcRenderer.invoke('audio-engine-start', opts),
+  audioEngineStop:      ()               => ipcRenderer.invoke('audio-engine-stop'),
+  audioEngineReady:     ()               => ipcRenderer.invoke('audio-engine-ready'),
+  /** Returns the full engine status: mode, binaryPath, checkedPaths, platform, etc. */
+  audioEngineStatus:      ()               => ipcRenderer.invoke('audio-engine-status'),
+  /** Returns engine status + live OS metrics (CPU/memory via `ps`). */
+  audioEngineDiagnostics: ()               => ipcRenderer.invoke('audio-engine-diagnostics'),
+  /** Aggregates crash.log + snapshots into a text bundle; also writes to disk. */
+  audioEngineExportLogs:  ()               => ipcRenderer.invoke('audio-engine-export-logs'),
+
+  // ── Engine lifecycle events ──────────────────────────────────────────────
+  /** Fires immediately after start() resolves: mode, binary, checkedPaths. */
+  onAudioEngineMode:       (cb: (status: unknown) => void) =>
+    ipcRenderer.on('audio-engine-mode', (_e, s) => cb(s)),
+  /** Fires on every unclean engine exit (crash). */
+  onAudioEngineCrash:      (cb: (info: unknown) => void) =>
+    ipcRenderer.on('audio-engine-crash', (_e, i) => cb(i)),
+  /** Fires when engine status changes (after restart, stop, etc.). */
+  onAudioEngineStatusUpdate:(cb: (status: unknown) => void) =>
+    ipcRenderer.on('audio-engine-status-update', (_e, s) => cb(s)),
+  /** Fires when all restart attempts are exhausted. */
+  onAudioEngineMaxRestarts:(cb: (info: unknown) => void) =>
+    ipcRenderer.on('audio-engine-max-restarts', (_e, i) => cb(i)),
+  /** Fires when watchdog detects an anomaly (high CPU, memory, xrun spike, dead process). */
+  onAudioEngineWatchdogAlert:(cb: (alert: unknown) => void) =>
+    ipcRenderer.on('audio-engine-watchdog-alert', (_e, a) => cb(a)),
+  /** Fires every watchdog poll with live OS-level metrics. */
+  onAudioEngineMetrics:    (cb: (metrics: unknown) => void) =>
+    ipcRenderer.on('audio-engine-metrics', (_e, m) => cb(m)),
+  audioDetectDrivers:   ()               => ipcRenderer.invoke('audio-detect-drivers'),
+  audioDetectDevices:   ()               => ipcRenderer.invoke('audio-detect-devices'),
+  audioPreferredDriver: ()               => ipcRenderer.invoke('audio-preferred-driver'),
+  audioPlay:            ()               => ipcRenderer.invoke('audio-play'),
+  audioStop:            ()               => ipcRenderer.invoke('audio-stop'),
+  audioPause:           ()               => ipcRenderer.invoke('audio-pause'),
+  audioSeek:            (bar: number, beat?: number) => ipcRenderer.invoke('audio-seek', bar, beat),
+  audioSetBpm:          (bpm: number)    => ipcRenderer.invoke('audio-set-bpm', bpm),
+  audioSetTimeSig:      (n: number, d: number) => ipcRenderer.invoke('audio-set-time-sig', n, d),
+  audioSetLoop:         (e: boolean, s: number, en: number) => ipcRenderer.invoke('audio-set-loop', e, s, en),
+  audioGetState:        ()               => ipcRenderer.invoke('audio-get-state'),
+  audioSetMasterGain:   (db: number)     => ipcRenderer.invoke('audio-set-master-gain', db),
+  audioAddTrack:        (id: string, type: string, name: string, color?: string) => ipcRenderer.invoke('audio-add-track', id, type, name, color),
+  audioRemoveTrack:     (id: string)     => ipcRenderer.invoke('audio-remove-track', id),
+  audioSetTrackGain:    (id: string, db: number)  => ipcRenderer.invoke('audio-set-track-gain', id, db),
+  audioSetTrackPan:     (id: string, pan: number) => ipcRenderer.invoke('audio-set-track-pan',  id, pan),
+  audioMuteTrack:       (id: string, m: boolean)  => ipcRenderer.invoke('audio-mute-track', id, m),
+  audioSoloTrack:       (id: string, s: boolean)  => ipcRenderer.invoke('audio-solo-track', id, s),
+  audioArmTrack:        (id: string, a: boolean)  => ipcRenderer.invoke('audio-arm-track',  id, a),
+  audioAddSend:         (from: string, to: string, db: number, pre: boolean) => ipcRenderer.invoke('audio-add-send', from, to, db, pre),
+  audioSetDriver:       (driver: string, device: string) => ipcRenderer.invoke('audio-set-driver', driver, device),
+  audioSetBufferSize:   (frames: number) => ipcRenderer.invoke('audio-set-buffer-size', frames),
+  audioSetSampleRate:   (rate: number)   => ipcRenderer.invoke('audio-set-sample-rate', rate),
+  audioQueryDevices:    ()               => ipcRenderer.invoke('audio-query-devices'),
+  onNativeAudioEvent:   (cb: (evt: unknown) => void) => ipcRenderer.on('native-audio-event', (_e, evt) => cb(evt)),
   // File system
   openFileDialog:         (opts: unknown) => ipcRenderer.invoke('open-file-dialog', opts),
   saveFileDialog:         (opts: unknown) => ipcRenderer.invoke('save-file-dialog', opts),
@@ -71,11 +173,56 @@ const api = {
   debugOpenDevTools:      () => ipcRenderer.invoke('debug-open-devtools'),
   debugGetAppPaths:       () => ipcRenderer.invoke('debug-get-app-paths'),
   getPerformanceMetrics:  () => ipcRenderer.invoke('get-performance-metrics'),
+  // Plugin system
+  pluginScan:               ()                          => ipcRenderer.invoke('plugin-scan'),
+  pluginLoad:               (path: string, fmt: string) => ipcRenderer.invoke('plugin-load', path, fmt),
+  pluginUnload:             (instanceId: string)        => ipcRenderer.invoke('plugin-unload', instanceId),
+  pluginGetInstances:       ()                          => ipcRenderer.invoke('plugin-get-instances'),
+  pluginGetBlacklist:       ()                          => ipcRenderer.invoke('plugin-get-blacklist'),
+  pluginRemoveFromBlacklist:(path: string)              => ipcRenderer.invoke('plugin-remove-from-blacklist', path),
+  pluginListPresets:        (pluginId: string)          => ipcRenderer.invoke('plugin-list-presets', pluginId),
+  pluginSavePreset:         (pluginId: string, name: string, data: Record<string, number>) => ipcRenderer.invoke('plugin-save-preset', pluginId, name, data),
+  pluginLoadPreset:         (pluginId: string, presetId: string) => ipcRenderer.invoke('plugin-load-preset', pluginId, presetId),
+  pluginDeletePreset:       (pluginId: string, presetId: string) => ipcRenderer.invoke('plugin-delete-preset', pluginId, presetId),
+  pluginRenamePreset:       (pluginId: string, presetId: string, name: string) => ipcRenderer.invoke('plugin-rename-preset', pluginId, presetId, name),
+  onPluginCrashed:          (cb: (info: unknown) => void) => ipcRenderer.on('plugin-crashed', (_e, i) => cb(i)),
+  // Plugin health / recovery
+  pluginGetHealth:          () => ipcRenderer.invoke('plugin-get-health'),
+  pluginGetInstanceHealth:  (instanceId: string) => ipcRenderer.invoke('plugin-get-instance-health', instanceId),
+  pluginHotReload:          (instanceId: string) => ipcRenderer.invoke('plugin-hot-reload', instanceId),
+  pluginSaveState:          (instanceId: string, pluginPath: string, format: string, parameters: Record<string, number>, trackId?: string) =>
+    ipcRenderer.invoke('plugin-save-state', instanceId, pluginPath, format, parameters, trackId),
+  pluginGetRecoveredId:     (oldInstanceId: string) => ipcRenderer.invoke('plugin-get-recovered-id', oldInstanceId),
+  pluginScanClearCache:     () => ipcRenderer.invoke('plugin-scan-clear-cache'),
+  pluginScanCleanupCache:   () => ipcRenderer.invoke('plugin-scan-cleanup-cache'),
+  pluginScanCacheStats:     () => ipcRenderer.invoke('plugin-scan-cache-stats'),
+  pluginSetParameter:       (instanceId: string, paramId: number, value: number) => ipcRenderer.invoke('plugin-set-parameter', instanceId, paramId, value),
+  pluginGetParameter:       (instanceId: string, paramId: number) => ipcRenderer.invoke('plugin-get-parameter', instanceId, paramId),
+  pluginAddToChain:         (instanceId: string, trackId: string) => ipcRenderer.invoke('plugin-add-to-chain', instanceId, trackId),
+  pluginRemoveFromChain:    (instanceId: string, trackId: string) => ipcRenderer.invoke('plugin-remove-from-chain', instanceId, trackId),
+  pluginSetMidiRoute:       (instanceId: string, fromTrackId: string, channel: number, deviceId?: string) => ipcRenderer.invoke('plugin-set-midi-route', instanceId, fromTrackId, channel, deviceId),
+  pluginGetAudioRoutes:     () => ipcRenderer.invoke('plugin-get-audio-routes'),
+  onPluginRecovered:        (cb: (info: unknown) => void) => ipcRenderer.on('plugin-recovered', (_e, i) => cb(i)),
+  onPluginRecoveryFailed:   (cb: (info: unknown) => void) => ipcRenderer.on('plugin-recovery-failed', (_e, i) => cb(i)),
+  onPluginRecoveryAbandoned:(cb: (info: unknown) => void) => ipcRenderer.on('plugin-recovery-abandoned', (_e, i) => cb(i)),
+  onPluginResourceWarning:  (cb: (info: unknown) => void) => ipcRenderer.on('plugin-resource-warning', (_e, i) => cb(i)),
   // Events from main
   onNav:                    (cb: (view: string) => void) => ipcRenderer.on('nav', (_e, v) => cb(v)),
   onOpenSettings:           (cb: () => void) => ipcRenderer.on('open-settings', cb),
   onPowerEvent:             (cb: (e: string) => void) => ipcRenderer.on('power-event', (_e, ev) => cb(ev)),
+  onUpdateChecking:         (cb: (info: unknown) => void) => ipcRenderer.on('update-checking', (_e, i) => cb(i)),
   onUpdateAvailable:        (cb: (info: unknown) => void) => ipcRenderer.on('update-available', (_e, i) => cb(i)),
+  onUpdateNotAvailable:     (cb: (info: unknown) => void) => ipcRenderer.on('update-not-available', (_e, i) => cb(i)),
+  onUpdateProgress:         (cb: (info: unknown) => void) => ipcRenderer.on('update-progress', (_e, i) => cb(i)),
+  onUpdateDownloaded:       (cb: (info: unknown) => void) => ipcRenderer.on('update-downloaded', (_e, i) => cb(i)),
+  onUpdateError:            (cb: (info: unknown) => void) => ipcRenderer.on('update-error', (_e, i) => cb(i)),
+  onUpdateIntegrityReady:   (cb: (info: unknown) => void) => ipcRenderer.on('update-integrity-ready', (_e, i) => cb(i)),
+  // Version management
+  versionHistory:           () => ipcRenderer.invoke('version-history'),
+  versionCanRollback:       () => ipcRenderer.invoke('version-can-rollback'),
+  versionRollback:          () => ipcRenderer.invoke('version-rollback'),
+  // Integrity
+  verifyUpdateFile:         (filePath: string, sha256: string) => ipcRenderer.invoke('verify-update-file', filePath, sha256),
   onTriggerSave:            (cb: () => void) => ipcRenderer.on('trigger-save', cb),
   onTriggerLoad:            (cb: () => void) => ipcRenderer.on('trigger-load', cb),
   onAutosaveComplete:       (cb: (info: unknown) => void) => ipcRenderer.on('autosave-complete', (_e, i) => cb(i)),
@@ -85,9 +232,90 @@ const api = {
   onPerfStats:              (cb: (stats: unknown) => void) => ipcRenderer.on('perf-stats', (_e, s) => cb(s)),
   removeAllListeners:       (channel: string) => ipcRenderer.removeAllListeners(channel),
   removeListener:           (channel: string) => ipcRenderer.removeAllListeners(channel),
+  // Stability monitoring (heartbeat + health query + safe mode)
+  stabilityHeartbeat:        (uptime: number) => ipcRenderer.invoke('stability-heartbeat', { uptime }),
+  stabilityTrackOperation:   (opId: string)   => ipcRenderer.invoke('stability-track-operation', { opId }),
+  stabilityCompleteOperation:(opId: string)   => ipcRenderer.invoke('stability-complete-operation', { opId }),
+  stabilityGetHealth:        ()               => ipcRenderer.invoke('stability-get-health'),
+  stabilityGetSafeMode:      ()               => ipcRenderer.invoke('stability-get-safe-mode'),
+  onStabilityWarning:        (cb: (w: { type: string; message: string }) => void) =>
+    ipcRenderer.on('stability-warning', (_e, w) => cb(w)),
+  onSafeModeActive:          (cb: (reason: string) => void) =>
+    ipcRenderer.on('safe-mode-active', (_e, r) => cb(r)),
   // Platform
   platform:    process.platform,
   isElectron:  true as const,
+  // Performance / autosave / crash-recovery (perf: namespace)
+  perfGetMemoryMetrics:         () => ipcRenderer.invoke('perf:get-memory-metrics'),
+  perfGetCpuMetrics:            () => ipcRenderer.invoke('perf:get-cpu-metrics'),
+  perfAutosaveSave:             (data: unknown) => ipcRenderer.invoke('perf:autosave-save', data),
+  perfAutosaveLoadLatest:       () => ipcRenderer.invoke('perf:autosave-load-latest'),
+  perfAutosaveListVersions:     () => ipcRenderer.invoke('perf:autosave-list-versions'),
+  perfAutosaveGetVersion:       (filename: string) => ipcRenderer.invoke('perf:autosave-get-version', filename),
+  perfCrashWriteMarker:         (sessionId: string) => ipcRenderer.invoke('perf:crash-write-marker', sessionId),
+  perfCrashHasMarker:           (sessionId: string) => ipcRenderer.invoke('perf:crash-has-marker', sessionId),
+  perfCrashClearMarker:         (sessionId: string) => ipcRenderer.invoke('perf:crash-clear-marker', sessionId),
+  perfCrashListMarkers:         () => ipcRenderer.invoke('perf:crash-list-markers'),
+  // Mixer detachable window
+  mixerOpenWindow:  () => ipcRenderer.invoke('mixer:open-window'),
+  mixerCloseWindow: () => ipcRenderer.invoke('mixer:close-window'),
+  // Recording IPC (recording: namespace)
+  recordingStart:    (opts: unknown)          => ipcRenderer.invoke('recording:start', opts),
+  recordingChunk:    (payload: unknown)       => ipcRenderer.invoke('recording:chunk', payload),
+  recordingFinalize: (sessionId: string)      => ipcRenderer.invoke('recording:finalize', sessionId),
+  recordingAbort:    (sessionId: string)      => ipcRenderer.invoke('recording:abort', sessionId),
+  recordingList:     ()                       => ipcRenderer.invoke('recording:list'),
+  recordingDelete:   (filename: string)       => ipcRenderer.invoke('recording:delete', filename),
+  recordingReadPcm:  (filePath: string)       => ipcRenderer.invoke('recording:read-pcm', filePath),
+  // Sample browser IPC
+  samplesGetRootDirs:   ()                                          => ipcRenderer.invoke('samples:get-root-dirs'),
+  samplesAddRootDir:    ()                                          => ipcRenderer.invoke('samples:add-root-dir'),
+  samplesRemoveRootDir: (dir: string)                               => ipcRenderer.invoke('samples:remove-root-dir', dir),
+  samplesRescan:        (dir: string)                               => ipcRenderer.invoke('samples:rescan', dir),
+  samplesSearch:        (query: string, opts?: unknown)             => ipcRenderer.invoke('samples:search', query, opts),
+  samplesListDir:       (dir: string)                               => ipcRenderer.invoke('samples:list-dir', dir),
+  samplesGetRecord:     (id: string)                                => ipcRenderer.invoke('samples:get-record', id),
+  samplesSetFavorite:   (id: string, on: boolean)                   => ipcRenderer.invoke('samples:set-favorite', id, on),
+  samplesAddTag:        (id: string, tag: string)                   => ipcRenderer.invoke('samples:add-tag', id, tag),
+  samplesRemoveTag:     (id: string, tag: string)                   => ipcRenderer.invoke('samples:remove-tag', id, tag),
+  samplesGetAllTags:    ()                                          => ipcRenderer.invoke('samples:get-all-tags'),
+  samplesGetStats:      ()                                          => ipcRenderer.invoke('samples:get-stats'),
+  // Collections
+  samplesListCollections:         ()                                    => ipcRenderer.invoke('samples:list-collections'),
+  samplesCreateCollection:        (name: string)                        => ipcRenderer.invoke('samples:create-collection', name),
+  samplesDeleteCollection:        (id: string)                          => ipcRenderer.invoke('samples:delete-collection', id),
+  samplesAddToCollection:         (collId: string, sampleId: string)    => ipcRenderer.invoke('samples:add-to-collection', collId, sampleId),
+  samplesRemoveFromCollection:    (collId: string, sampleId: string)    => ipcRenderer.invoke('samples:remove-from-collection', collId, sampleId),
+  // Smart folders
+  samplesListSmartFolders:        ()                                    => ipcRenderer.invoke('samples:list-smart-folders'),
+  samplesCreateSmartFolder:       (name: string, query: string, opts: unknown) => ipcRenderer.invoke('samples:create-smart-folder', name, query, opts),
+  samplesDeleteSmartFolder:       (id: string)                         => ipcRenderer.invoke('samples:delete-smart-folder', id),
+  onSamplesScanProgress:(cb: (info: unknown) => void)               => ipcRenderer.on('samples:scan-progress', (_e, i) => cb(i)),
+  onSamplesScanComplete:(cb: (info: unknown) => void)               => ipcRenderer.on('samples:scan-complete', (_e, i) => cb(i)),
+  // Safety system (autosave + recovery)
+  safetySave:             (json: string, projectId: string, projectName: string) => ipcRenderer.invoke('safety:autosave', json, projectId, projectName),
+  safetyCheckRecovery:    () => ipcRenderer.invoke('safety:check-recovery'),
+  safetyRestoreSnapshot:  (id: string) => ipcRenderer.invoke('safety:restore-snapshot', id),
+  safetyDiscardRecovery:  () => ipcRenderer.invoke('safety:discard-recovery'),
+  safetyListBackups:      () => ipcRenderer.invoke('safety:list-backups'),
+  safetyDeleteBackup:     (id: string) => ipcRenderer.invoke('safety:delete-backup', id),
+  safetyMarkClean:        () => ipcRenderer.invoke('safety:mark-clean'),
+  // Export system
+  exportCheckFfmpeg: () => ipcRenderer.invoke('export:check-ffmpeg'),
+  exportTranscode:   (opts: unknown) => ipcRenderer.invoke('export:transcode', opts),
+  exportWriteFile:   (filePath: string, bytes: number[]) => ipcRenderer.invoke('export:write-file', filePath, bytes),
+  // AI Assistant cloud path
+  aiProcessCommand: (ctx: string, cmd: string) => ipcRenderer.invoke('ai:process-command', ctx, cmd),
+  // Crash reporting (typed namespace — does NOT expose raw ipcRenderer)
+  crash: {
+    report: (payload: {
+      source:  'main' | 'renderer' | 'plugin' | 'audio'
+      message: string
+      stack?:  string
+      meta?:   Record<string, unknown>
+    }) => ipcRenderer.invoke('crash:report', payload),
+    list: (limit?: number) => ipcRenderer.invoke('crash:list', limit),
+  },
 }
 
 if (process.contextIsolated) {

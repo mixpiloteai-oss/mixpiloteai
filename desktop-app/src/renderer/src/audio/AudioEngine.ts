@@ -1,4 +1,6 @@
 import type { AudioEngineConfig, ChannelLevel } from './types'
+import { PerformanceMonitor } from './PerformanceMonitor'
+import { DropoutProtector } from './DropoutProtector'
 
 // ─── Utility ───────────────────────────────────────────────────────────────
 
@@ -24,8 +26,16 @@ export function clamp(value: number, min: number, max: number): number {
 //
 // Singleton — call AudioEngine.getInstance() everywhere.
 
+const _validRates = new Set([44100, 48000, 88200, 96000])
+function _resolveDefaultSampleRate(): 44100 | 48000 | 88200 | 96000 {
+  const stored = typeof localStorage !== 'undefined'
+    ? Number(localStorage.getItem('nt-sample-rate') ?? 48000)
+    : 48000
+  return (_validRates.has(stored) ? stored : 48000) as 44100 | 48000 | 88200 | 96000
+}
+
 const DEFAULT_CONFIG: Required<AudioEngineConfig> = {
-  sampleRate:    44100,
+  sampleRate:    _resolveDefaultSampleRate(),
   latencyHint:   'interactive',
   masterGainDb:  0,
 }
@@ -45,6 +55,8 @@ export class AudioEngine {
   private _analyserBuffer: Float32Array<ArrayBuffer>
   private _peakHold    = 0
   private _peakTimer   = 0
+  private _perfMonitor: PerformanceMonitor
+  private _dropoutProtector: DropoutProtector
 
   private constructor(cfg: Required<AudioEngineConfig>) {
     this.ctx = new AudioContext({
@@ -64,7 +76,7 @@ export class AudioEngine {
     this.masterCompressor.attack.value    = 0.003
     this.masterCompressor.release.value   = 0.25
 
-    this.masterAnalyser.fftSize               = 2048
+    this.masterAnalyser.fftSize               = 512
     this.masterAnalyser.smoothingTimeConstant = 0.0  // raw, hooks smooth separately
 
     // Chain
@@ -83,6 +95,13 @@ export class AudioEngine {
       if (document.hidden) this.ctx.suspend()
       else                 this.ctx.resume()
     })
+
+    // Performance monitoring
+    this._perfMonitor = new PerformanceMonitor(this.ctx)
+    this._perfMonitor.start()
+
+    this._dropoutProtector = new DropoutProtector(this.ctx)
+    this._dropoutProtector.start()
   }
 
   static getInstance(cfg?: AudioEngineConfig): AudioEngine {
@@ -101,6 +120,9 @@ export class AudioEngine {
   get sampleRate(): number      { return this.ctx.sampleRate }
   get state(): AudioContextState { return this.ctx.state }
   get masterGainDb(): number   { return this._masterGainDb }
+
+  getPerfMonitor(): PerformanceMonitor { return this._perfMonitor }
+  getDropoutProtector(): DropoutProtector { return this._dropoutProtector }
 
   setMasterGain(db: number): void {
     this._masterGainDb = db
@@ -143,6 +165,8 @@ export class AudioEngine {
 
 
   dispose(): void {
+    this._perfMonitor.stop()
+    this._dropoutProtector.stop()
     this.ctx.close()
     AudioEngine._instance = null
   }

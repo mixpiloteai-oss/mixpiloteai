@@ -7,6 +7,7 @@
     <meta name="description" content="NeuroTek AI — The AI-Powered Music Production Studio. Generate beats, melodies, and full arrangements with one click. Free to download." />
     <meta name="keywords" content="AI music production, DAW, beat maker, AI music generator, music software, NeuroTek AI" />
     <meta name="theme-color" content="#0a0a0f" />
+    <meta name="color-scheme" content="dark" />
     <meta name="robots" content="index, follow" />
 
     <!-- Open Graph -->
@@ -26,12 +27,23 @@
     <meta name="twitter:image" content="https://neurotek.ai/og-image.png" />
 
     <title>NeuroTek AI — AI Music Production Studio</title>
+    <link rel="dns-prefetch" href="https://mixpiloteai-production.up.railway.app" />
+    <link rel="preconnect" href="https://mixpiloteai-production.up.railway.app" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Preload hint for the primary font weight -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').catch(function() {});
+        });
+      }
+    </script>
   </body>
 </html>

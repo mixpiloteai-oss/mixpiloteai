@@ -1,20 +1,15 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import './Nav.css'
-
-const NAV_LINKS = [
-  { to: '/',            label: 'Home' },
-  { to: '/download',   label: 'Download' },
-  { to: '/pricing',    label: 'Pricing' },
-  { to: '/marketplace',label: 'Packs' },
-  { to: '/changelog',  label: 'Changelog' },
-  { to: '/support',    label: 'Support' },
-]
+import { useSiteConfig } from '../contexts/SiteConfigContext'
 
 function Nav() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const location = useLocation()
+  const { config } = useSiteConfig()
+  const navCfg = config.navbar
+  const visibleLinks = navCfg.links.filter(l => l.visible)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -49,20 +44,20 @@ function Nav() {
               </defs>
             </svg>
           </div>
-          <span className="nav-logo-text">NeuroTek <span>AI</span></span>
+          <span className="nav-logo-text">{navCfg.logoText} <span>{navCfg.logoHighlight}</span></span>
         </Link>
 
         <nav className="nav-links" aria-label="Main navigation">
-          {NAV_LINKS.map(({ to, label }) => (
+          {visibleLinks.map(({ to, label }) => (
             <Link key={to} to={to} className={`nav-link${isActive(to) ? ' nav-link-active' : ''}`}>{label}</Link>
           ))}
         </nav>
 
         <div className="nav-cta">
-          <Link to="/login" className="btn-secondary nav-btn-login">Sign In</Link>
-          <Link to="/download" className="btn-primary nav-btn">
+          <Link to={navCfg.secondaryCta.to} className="btn-secondary nav-btn-login">{navCfg.secondaryCta.text}</Link>
+          <Link to={navCfg.primaryCta.to} className="btn-primary nav-btn">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M5 7l3 3 3-3M2 12h12" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            Download
+            {navCfg.primaryCta.text}
           </Link>
         </div>
 
@@ -73,19 +68,23 @@ function Nav() {
 
       <div className={`nav-mobile${menuOpen ? ' open' : ''}`} aria-hidden={!menuOpen}>
         <nav className="nav-mobile-links">
-          {NAV_LINKS.map(({ to, label }) => (
+          {visibleLinks.map(({ to, label }) => (
             <Link key={to} to={to} className={`nav-mobile-link${isActive(to) ? ' active' : ''}`}>{label}</Link>
           ))}
-          <Link to="/merch" className={`nav-mobile-link${isActive('/merch') ? ' active' : ''}`}>Merch</Link>
         </nav>
         <div className="nav-mobile-cta">
-          <Link to="/login" className="btn-secondary" style={{ width: '100%', justifyContent: 'center', marginBottom: '10px' }}>Sign In</Link>
-          <Link to="/download" className="btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
+          <Link to={navCfg.secondaryCta.to} className="btn-secondary" style={{ width: '100%', justifyContent: 'center', marginBottom: '10px' }}>{navCfg.secondaryCta.text}</Link>
+          <Link to={navCfg.primaryCta.to} className="btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M5 7l3 3 3-3M2 12h12" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            Download Free
+            {navCfg.primaryCta.text}
           </Link>
         </div>
       </div>
+      {navCfg.announcementBar.show && (
+        <div className={`nav-announcement nav-announcement-${navCfg.announcementBar.type}`}>
+          <a href={navCfg.announcementBar.url}>{navCfg.announcementBar.text}</a>
+        </div>
+      )}
     </header>
   )
 }

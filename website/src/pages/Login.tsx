@@ -1,23 +1,13 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { login, register, ApiError } from '../lib/api'
 import './Login.css'
 
 type Mode = 'signin' | 'signup' | 'reset'
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'https://mixpiloteai-production.up.railway.app'
-
-async function apiPost(path: string, body: object) {
-  const res = await fetch(`${API_URL}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data?.error ?? 'Request failed')
-  return data
-}
-
 function Login() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [mode, setMode] = useState<Mode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -38,14 +28,20 @@ function Login() {
         return
       }
       if (mode === 'signup') {
-        await apiPost('/api/auth/register', { email, password, name })
+        await register(name, email, password)
         setSuccess('Account created! Download the app to start producing.')
       } else {
-        await apiPost('/api/auth/login', { email, password })
-        setSuccess('Signed in! Open the NeuroTek AI app to continue.')
+        await login(email, password)
+        const redirect = searchParams.get('redirect')
+        const dest = redirect && redirect.startsWith('/') ? redirect : '/'
+        navigate(dest, { replace: true })
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Connection failed. Please try again.'
+      const msg = err instanceof ApiError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : 'Connection failed. Please try again.'
       setError(msg)
     } finally {
       setLoading(false)

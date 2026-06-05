@@ -1,6 +1,8 @@
-node_modules
-out
-release
-dist
+node_modules/
+out/
+release/
+dist/
+.cache/
 *.log
-.env
+.DS_Store
+Thumbs.db

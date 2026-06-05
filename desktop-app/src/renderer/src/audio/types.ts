@@ -87,7 +87,7 @@ export interface IAudioBridge {
   seekToBar(bar: number): void
 
   // ── Buffer management ──────────────────────────────────────────────
-  loadBuffer(url: string): Promise<AudioBuffer>
+  loadBuffer(url: string): Promise<AudioBuffer | null>
   releaseBuffer(url: string): void
   clearBufferCache(): void
 

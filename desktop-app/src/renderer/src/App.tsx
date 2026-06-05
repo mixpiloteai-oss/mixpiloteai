@@ -1,85 +1,451 @@
-import { useEffect, useState } from 'react'
-import { useTransportSync } from './hooks/useTransportSync'
+import React, { useState, useEffect } from 'react'
+import { apiPost, apiGet } from './lib/apiClient'
+import { useSubscriptionStore } from './store/subscriptionStore'
+import './styles/performance.css'
+import { usePerfMode } from './store/performanceModeStore'
+import TitleBar from './components/shell/TitleBar'
+import Sidebar from './components/shell/Sidebar'
+import StatusBar from './components/shell/StatusBar'
+import TransportBar from './components/transport/TransportBar'
+import MixerView from './components/mixer/MixerView'
+import PianoRollView from './components/piano-roll/PianoRollView'
+import AIAssistant from './components/ai-assistant/AIAssistant'
+import LiveMode from './components/live/LiveMode'
+import PluginBrowser from './components/plugin-browser/PluginBrowser'
+import RoutingMatrix from './components/routing/RoutingMatrix'
+import LocalAIPanel from './components/ai-local/LocalAIPanel'
+import PerformanceModeSelector from './components/performance/PerformanceModeSelector'
+import ExportPanel from './components/export/ExportPanel'
+import CollabPanel from './components/collaboration/CollabPanel'
+import MarketplaceBrowser from './components/marketplace/MarketplaceBrowser'
+import RecoveryDialog        from './components/save/RecoveryDialog'
+import SnapshotHistoryPanel  from './components/save/SnapshotHistoryPanel'
+import OnboardingWelcome     from './components/onboarding/OnboardingWelcome'
+import SplashScreen          from './components/shell/SplashScreen'
+import ToastContainer        from './components/notifications/ToastContainer'
+import SettingsModal         from './components/settings/SettingsModal'
+import DawLayout             from './components/layout/DawLayout'
+import WelcomeDashboard      from './components/welcome/WelcomeDashboard'
+import { useOnboardingStore } from './store/onboardingStore'
+import { useUIStore }        from './store/uiStore'
+import { useProjectStore }  from './store/projectStore'
+import { useLayoutStore }   from './store/layoutStore'
+import { useSaveStore }      from './store/saveStore'
+import { useSaveSystem }     from './hooks/useSaveSystem'
+import { useNetworkStatus }  from './hooks/useNetworkStatus'
+import { usePerformanceMode, applyBootMode } from './hooks/usePerformanceMode'
+import { useTransportSync }  from './hooks/useTransportSync'
+import UpdateBanner          from './components/updater/UpdateBanner'
+import AudioPerfHUD          from './components/audio/AudioPerfHUD'
+import PerformanceOverlay    from './components/perf/PerformanceOverlay'
+import { AudioEngine }       from './audio/AudioEngine'
+import { usePerfMonitorStore } from './store/perfMonitorStore'
+import { MainMenu }          from './components/shell/MainMenu'
+import { QuickActionsBar }   from './components/shell/QuickActionsBar'
+import ShortcutsPanel        from './components/help/ShortcutsPanel'
+import UserGuidePanel        from './components/help/UserGuidePanel'
+import { SafeViewBoundary }  from './components/SafeViewBoundary'
+import { bootLog }           from './lib/bootLogger'
 
-type View =
-  | 'dashboard' | 'pianoroll' | 'arrangement' | 'mixer'
-  | 'ai' | 'live' | 'vst' | 'routing' | 'cloud-sync'
+// ─── Login Screen ─────────────────────────────────────────────────────────────
 
-export default function App(): JSX.Element {
-  const [view, setView] = useState<View>('dashboard')
-  const [authenticated, setAuthenticated] = useState(false)
+interface LoginProps {
+  onAuth: (token: string) => void
+}
+
+function LoginScreen({ onAuth }: LoginProps) {
+  const [email, setEmail]       = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError]       = useState('')
+  const [loading, setLoading]   = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const data = await apiPost<{ token: string; user: unknown }>('/api/auth/login', { email, password })
+      localStorage.setItem('token', data.token)
+      onAuth(data.token)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function demoLogin() {
+    localStorage.setItem('token', 'demo')
+    onAuth('demo')
+  }
+
+  return (
+    <div className="flex items-center justify-center h-full" style={{ background: '#08080f' }}>
+      {/* Radial glow */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        background: 'radial-gradient(ellipse 60% 40% at 50% 50%, rgba(124,58,237,0.12), transparent)',
+      }} />
+
+      <div className="relative w-full max-w-sm p-8 rounded-2xl" style={{
+        background: '#0c0c14',
+        border: '1px solid #1c1c2e',
+        boxShadow: '0 0 60px rgba(124,58,237,0.1)',
+      }}>
+        {/* Logo */}
+        <div className="flex items-center gap-2.5 mb-8">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold"
+            style={{ background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(124,58,237,0.35)', color: '#a855f7' }}>
+            N
+          </div>
+          <span className="font-bold text-lg" style={{ color: '#e2e8f0' }}>Neurotek Studio</span>
+        </div>
+
+        <h2 className="text-sm font-semibold mb-1" style={{ color: '#e2e8f0' }}>Welcome back</h2>
+        <p className="text-xs mb-6" style={{ color: '#475569' }}>Sign in to access your projects</p>
+
+        <form onSubmit={submit} className="space-y-3">
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="Email"
+            className="w-full text-xs px-3 py-2.5 rounded-xl outline-none"
+            style={{ background: '#0f0f1a', border: '1px solid #1c1c2e', color: '#e2e8f0', caretColor: '#7c3aed' }}
+          />
+          <input
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="Password"
+            className="w-full text-xs px-3 py-2.5 rounded-xl outline-none"
+            style={{ background: '#0f0f1a', border: '1px solid #1c1c2e', color: '#e2e8f0', caretColor: '#7c3aed' }}
+          />
+          {error && <p className="text-[10px]" style={{ color: '#ef4444' }}>{error}</p>}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity"
+            style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)', color: '#fff', opacity: loading ? 0.6 : 1 }}
+          >
+            {loading ? 'Signing in…' : 'Sign In'}
+          </button>
+        </form>
+
+        <div className="flex items-center gap-3 my-4">
+          <div className="flex-1 h-px" style={{ background: '#1c1c2e' }} />
+          <span className="text-[10px]" style={{ color: '#334155' }}>or</span>
+          <div className="flex-1 h-px" style={{ background: '#1c1c2e' }} />
+        </div>
+
+        <button
+          onClick={demoLogin}
+          className="w-full py-2.5 rounded-xl text-xs font-medium transition-colors"
+          style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)', color: '#7c3aed' }}
+        >
+          Continue as Demo
+        </button>
+
+        <p className="text-[10px] text-center mt-5" style={{ color: '#334155' }}>
+          No account? Use the demo to explore the app.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+
+function Dashboard() {
+  const setView   = useUIStore(s => s.setView)
+  const project   = useProjectStore(s => s.project)
+
+  const tiles = [
+    { id: 'arrangement' as const, icon: '≡', label: 'Arrangement',   sub: `${project.tracks.length} tracks · ${project.totalBars} bars`,       color: '#7c3aed' },
+    { id: 'mixer'       as const, icon: '⊟', label: 'Mixer',         sub: `${project.tracks.length} channels + master`,                        color: '#06b6d4' },
+    { id: 'pianoroll'   as const, icon: '♪', label: 'Piano Roll',    sub: `MIDI editor · ${project.bpm} BPM`,                                  color: '#a855f7' },
+    { id: 'ai'          as const, icon: '✦', label: 'AI Assistant',  sub: 'Claude · text-to-pattern',                                          color: '#10b981' },
+    { id: 'live'        as const, icon: '▶', label: 'Live Mode',     sub: `${project.tracks.length} tracks · clip launcher`,                    color: '#f59e0b' },
+    { id: 'vst'         as const, icon: '⊕', label: 'Plugin Browser',sub: 'VST3 / AU / CLAP plugins',                                          color: '#ec4899' },
+    { id: 'routing'     as const, icon: '⊗', label: 'Routing Matrix',sub: 'Audio signal routing',                                              color: '#06b6d4' },
+    { id: 'ai-local'    as const, icon: '⊙', label: 'Local AI',      sub: 'Offline analysis · no cloud',                                       color: '#06b6d4' },
+    { id: 'performance' as const, icon: '⚙', label: 'Performance',   sub: 'Low PC / Studio / Live modes',                                      color: '#f59e0b' },
+    { id: 'export'      as const, icon: '⬇', label: 'Export Studio', sub: 'WAV · MP3 · FLAC · Stems',                                          color: '#10b981' },
+    { id: 'collab'       as const, icon: '⚯', label: 'Collaboration', sub: 'Live editing · Chat · Comments',                                   color: '#a855f7' },
+    { id: 'marketplace'  as const, icon: '⊞', label: 'Marketplace',   sub: 'Kicks · Presets · Templates · Packs',                              color: '#ec4899' },
+  ]
+
+  const totalClips = project.tracks.reduce((n, t) => n + t.clips.length, 0)
+
+  return (
+    <div className="h-full overflow-auto p-6" style={{ background: '#08080f' }}>
+      {/* Project header */}
+      <div className="mb-8">
+        <h1 className="text-xl font-bold mb-1" style={{ color: '#e2e8f0' }}>{project.name}</h1>
+        <p className="text-xs" style={{ color: '#475569' }}>
+          {project.bpm} BPM · {project.timeSignatureNumerator}/{project.timeSignatureDenominator} · {project.tracks.length} tracks
+        </p>
+      </div>
+
+      {/* Quick stats */}
+      <div className="grid grid-cols-4 gap-3 mb-8">
+        {[
+          { label: 'BPM',    value: String(project.bpm)                     },
+          { label: 'Tracks', value: String(project.tracks.length)           },
+          { label: 'Bars',   value: String(project.totalBars)               },
+          { label: 'Clips',  value: String(totalClips)                      },
+        ].map((stat, i) => (
+          <div
+            key={stat.label}
+            className="rounded-xl p-4"
+            style={{
+              background: '#0c0c14',
+              border: '1px solid #1c1c2e',
+              animation: `tileEnter 350ms cubic-bezier(0.34,1.56,0.64,1) ${i * 40}ms both`,
+            }}
+          >
+            <p
+              className="stat-value text-2xl font-bold font-mono"
+              style={{ color: '#e2e8f0', animationDelay: `${i * 40 + 80}ms` }}
+            >{stat.value}</p>
+            <p className="text-[10px] mt-0.5" style={{ color: '#475569' }}>{stat.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* View tiles */}
+      <p className="text-[10px] uppercase tracking-widest mb-3 font-semibold" style={{ color: '#334155' }}>Workspace</p>
+      <div className="grid grid-cols-3 gap-3">
+        {tiles.map((tile, i) => (
+          <button
+            key={tile.id}
+            onClick={() => setView(tile.id)}
+            className="dashboard-tile text-left rounded-xl p-4 gpu"
+            style={{
+              background: '#0c0c14',
+              border: '1px solid #1c1c2e',
+              animationDelay: `${i * 30}ms`,
+            }}
+            onMouseEnter={e => {
+              const el = e.currentTarget as HTMLElement
+              el.style.borderColor = `${tile.color}40`
+              el.style.boxShadow = `0 4px 20px ${tile.color}18`
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget as HTMLElement
+              el.style.borderColor = '#1c1c2e'
+              el.style.boxShadow = 'none'
+            }}
+          >
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3 text-base"
+              style={{ background: `${tile.color}18`, color: tile.color }}>
+              {tile.icon}
+            </div>
+            <p className="text-sm font-semibold mb-0.5" style={{ color: '#e2e8f0' }}>{tile.label}</p>
+            <p className="text-[10px]" style={{ color: '#475569' }}>{tile.sub}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── DAW Shell ────────────────────────────────────────────────────────────────
+
+function DAWShell() {
+  const { activeView, aiPanelOpen, shortcutsPanelOpen, toggleShortcutsPanel, welcomeOpen, closeWelcome } = useUIStore()
+  const { historyOpen, toggleHistory } = useSaveStore()
+  const [guideOpen, setGuideOpen]     = useState(false)
+
+  // Initialise auto-save engine + dirty tracking + keyboard shortcuts
+  useSaveSystem()
+  useNetworkStatus()
+  usePerformanceMode()
+
+  function renderView() {
+    const wrap = (name: string, el: React.ReactElement) => (
+      <SafeViewBoundary viewName={name}>{el}</SafeViewBoundary>
+    )
+    switch (activeView) {
+      // Arrangement uses the full 4-panel DawLayout
+      case 'arrangement': return wrap('DawLayout',           <DawLayout />)
+      case 'mixer':       return wrap('MixerView',           <MixerView />)
+      case 'pianoroll':   return wrap('PianoRollView',       <PianoRollView />)
+      case 'live':        return wrap('LiveMode',            <LiveMode />)
+      case 'vst':         return wrap('PluginBrowser',       <PluginBrowser />)
+      case 'routing':     return wrap('RoutingMatrix',       <RoutingMatrix />)
+      case 'ai-local':    return wrap('LocalAIPanel',        <LocalAIPanel />)
+      case 'performance': return wrap('PerformanceSelector', <PerformanceModeSelector />)
+      case 'export':      return wrap('ExportPanel',         <ExportPanel />)
+      case 'collab':      return wrap('CollabPanel',         <CollabPanel />)
+      case 'marketplace': return wrap('MarketplaceBrowser',  <MarketplaceBrowser />)
+      case 'dashboard':   return wrap('Dashboard',           <Dashboard />)
+      default:            return wrap('DawLayout',           <DawLayout />)
+    }
+  }
+
+  return (
+    <div className="flex flex-col h-full" style={{ background: '#08080f', overflow: 'hidden' }}>
+      <TitleBar />
+      <MainMenu />
+      <QuickActionsBar />
+      <TransportBar />
+
+      <div className="flex flex-1 min-h-0">
+        <Sidebar />
+
+        {/* Main content */}
+        <div className="flex flex-1 min-w-0 min-h-0">
+          <div className="flex-1 min-w-0 min-h-0 overflow-hidden" style={{ height: '100%' }}>
+            {/* key forces remount → CSS view-enter animation fires on each view switch */}
+            <div key={activeView} className="view-enter" style={{ height: '100%' }}>
+              {renderView()}
+            </div>
+          </div>
+
+          {/* AI panel — docked right */}
+          {aiPanelOpen && (
+            <div className="shrink-0 overflow-hidden" style={{ width: 340, borderLeft: '1px solid #1c1c2e' }}>
+              <AIAssistant />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <StatusBar />
+
+      {/* Snapshot history panel (slide-in from right) */}
+      {historyOpen && <SnapshotHistoryPanel onClose={toggleHistory} />}
+
+      {/* Shortcuts panel (F1 / menu Aide) */}
+      {shortcutsPanelOpen && <ShortcutsPanel onClose={toggleShortcutsPanel} />}
+
+      {/* User guide panel */}
+      {guideOpen && <UserGuidePanel onClose={() => setGuideOpen(false)} />}
+
+      {/* Welcome dashboard — opened via File → New Project */}
+      {welcomeOpen && (
+        <WelcomeDashboard onClose={closeWelcome} />
+      )}
+    </div>
+  )
+}
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
+
+// Apply saved performance mode before first render
+applyBootMode()
+bootLog.start('Neurotek Studio renderer')
+
+async function fetchSubscription() {
+  try {
+    const data = await apiGet<{ success: boolean; data: { plan: string; status: string; isActive: boolean; isPremium: boolean; expiresAt: number | null; daysRemaining: number | null } }>('/api/subscriptions/status')
+    if (data.success && data.data) {
+      useSubscriptionStore.getState().setSubscription(data.data)
+    }
+  } catch {
+    // fail silently — app works offline
+  }
+}
+
+export default function App() {
+  const [appReady, setAppReady] = useState(false)
+  const [token, setToken] = useState<string | null>(() => {
+    const stored = localStorage.getItem('token')
+    // Electron desktop app — auto-authenticate in local mode so the workspace
+    // is immediately visible without requiring cloud sign-in on first launch.
+    if (!stored && typeof window !== 'undefined' && (window as unknown as { electronAPI?: unknown }).electronAPI) {
+      localStorage.setItem('token', 'local')
+      return 'local'
+    }
+    return stored
+  })
+  const perfMode = usePerfMode()
+
+  // Start performance monitoring as early as possible
+  useEffect(() => {
+    const { monitoring, startMonitoring } = usePerfMonitorStore.getState()
+    if (!monitoring) startMonitoring()
+  }, [])
+
+  // Mark app as ready after a short boot window (stores init synchronously)
+  useEffect(() => {
+    const id = setTimeout(() => setAppReady(true), 800)
+    return () => clearTimeout(id)
+  }, [])
+
+  // Global Ctrl+, → open Settings
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === ',' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        useUIStore.getState().openSettings()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // Boot logging + auto DevTools in development
+  useEffect(() => {
+    bootLog.preload(typeof window !== 'undefined' && !!window.electronAPI)
+    bootLog.ok('App mounted')
+
+    // Log initial store states for startup diagnostics
+    const { project } = useProjectStore.getState()
+    bootLog.ok(`project loaded: "${project.name}" — ${project.tracks.length} tracks, ${project.bpm} BPM`)
+
+    const { mode, panelSizes } = useLayoutStore.getState()
+    bootLog.ok(`layout: mode=${mode} browser=${panelSizes.browserOpen} mixer=${panelSizes.mixerOpen} inspector=${panelSizes.inspectorOpen}`)
+
+    bootLog.ok(`activeView: ${useUIStore.getState().activeView}`)
+
+    if (import.meta.env.DEV) {
+      window.electronAPI?.debugOpenDevTools?.().catch?.(() => {})
+    }
+  }, [])
+
+  // Sync performance mode to DOM so performance.css selectors take effect
+  useEffect(() => {
+    document.body.dataset.perfMode = perfMode
+  }, [perfMode])
 
   // Drive transport position display via rAF (must run at root level)
   useTransportSync()
 
   useEffect(() => {
-    window.electronAPI?.onNav(v => setView(v as View))
-    return () => { window.electronAPI?.removeAllListeners('nav') }
+    window.electronAPI?.onNav(() => {})
+    return () => { window.electronAPI?.removeAllListeners?.('nav') }
   }, [])
 
-  if (!authenticated) {
-    return (
-      <div className="flex items-center justify-center h-full bg-studio-bg">
-        <div className="w-full max-w-sm p-8 rounded-2xl bg-studio-surface border border-studio-border">
-          <h1 className="text-2xl font-bold text-studio-text mb-2">Neurotek Studio</h1>
-          <p className="text-studio-muted text-sm mb-6">Sign in to continue</p>
-          <button
-            className="w-full py-2 px-4 bg-studio-purple hover:opacity-90 text-white rounded-lg font-medium transition-opacity"
-            onClick={() => setAuthenticated(true)}
-          >
-            Continue as Demo
-          </button>
-        </div>
-      </div>
-    )
-  }
+  // Fetch subscription status when user logs in (token changes from null to a value)
+  useEffect(() => {
+    if (token && token !== 'demo') {
+      void fetchSubscription()
+    } else if (!token) {
+      useSubscriptionStore.getState().reset()
+    }
+  }, [token])
 
+  const hasSeenWelcome = useOnboardingStore(s => s.hasSeenWelcome)
+
+  if (!token) return <LoginScreen onAuth={setToken} />
   return (
-    <div className="flex h-full bg-studio-bg text-studio-text">
-      {/* Sidebar */}
-      <nav className="w-14 flex flex-col items-center py-4 gap-3 bg-studio-surface border-r border-studio-border shrink-0">
-        {(
-          [
-            ['dashboard',   '⊞', 'Dashboard'],
-            ['pianoroll',   '♪', 'Piano Roll'],
-            ['arrangement', '≡', 'Arrangement'],
-            ['mixer',       '⊟', 'Mixer'],
-            ['ai',          '✦', 'AI Assistant'],
-            ['live',        '▶', 'Live'],
-            ['vst',         '⊕', 'VST'],
-            ['routing',     '⊗', 'Routing'],
-            ['cloud-sync',  '↑', 'Cloud Sync'],
-          ] as [View, string, string][]
-        ).map(([v, icon, label]) => (
-          <button
-            key={v}
-            title={label}
-            onClick={() => setView(v)}
-            className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg transition-colors
-              ${view === v ? 'bg-studio-purple text-white' : 'text-studio-muted hover:text-studio-text hover:bg-studio-border'}`}
-          >
-            {icon}
-          </button>
-        ))}
-      </nav>
-
-      {/* Main content */}
-      <main className="flex-1 overflow-hidden p-6">
-        <h2 className="text-xl font-semibold text-studio-text capitalize mb-4">
-          {view.replace('-', ' ')}
-        </h2>
-        <p className="text-studio-muted text-sm">
-          {view === 'dashboard'   && 'Welcome to Neurotek Studio. Your projects and recent activity appear here.'}
-          {view === 'pianoroll'   && 'Piano Roll — MIDI editor with velocity, quantize and multi-select.'}
-          {view === 'arrangement' && 'Arrangement Timeline — pattern-based sequencer with clip dragging.'}
-          {view === 'mixer'       && 'Mixer — per-track faders, mute/solo, send/return routing, master bus.'}
-          {view === 'ai'          && 'AI Assistant — text-to-pattern, chord suggestions, genre presets.'}
-          {view === 'live'        && 'Live Mode — clip launcher for live performance.'}
-          {view === 'vst'         && 'VST Plugins — scan and host VST2/VST3 plugins.'}
-          {view === 'routing'     && 'Audio Routing — configure sends, returns and sidechain routing.'}
-          {view === 'cloud-sync'  && 'Cloud Sync — sync projects across devices via your account.'}
-        </p>
-      </main>
-    </div>
+    <>
+      <SplashScreen ready={appReady} />
+      <UpdateBanner />
+      <DAWShell />
+      {/* Crash recovery dialog — rendered as overlay above DAWShell */}
+      <RecoveryDialog />
+      {/* Audio performance HUD — keyboard-triggered (Ctrl+Shift+P) */}
+      <AudioPerfHUD perfMonitor={AudioEngine.getInstance().getPerfMonitor()} />
+      {/* Full perf overlay — keyboard-triggered (F12) */}
+      <PerformanceOverlay />
+      {/* Onboarding wizard — shown on first launch */}
+      {!hasSeenWelcome && <OnboardingWelcome />}
+      {/* Settings modal — Ctrl+, or sidebar gear */}
+      <SettingsModal />
+      {/* Global toast notifications */}
+      <ToastContainer />
+    </>
   )
 }

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "savedAt": 1700000000000,
+  "appVersion": "1.0.0",
+  "project": { "name": "Test Project" },
+  "mixer": {
+    "buses": [
+      { "id": "master", "gainDb": 0, "panCenter": 0, "muted": false, "soloed": false }
+    ],
+    "channels": {}
+  },
+  "transport": {
+    "bpm": 120,
+    "timeSignatureTop": 4,
+    "timeSignatureBottom": 4,
+    "looping": false
+  },
+  "pianoRoll": { "notes": [] },
+  "midi": { "seqTracks": [], "drumPads": [] }
+}

@@ -1,0 +1,109 @@
+/* ================================================================
+   NEUROTEK AI — Official Design Token System
+   Brand identity: deep black + brand purple + neon cyan
+   ================================================================ */
+
+:root {
+  /* ── Brand Gradient (matches logo exactly) ─────────────────────── */
+  --nt-gradient:       linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #06b6d4 100%);
+  --nt-gradient-r:     linear-gradient(225deg, #7c3aed 0%, #a855f7 50%, #06b6d4 100%);
+  --nt-gradient-text:  linear-gradient(135deg, #a78bfa 0%, #c084fc 45%, #22d3ee 100%);
+  --nt-gradient-glow:  linear-gradient(135deg, rgba(124,58,237,0.5) 0%, rgba(168,85,247,0.3) 50%, rgba(6,182,212,0.4) 100%);
+
+  /* ── Purple Scale ─────────────────────────────────────────────────── */
+  --nt-purple-900: #3b0764;
+  --nt-purple-800: #4c1d95;
+  --nt-purple-700: #5b21b6;
+  --nt-purple-600: #7c3aed;   /* PRIMARY — logo color */
+  --nt-purple-500: #8b5cf6;   /* interactive default */
+  --nt-purple-400: #a78bfa;   /* text accents, light elements */
+  --nt-purple-300: #c4b5fd;
+  --nt-violet:     #a855f7;   /* logo gradient midpoint */
+
+  /* ── Cyan Scale ───────────────────────────────────────────────────── */
+  --nt-cyan-700:  #0e7490;
+  --nt-cyan-600:  #0891b2;
+  --nt-cyan-500:  #06b6d4;    /* PRIMARY */
+  --nt-cyan-400:  #22d3ee;    /* light variant */
+  --nt-cyan-300:  #67e8f9;
+
+  /* ── Background Scale ─────────────────────────────────────────────── */
+  --nt-bg-void:    #000000;   /* pure black — logo bg */
+  --nt-bg-base:    #05050a;   /* deepest */
+  --nt-bg-app:     #08080f;   /* main app */
+  --nt-bg-surface: #0c0c18;   /* panels */
+  --nt-bg-raised:  #101020;   /* elevated elements */
+  --nt-bg-overlay: #14142a;   /* modals, overlays */
+
+  /* ── Text Scale ───────────────────────────────────────────────────── */
+  --nt-text-hi:   #f8fafc;
+  --nt-text:      #e2e8f0;
+  --nt-text-md:   #cbd5e1;
+  --nt-text-lo:   #94a3b8;
+  --nt-muted:     #64748b;
+  --nt-dim:       #475569;
+  --nt-ghost:     #334155;
+  --nt-ink:       #1c1c2e;
+
+  /* ── Border Scale ─────────────────────────────────────────────────── */
+  --nt-border:          rgba(255,255,255,0.06);
+  --nt-border-md:       rgba(255,255,255,0.10);
+  --nt-border-hi:       rgba(255,255,255,0.16);
+  --nt-border-purple:   rgba(124,58,237,0.30);
+  --nt-border-purple-hi: rgba(124,58,237,0.55);
+  --nt-border-cyan:     rgba(6,182,212,0.25);
+
+  /* ── Glow Effects ─────────────────────────────────────────────────── */
+  --nt-glow-xs-purple:  0 0 8px rgba(124,58,237,0.30);
+  --nt-glow-sm-purple:  0 0 14px rgba(124,58,237,0.38);
+  --nt-glow-purple:     0 0 24px rgba(124,58,237,0.45);
+  --nt-glow-lg-purple:  0 0 40px rgba(124,58,237,0.35);
+  --nt-glow-xs-cyan:    0 0 8px rgba(6,182,212,0.25);
+  --nt-glow-sm-cyan:    0 0 14px rgba(6,182,212,0.30);
+  --nt-glow-cyan:       0 0 24px rgba(6,182,212,0.38);
+  --nt-glow-violet:     0 0 28px rgba(168,85,247,0.35);
+  --nt-glow-green:      0 0 14px rgba(16,185,129,0.40);
+  --nt-glow-amber:      0 0 14px rgba(245,158,11,0.35);
+  --nt-glow-red:        0 0 14px rgba(239,68,68,0.40);
+
+  /* ── Shadows ──────────────────────────────────────────────────────── */
+  --nt-shadow-sm:  0 2px 8px  rgba(0,0,0,0.35);
+  --nt-shadow-md:  0 4px 16px rgba(0,0,0,0.45);
+  --nt-shadow-lg:  0 8px 32px rgba(0,0,0,0.55);
+  --nt-shadow-xl:  0 16px 48px rgba(0,0,0,0.65);
+
+  /* ── Status ───────────────────────────────────────────────────────── */
+  --nt-green:  #10b981;
+  --nt-amber:  #f59e0b;
+  --nt-red:    #ef4444;
+  --nt-blue:   #3b82f6;
+
+  /* ── Border Radius ────────────────────────────────────────────────── */
+  --nt-r-xs:   3px;
+  --nt-r-sm:   6px;
+  --nt-r-md:   10px;
+  --nt-r-lg:   14px;
+  --nt-r-xl:   20px;
+  --nt-r-full: 9999px;
+
+  /* ── Spacing ──────────────────────────────────────────────────────── */
+  --nt-sp-1: 4px;
+  --nt-sp-2: 8px;
+  --nt-sp-3: 12px;
+  --nt-sp-4: 16px;
+  --nt-sp-6: 24px;
+  --nt-sp-8: 32px;
+  --nt-sp-12: 48px;
+
+  /* ── Animation ────────────────────────────────────────────────────── */
+  --nt-ease:        cubic-bezier(0.4, 0, 0.2, 1);
+  --nt-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --nt-ease-out:    cubic-bezier(0, 0, 0.2, 1);
+  --nt-dur-fast:    120ms;
+  --nt-dur-normal:  200ms;
+  --nt-dur-slow:    350ms;
+
+  /* ── Typography ───────────────────────────────────────────────────── */
+  --nt-font:      'Inter', system-ui, -apple-system, sans-serif;
+  --nt-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
