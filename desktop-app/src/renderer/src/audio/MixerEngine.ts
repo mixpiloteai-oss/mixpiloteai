@@ -139,56 +139,43 @@ export class MixerEngine {
 
     const ctx = this._ctx
 
-    // Duck GainNode inserted between target input and target gainNode.
-    // We do NOT re-wire the signal graph here; instead we modulate the target
-    // strip's gainNode gain parameter directly, which achieves ducking without
-    // a structural graph change.
+    // AnalyserNode reads RMS from the source's post-fader output.
+    // Polled via requestAnimationFrame (~16ms) — acceptable for ducking.
+    // Replaces the deprecated ScriptProcessorNode.
     const analyser = ctx.createAnalyser()
     analyser.fftSize               = 256
     analyser.smoothingTimeConstant = 0.1
-
-    // Connect source post-fader output (analyserL is the last node in ChannelStrip)
-    src.analyserL.connect(analyser)
-
-    // Use ScriptProcessorNode (deprecated but universally supported without
-    // AudioWorklet registration overhead) to poll RMS and apply gain reduction.
-    // bufferSize 256 gives ~5.8ms latency at 44.1 kHz — acceptable for ducking.
-    const bufSize = 256
-    // eslint-disable-next-line @typescript-eslint/no-deprecated
-    const scriptNode = ctx.createScriptProcessor(bufSize, 1, 1)
     const analyserBuf = new Float32Array(analyser.fftSize)
 
-    scriptNode.onaudioprocess = () => {
+    // Connect source post-fader output → analyser
+    src.analyserL.connect(analyser)
+
+    let rafId: number | null = null
+
+    const poll = () => {
       analyser.getFloatTimeDomainData(analyserBuf)
 
-      // Compute RMS
+      // Compute RMS over the last analysis frame
       let sumSq = 0
       for (let i = 0; i < analyserBuf.length; i++) sumSq += analyserBuf[i] * analyserBuf[i]
       const rms = Math.sqrt(sumSq / analyserBuf.length)
 
-      // Map RMS → gain reduction: at rms=1.0 the target gain is reduced by `amount`
-      const reduction  = Math.min(1, rms * 4)   // rms>0.25 triggers full duck
-      const duckGain   = 1 - amount * reduction
-      const now        = ctx.currentTime
-      dst.gainNode.gain.setTargetAtTime(duckGain, now, 0.005)
+      // Map RMS → gain reduction: rms > 0.25 triggers full duck
+      const reduction = Math.min(1, rms * 4)
+      const duckGain  = 1 - amount * reduction
+      dst.gainNode.gain.setTargetAtTime(duckGain, ctx.currentTime, 0.005)
+
+      rafId = requestAnimationFrame(poll)
     }
 
-    // ScriptProcessorNode must be connected to the audio graph to receive callbacks
-    analyser.connect(scriptNode)
-    // Route script node to a silent destination (required to keep it active)
-    const silentGain = ctx.createGain()
-    silentGain.gain.value = 0
-    scriptNode.connect(silentGain)
-    silentGain.connect(ctx.destination)
+    rafId = requestAnimationFrame(poll)
 
     // Cleanup closure
     const cleanup = () => {
-      scriptNode.onaudioprocess = null
-      try { src.analyserL.disconnect(analyser)  } catch { /* ok */ }
-      try { analyser.disconnect(scriptNode)      } catch { /* ok */ }
-      try { scriptNode.disconnect(silentGain)    } catch { /* ok */ }
-      try { silentGain.disconnect()              } catch { /* ok */ }
-      // Restore target gainNode to its stored gain value
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
+      try { src.analyserL.disconnect(analyser) } catch { /* ok */ }
+      try { analyser.disconnect()              } catch { /* ok */ }
+      // Restore target gainNode to its pre-sidechain gain value
       const storedGain = dBToLinear(dst['_gainDb'] as number ?? 0)
       dst.gainNode.gain.setTargetAtTime(storedGain, ctx.currentTime, 0.005)
     }

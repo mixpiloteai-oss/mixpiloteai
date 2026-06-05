@@ -49,9 +49,6 @@ export class ClipPlaybackCoordinator {
   // Notes currently sounding (for allNotesOff on flush)
   private _activeNoteIds: Map<string, { trackId: string; pitch: number }> = new Map()
 
-  // Pending timeouts for cancellation
-  private _pendingTimeouts: Set<ReturnType<typeof setTimeout>> = new Set()
-
   // Swing amount (0.0 = none, 0.5 = full triplet)
   private _swingAmount = 0
 
@@ -187,7 +184,10 @@ export class ClipPlaybackCoordinator {
     }
   }
 
-  /** Schedule a single note-on + note-off via setTimeout. */
+  /**
+   * Schedule note-on and note-off directly at AudioContext times.
+   * Both events are sample-accurate — no setTimeout involved.
+   */
   private _scheduleNote(
     node:     MidiTrackNode,
     trackId:  string,
@@ -196,41 +196,26 @@ export class ClipPlaybackCoordinator {
     velocity: number,
     onTime:   number,
     offTime:  number,
-    now:      number,
+    _now:     number,
   ): void {
-    const onDelayMs  = Math.max(0, (onTime  - now) * 1000)
-    const offDelayMs = Math.max(0, (offTime - now) * 1000)
-
     const activeKey = `${trackId}:${noteId}`
 
-    const tOn = setTimeout(() => {
-      node.noteOn(pitch, velocity)
-      this._activeNoteIds.set(activeKey, { trackId, pitch })
-      this._pendingTimeouts.delete(tOn)
-    }, onDelayMs)
+    // Sample-accurate: noteOn and noteOff both use AudioContext.currentTime scheduling.
+    // The oscillator starts at onTime, release envelope triggers at offTime.
+    node.noteOn(pitch, velocity, onTime)
+    this._activeNoteIds.set(activeKey, { trackId, pitch })
 
-    const tOff = setTimeout(() => {
-      node.noteOff(pitch)
-      this._activeNoteIds.delete(activeKey)
-      this._pendingTimeouts.delete(tOff)
-    }, offDelayMs)
-
-    // Store timeout IDs so we can cancel them on flush
-    this._pendingTimeouts.add(tOn)
-    this._pendingTimeouts.add(tOff)
+    node.noteOff(pitch, offTime)
+    this._activeNoteIds.delete(activeKey)
   }
 
-  /** Cancel all pending note events and send note-off to all active voices. */
+  /** Stop all active voices immediately (allNotesOff on all MIDI tracks). */
   private _flush(): void {
-    // Cancel all pending timeouts
-    for (const t of this._pendingTimeouts) clearTimeout(t)
-    this._pendingTimeouts.clear()
-
-    // Send note-off to all currently active voices
-    for (const [, { trackId, pitch }] of this._activeNoteIds) {
+    // allNotesOff on every known MIDI track — stops oscillators immediately
+    for (const [, { trackId }] of this._activeNoteIds) {
       const node = this.trackManager.getTrack(trackId)
       if (node instanceof MidiTrackNode) {
-        node.noteOff(pitch)
+        node.allNotesOff()
       }
     }
     this._activeNoteIds.clear()

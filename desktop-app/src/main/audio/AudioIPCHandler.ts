@@ -308,4 +308,21 @@ export function registerAudioIPCHandlers(ipcMain: IpcMain, getWindow: () => Brow
   })
 
   safeHandle(ipcMain, 'audio-query-devices', () => { proc.queryDevices(); return true })
+
+  // ── Device listing + latency ──────────────────────────────────────────
+
+  safeHandle(ipcMain, 'audio-get-latency', () => {
+    // Return driver-level latency info from the audio engine process.
+    // bufferSize and sampleRate are updated by the engine when it starts.
+    const status       = proc.getStatus()
+    const bufferFrames = status.bufferSize ?? 512
+    const sampleRate   = status.sampleRate  ?? 44100
+    const bufferMs     = (bufferFrames / sampleRate) * 1000
+    return {
+      bufferFrames,
+      sampleRate,
+      bufferMs,
+      estimatedRoundTripMs: bufferMs * 2 + 5,
+    }
+  })
 }

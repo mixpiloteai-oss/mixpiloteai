@@ -111,6 +111,8 @@ export const ipc = {
     api()?.audioSetSampleRate(rate) ?? resolveVoid(),
   audioQueryDevices: (): Promise<void> =>
     api()?.audioQueryDevices() ?? resolveVoid(),
+  audioGetLatency: (): Promise<{ bufferFrames: number; sampleRate: number; bufferMs: number; estimatedRoundTripMs: number }> =>
+    api()?.audioGetLatency() ?? Promise.resolve({ bufferFrames: 512, sampleRate: 44100, bufferMs: 11.6, estimatedRoundTripMs: 28.2 }),
 
   // ── File dialogs / file I/O ────────────────────────────────────────────────
   openFileDialog: (opts: unknown): Promise<string[] | null> =>

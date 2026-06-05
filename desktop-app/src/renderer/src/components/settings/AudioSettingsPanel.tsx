@@ -35,6 +35,13 @@ function latencyMs(bufferSize: number, sampleRate: number): string {
   return ((bufferSize / sampleRate) * 1000).toFixed(1)
 }
 
+interface LatencyInfo {
+  bufferFrames: number
+  sampleRate: number
+  bufferMs: number
+  estimatedRoundTripMs: number
+}
+
 export default function AudioSettingsPanel() {
   const [drivers,  setDrivers]  = useState<DriverInfo[]>([])
   const [devices,  setDevices]  = useState<DeviceInfo[]>([])
@@ -46,6 +53,7 @@ export default function AudioSettingsPanel() {
   })
   const [loading,  setLoading]  = useState(false)
   const [applying, setApplying] = useState(false)
+  const [realLatency, setRealLatency] = useState<LatencyInfo | null>(null)
 
   const detect = useCallback(async () => {
     setLoading(true)
@@ -70,6 +78,17 @@ export default function AudioSettingsPanel() {
         const best = driverArr.find(d => d.supported) ?? driverArr[0]
         setConfig(c => ({ ...c, driver: best.name }))
       }
+
+      // Fetch real latency from the audio engine process
+      try {
+        const lat = await ipc.audioGetLatency()
+        setRealLatency(lat)
+        setConfig(c => ({
+          ...c,
+          bufferSize: lat.bufferFrames || c.bufferSize,
+          sampleRate: lat.sampleRate   || c.sampleRate,
+        }))
+      } catch { /* latency info optional */ }
     } catch (err) {
       toast.error('Audio detect failed', err instanceof Error ? err.message : undefined)
     } finally {
@@ -206,12 +225,29 @@ export default function AudioSettingsPanel() {
         marginTop: 16, padding: '10px 14px', borderRadius: 8,
         background: '#0a0a0f', border: '1px solid #1c1c2e',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 11, color: '#475569' }}>Estimated round-trip latency</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#10b981', fontFamily: 'monospace' }}>
-            {latencyMs(config.bufferSize * 2, config.sampleRate)} ms
-          </span>
-        </div>
+        {realLatency ? (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 11, color: '#475569' }}>Reported round-trip latency</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#10b981', fontFamily: 'monospace' }}>
+                {realLatency.estimatedRoundTripMs.toFixed(1)} ms
+              </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+              <span style={{ fontSize: 10, color: '#334155' }}>Buffer size</span>
+              <span style={{ fontSize: 10, color: '#475569', fontFamily: 'monospace' }}>
+                {realLatency.bufferFrames} frames · {realLatency.bufferMs.toFixed(1)} ms · {realLatency.sampleRate / 1000} kHz
+              </span>
+            </div>
+          </>
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 11, color: '#475569' }}>Estimated round-trip latency</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#10b981', fontFamily: 'monospace' }}>
+              {latencyMs(config.bufferSize * 2, config.sampleRate)} ms
+            </span>
+          </div>
+        )}
         <p style={{ fontSize: 10, color: '#334155', marginTop: 4 }}>
           Changes take effect immediately. Restart recommended after driver switch.
         </p>

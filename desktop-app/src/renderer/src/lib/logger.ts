@@ -1,4 +1,4 @@
-const IS_DEV = import.meta.env.DEV === true
+const IS_DEV = import.meta.env?.DEV === true
 
 type Level = 'debug' | 'info' | 'warn' | 'error'
 

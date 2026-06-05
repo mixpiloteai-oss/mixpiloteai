@@ -77,6 +77,7 @@ interface ElectronAPI {
   audioSetBufferSize: (frames: number) => Promise<void>
   audioSetSampleRate: (rate: number) => Promise<void>
   audioQueryDevices: () => Promise<void>
+  audioGetLatency: () => Promise<{ bufferFrames: number; sampleRate: number; bufferMs: number; estimatedRoundTripMs: number }>
   openFileDialog: (opts: unknown) => Promise<string[] | null>
   saveFileDialog: (opts: unknown) => Promise<string | null>
   readFile: (p: string) => Promise<string | null>

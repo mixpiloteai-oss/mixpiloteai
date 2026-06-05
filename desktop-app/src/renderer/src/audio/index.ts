@@ -37,6 +37,10 @@ import { ClipPlaybackCoordinator }    from './ClipPlaybackCoordinator'
 import { AudioClipPlaybackEngine }    from './AudioClipPlaybackEngine'
 import { SpectrumAnalyzer }           from './SpectrumAnalyzer'
 import { LoudnessMeter }             from './meters/LoudnessMeter'
+import { MixerGraph }                from './MixerGraph'
+import { MixerEngine }               from './MixerEngine'
+import { LatencyMeasurement }        from './LatencyMeasurement'
+import { UnderrunDetector }          from './UnderrunDetector'
 import { useMixerStore }              from '../components/mixer/useMixerStore'
 import type { EQBand as StoreEQBand } from '../components/mixer/useMixerStore'
 import type { EQBand as DspEQBand }   from './EqChain'
@@ -58,6 +62,10 @@ let _coordinator:    ClipPlaybackCoordinator  | null = null
 let _audioClipEngine: AudioClipPlaybackEngine | null = null
 let _spectrumAnalyzer: SpectrumAnalyzer       | null = null
 let _loudnessMeter:   LoudnessMeter           | null = null
+let _mixerGraph:      MixerGraph              | null = null
+let _mixerEngine:     MixerEngine             | null = null
+let _latencyMeasurement: LatencyMeasurement   | null = null
+let _underrunDetector:   UnderrunDetector     | null = null
 
 // ─── Accessors ────────────────────────────────────────────────────────────────
 
@@ -187,6 +195,37 @@ export function getLoudnessMeter(): LoudnessMeter {
   return _loudnessMeter
 }
 
+export function getMixerEngine(): MixerEngine {
+  if (!_mixerEngine) _mixerEngine = MixerEngine.getInstance(getAudioEngine().ctx)
+  return _mixerEngine
+}
+
+export function getMixerGraph(): MixerGraph {
+  if (!_mixerGraph) {
+    _mixerGraph = new MixerGraph(
+      getAudioEngine(),
+      getTrackMixer(),
+      getBusRouter(),
+      getMixerEngine(),
+    )
+  }
+  return _mixerGraph
+}
+
+export function getLatencyMeasurement(): LatencyMeasurement {
+  if (!_latencyMeasurement) {
+    _latencyMeasurement = new LatencyMeasurement(getAudioEngine().ctx)
+  }
+  return _latencyMeasurement
+}
+
+export function getUnderrunDetector(): UnderrunDetector {
+  if (!_underrunDetector) {
+    _underrunDetector = new UnderrunDetector(getAudioEngine())
+  }
+  return _underrunDetector
+}
+
 // ─── EQ band type conversion ──────────────────────────────────────────────────
 
 /** Map mixer store EQ band type strings to Web Audio BiquadFilterType. */
@@ -302,6 +341,13 @@ export type { FrequencyBin }                    from './SpectrumAnalyzer'
 export { LoudnessMeter }                        from './meters/LoudnessMeter'
 export type { LoudnessMeasurement }             from './meters/LoudnessMeter'
 export { computePanGains }                      from './PanLaw'
+export { PlaybackScheduler }                    from './PlaybackScheduler'
+export type { SchedulerMetrics }                from './PlaybackScheduler'
+export { MixerGraph }                           from './MixerGraph'
+export type { TrackGainState }                  from './MixerGraph'
+export { LatencyMeasurement }                   from './LatencyMeasurement'
+export type { LatencyResult }                   from './LatencyMeasurement'
+export { UnderrunDetector }                     from './UnderrunDetector'
 export type { PanLawType, PanGains }            from './PanLaw'
 export { runAudioBenchmark }                    from './AudioPerformanceBenchmark'
 export type { BenchmarkResult }                 from './AudioPerformanceBenchmark'

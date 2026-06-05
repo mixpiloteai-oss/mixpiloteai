@@ -57,9 +57,6 @@ export class MidiTrackNode {
   private _attack     = 0.005
   private _release    = 0.1
 
-  // Scheduled note-offs for clip playback
-  private _noteOffTimeouts: Set<ReturnType<typeof setTimeout>> = new Set()
-
   private _analyserBuf: Float32Array<ArrayBuffer>
   private _peakHold    = 0
   private _peakTime    = 0
@@ -142,35 +139,49 @@ export class MidiTrackNode {
 
   // ── Real-time MIDI ────────────────────────────────────────────────────────
 
-  noteOn(pitch: number, velocity: number): void {
-    this.noteOff(pitch)  // kill any existing voice on this pitch
+  /**
+   * Trigger a note-on. When scheduledTime is provided (AudioContext seconds),
+   * the oscillator starts and the attack envelope begins at that exact sample.
+   * Without scheduledTime, starts immediately at ctx.currentTime.
+   */
+  noteOn(pitch: number, velocity: number, scheduledTime?: number): void {
+    this.noteOff(pitch, scheduledTime)  // cancel any existing voice on this pitch
 
     const ctx       = this.engine.ctx
+    const at        = scheduledTime ?? ctx.currentTime
     const freq      = 440 * Math.pow(2, (pitch - 69) / 12)
     const ampTarget = (velocity / 127) * 0.6
 
     const osc      = ctx.createOscillator()
     const envGain  = ctx.createGain()
 
-    osc.type      = this._waveform
-    osc.frequency.value = freq
-    envGain.gain.value  = 0
+    osc.type             = this._waveform
+    osc.frequency.value  = freq
+    envGain.gain.value   = 0
 
     osc.connect(envGain)
     envGain.connect(this.synthInput)
-    osc.start()
 
-    envGain.gain.setTargetAtTime(ampTarget, ctx.currentTime, this._attack)
+    // Sample-accurate start at scheduled AudioContext time
+    osc.start(at)
+    envGain.gain.setValueAtTime(0, at)
+    envGain.gain.setTargetAtTime(ampTarget, at, this._attack)
 
     this._voices.set(pitch, { pitch, osc, envGain })
   }
 
-  noteOff(pitch: number): void {
+  /**
+   * Trigger a note-off. When scheduledTime is provided, the release envelope
+   * is scheduled at that exact AudioContext time rather than immediately.
+   */
+  noteOff(pitch: number, scheduledTime?: number): void {
     const voice = this._voices.get(pitch)
     if (!voice) return
     const ctx   = this.engine.ctx
-    voice.envGain.gain.setTargetAtTime(0, ctx.currentTime, this._release * 0.4)
-    const stopAt = ctx.currentTime + this._release * 2
+    // Clamp to at least ctx.currentTime so we don't schedule in the past
+    const at    = Math.max(ctx.currentTime, scheduledTime ?? ctx.currentTime)
+    voice.envGain.gain.setTargetAtTime(0, at, this._release * 0.4)
+    const stopAt = at + this._release * 2
     voice.osc.stop(stopAt)
     voice.osc.onended = () => {
       voice.osc.disconnect()
@@ -180,16 +191,16 @@ export class MidiTrackNode {
   }
 
   allNotesOff(): void {
+    // Cancel all scheduled notes immediately
     for (const pitch of [...this._voices.keys()]) this.noteOff(pitch)
-    for (const t of this._noteOffTimeouts) clearTimeout(t)
-    this._noteOffTimeouts.clear()
+    this._voices.clear()
   }
 
   // ── Clip scheduling ───────────────────────────────────────────────────────
 
   /**
-   * Schedule a set of MIDI notes for playback.
-   * All times are in seconds relative to AudioContext.currentTime.
+   * Schedule a set of MIDI notes using sample-accurate AudioContext timing.
+   * Both note-on and note-off are scheduled via AudioContext times — no setTimeout.
    */
   scheduleNotes(notes: MidiNote[], clipStartContextTime: number, bpm: number): void {
     const spb = 60 / bpm
@@ -201,21 +212,9 @@ export class MidiTrackNode {
 
       if (offTime < now) continue  // already passed
 
-      const onDelay  = Math.max(0, (onTime  - now) * 1000)
-      const offDelay = Math.max(0, (offTime - now) * 1000)
-
-      const tOn = setTimeout(() => {
-        this.noteOn(note.pitch, note.velocity)
-        this._noteOffTimeouts.delete(tOn)
-      }, onDelay)
-
-      const tOff = setTimeout(() => {
-        this.noteOff(note.pitch)
-        this._noteOffTimeouts.delete(tOff)
-      }, offDelay)
-
-      this._noteOffTimeouts.add(tOn)
-      this._noteOffTimeouts.add(tOff)
+      // Schedule both on and off directly via AudioContext — fully sample-accurate
+      this.noteOn(note.pitch, note.velocity, onTime)
+      this.noteOff(note.pitch, offTime)
     }
   }
 
