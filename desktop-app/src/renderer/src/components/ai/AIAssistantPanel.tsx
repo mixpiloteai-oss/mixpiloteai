@@ -10,6 +10,8 @@ const SUGGESTED_COMMANDS = [
   'ajoute une montée',
   'rends la basse plus agressive',
   'fais un drop',
+  'génère hardtek',
+  'create hardtek kick',
   'analyse le projet',
 ] as const
 
