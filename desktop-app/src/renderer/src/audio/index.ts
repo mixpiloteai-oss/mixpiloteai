@@ -32,9 +32,11 @@ import { LatencyCompensator }         from './LatencyCompensator'
 import { MonitorEngine }              from './MonitorEngine'
 import { TrackManager }               from './tracks/TrackManager'
 import { AudioTrackNode }             from './tracks/AudioTrackNode'
+import { MidiTrackNode }             from './tracks/MidiTrackNode'
 import { ClipPlaybackCoordinator }    from './ClipPlaybackCoordinator'
 import { AudioClipPlaybackEngine }    from './AudioClipPlaybackEngine'
 import { SpectrumAnalyzer }           from './SpectrumAnalyzer'
+import { LoudnessMeter }             from './meters/LoudnessMeter'
 import { useMixerStore }              from '../components/mixer/useMixerStore'
 import type { EQBand as StoreEQBand } from '../components/mixer/useMixerStore'
 import type { EQBand as DspEQBand }   from './EqChain'
@@ -55,6 +57,7 @@ let _trackMgr:       TrackManager             | null = null
 let _coordinator:    ClipPlaybackCoordinator  | null = null
 let _audioClipEngine: AudioClipPlaybackEngine | null = null
 let _spectrumAnalyzer: SpectrumAnalyzer       | null = null
+let _loudnessMeter:   LoudnessMeter           | null = null
 
 // ─── Accessors ────────────────────────────────────────────────────────────────
 
@@ -172,6 +175,18 @@ export function getSpectrumAnalyzer(): SpectrumAnalyzer {
   return _spectrumAnalyzer
 }
 
+/**
+ * Returns the singleton LoudnessMeter for the master bus.
+ * The meter reads from the master analyser node's time-domain data.
+ * Call startRealtime() on the returned instance to begin metering.
+ */
+export function getLoudnessMeter(): LoudnessMeter {
+  if (!_loudnessMeter) {
+    _loudnessMeter = new LoudnessMeter()
+  }
+  return _loudnessMeter
+}
+
 // ─── EQ band type conversion ──────────────────────────────────────────────────
 
 /** Map mixer store EQ band type strings to Web Audio BiquadFilterType. */
@@ -197,28 +212,43 @@ function storeToEqBands(storeBands: StoreEQBand[]): DspEQBand[] {
   }))
 }
 
-// ─── Mixer store → EQ subscription ───────────────────────────────────────────
+// ─── Mixer store → EQ + Compressor subscription ──────────────────────────────
 
 let _mixerUnsub: (() => void) | null = null
 
 function _wireMixerStoreToEq(): void {
   if (_mixerUnsub) return  // already subscribed
 
-  // Only re-run when the channels object reference changes (EQ/FX edits)
+  // Only re-run when the channels object reference changes (EQ/FX/compressor edits)
   _mixerUnsub = useMixerStore.subscribe((state, prev) => {
     if (state.channels === prev.channels) return
     const tm = _trackMgr
     if (!tm) return
     for (const [trackId, ch] of Object.entries(state.channels)) {
       const node = tm.getTrack(trackId)
-      if (!(node instanceof AudioTrackNode)) continue
-      node.eq.update(storeToEqBands(ch.eqBands))
-      node.eq.setEnabled(ch.eqEnabled)
+
+      // EQ sync (AudioTrackNode only — MidiTrackNode has no EqChain)
+      if (node instanceof AudioTrackNode) {
+        node.eq.update(storeToEqBands(ch.eqBands))
+        node.eq.setEnabled(ch.eqEnabled)
+      }
+
+      // Compressor sync (AudioTrackNode and MidiTrackNode)
+      if (node instanceof AudioTrackNode || node instanceof MidiTrackNode) {
+        node.setCompressor({
+          enabled:   ch.compressor.enabled,
+          threshold: ch.compressor.threshold,
+          ratio:     ch.compressor.ratio,
+          attack:    ch.compressor.attack,
+          release:   ch.compressor.release,
+          knee:      ch.compressor.knee,
+        })
+      }
     }
   })
 }
 
-/** Tear down the mixer-store→EQ subscription (call on engine reset). */
+/** Tear down the mixer-store→EQ/compressor subscription (call on engine reset). */
 export function disposeEqSubscription(): void {
   _mixerUnsub?.()
   _mixerUnsub = null
@@ -269,6 +299,8 @@ export { ClipPlaybackCoordinator, PreviewScheduler } from './ClipPlaybackCoordin
 export { AudioClipPlaybackEngine }              from './AudioClipPlaybackEngine'
 export { SpectrumAnalyzer }                     from './SpectrumAnalyzer'
 export type { FrequencyBin }                    from './SpectrumAnalyzer'
+export { LoudnessMeter }                        from './meters/LoudnessMeter'
+export type { LoudnessMeasurement }             from './meters/LoudnessMeter'
 export { computePanGains }                      from './PanLaw'
 export type { PanLawType, PanGains }            from './PanLaw'
 export { runAudioBenchmark }                    from './AudioPerformanceBenchmark'
