@@ -9,25 +9,14 @@ import { ClipContextMenu } from '../context-menu/ClipContextMenu'
 import { TimelineContextMenu } from '../context-menu/TimelineContextMenu'
 import type { Clip, Track } from '../../types/project'
 import { undoableDuplicateClips } from '../../store/undoableActions'
+import { WaveformCache, type WaveformPeaks } from '../../audio/editor/WaveformCache'
+import { getWaveformLoader } from '../../audio/index'
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
   headerWidth: number
   rulerHeight: number
-}
-
-// ─── LCG seeded noise for waveform ────────────────────────────────────────────
-
-function lcgRand(seed: number): { value: number; next: number } {
-  const next = ((seed * 1664525 + 1013904223) | 0) >>> 0
-  return { value: next / 0xffffffff, next }
-}
-
-function clipSeed(clipId: string): number {
-  let s = 0
-  for (let i = 0; i < clipId.length; i++) s = ((s * 31 + clipId.charCodeAt(i)) | 0) >>> 0
-  return s || 1
 }
 
 // ─── Viewport culling ──────────────────────────────────────────────────────────
@@ -109,6 +98,37 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
   const inertiaRafRef= useRef(0)
   const inertiaVRef  = useRef({ vx: 0, vy: 0 })
   const snapLineRef  = useRef<number | null>(null)
+
+  // ── Waveform peak cache ──────────────────────────────────────────────────────
+  // keyed by clipId — maps to pre-computed min/max peaks for this clip's audio
+  const waveformCacheRef  = useRef(new WaveformCache())
+  // keyed by clipId — tracks which clips are currently loading (prevents duplicate fetches)
+  const waveformLoadingRef = useRef(new Set<string>())
+
+  const loadClipWaveform = useCallback((clip: Clip): void => {
+    if (!clip.audioFilePath) return
+    const cacheKey = waveformCacheRef.current.cacheKey(clip.id, 1)
+    if (waveformCacheRef.current.get(cacheKey) !== undefined) return
+    if (waveformLoadingRef.current.has(clip.id)) return
+    waveformLoadingRef.current.add(clip.id)
+
+    getWaveformLoader().load(clip.audioFilePath).then(audioBuffer => {
+      if (!audioBuffer) return
+      // Mix all channels down to mono
+      const length = audioBuffer.length
+      const mono = new Float32Array(length)
+      const nCh = audioBuffer.numberOfChannels
+      for (let ch = 0; ch < nCh; ch++) {
+        const chData = audioBuffer.getChannelData(ch)
+        for (let i = 0; i < length; i++) mono[i] += chData[i] / nCh
+      }
+      // 1 sample per stored "pixel unit" — actual px mapping happens at draw time
+      const peaks = waveformCacheRef.current.computePeaks(mono, 1)
+      waveformCacheRef.current.set(cacheKey, peaks)
+    }).catch(() => {}).finally(() => {
+      waveformLoadingRef.current.delete(clip.id)
+    })
+  }, [])
 
   // ── Context menu state ───────────────────────────────────────────────────────
   type CtxMenuState =
@@ -364,15 +384,41 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
           // Content
           if (clipW > 20) {
             if (track.type === 'audio') {
-              const barCount = Math.floor(clipW / 3)
-              let seed = clipSeed(clip.id)
-              ctx.fillStyle = isMuted ? clip.color + '20' : clip.color + '55'
-              const centerY = clipY + clipH / 2
-              const maxAmp  = (clipH - 8) / 2
-              for (let b = 0; b < barCount; b++) {
-                const res = lcgRand(seed); seed = res.next
-                const amp = res.value * maxAmp
-                ctx.fillRect(clipX + 3 + b * 3, centerY - amp, 2, amp * 2)
+              const cacheKey = waveformCacheRef.current.cacheKey(clip.id, 1)
+              const peaks: WaveformPeaks | undefined = waveformCacheRef.current.get(cacheKey)
+
+              if (peaks) {
+                // Render real min/max waveform
+                const centerY = clipY + clipH / 2
+                const halfH   = (clipH - 8) / 2
+                const colorPos = isMuted ? clip.color + '40' : clip.color + '88'
+                const colorNeg = isMuted ? clip.color + '25' : clip.color + '55'
+                const totalSamples = peaks.max.length
+                for (let px = 0; px < clipW - 6; px++) {
+                  const sampleIdx = Math.floor((px / (clipW - 6)) * totalSamples)
+                  if (sampleIdx >= totalSamples) break
+                  const maxVal = peaks.max[sampleIdx] ?? 0
+                  const minVal = peaks.min[sampleIdx] ?? 0
+                  const yTop    = centerY - maxVal * halfH
+                  const yBottom = centerY - minVal * halfH
+                  const h = Math.max(1, yBottom - yTop)
+                  // Positive half
+                  if (maxVal > 0) {
+                    ctx.fillStyle = colorPos
+                    ctx.fillRect(clipX + 3 + px, yTop, 1, Math.max(1, centerY - yTop))
+                  }
+                  // Negative half
+                  if (minVal < 0) {
+                    ctx.fillStyle = colorNeg
+                    ctx.fillRect(clipX + 3 + px, centerY, 1, Math.max(1, yBottom - centerY))
+                  }
+                  void h
+                }
+              } else {
+                // Not loaded yet — show placeholder and trigger async load
+                loadClipWaveform(clip)
+                ctx.fillStyle = isMuted ? clip.color + '15' : clip.color + '30'
+                ctx.fillRect(clipX + 3, clipY + clipH / 2 - 1, clipW - 6, 2)
               }
             } else if (track.type === 'midi' && clip.notes.length > 0) {
               const noteAreaY = clipY + 4
@@ -995,6 +1041,38 @@ export default function ArrangementCanvas({ headerWidth: _headerWidth, rulerHeig
     } else if (e.key === 'r' && !e.ctrlKey && !e.metaKey) {
       e.preventDefault()
       useArrangementViewStore.getState().toggleRippleEdit()
+    } else if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+      e.preventDefault()
+      if (selectedClipIds.size > 0) {
+        const clipEntries: Array<{ clip: Clip; trackId: string }> = []
+        for (const track of project.tracks) {
+          for (const clip of track.clips) {
+            if (selectedClipIds.has(clip.id)) {
+              clipEntries.push({ clip, trackId: track.id })
+            }
+          }
+        }
+        if (clipEntries.length > 0) useArrangementViewStore.getState().copyClips(clipEntries)
+      }
+    } else if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+      e.preventDefault()
+      const { clipboard } = viewStoreRef.current
+      if (clipboard && clipboard.clips.length > 0) {
+        const pasteBar = Math.max(1, Math.round(positionBar))
+        const offset = pasteBar - clipboard.minStartBar
+        const newClipIds: string[] = []
+        for (const { clip, trackId } of clipboard.clips) {
+          const newClip: Clip = {
+            ...clip,
+            id: `${clip.id}-paste-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            trackId,
+            startBar: Math.max(1, clip.startBar + offset),
+          }
+          useProjectStore.getState().addClip(newClip)
+          newClipIds.push(newClip.id)
+        }
+        useArrangementViewStore.getState().selectClips(newClipIds)
+      }
     } else if (e.key === ' ') {
       e.preventDefault()
       if (playing) useTransportStore.getState().stop()

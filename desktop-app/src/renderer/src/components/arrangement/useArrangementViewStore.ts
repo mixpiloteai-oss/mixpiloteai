@@ -1,9 +1,15 @@
 import { create } from 'zustand'
 import type { StoreApi, UseBoundStore } from 'zustand'
 import type { AutomationMode } from '../../audio/AutomationEngine'
+import type { Clip } from '../../types/project'
 
 export type ARTool = 'pointer' | 'pencil' | 'split' | 'erase'
 export type ARSnap = 'off' | '1/32' | '1/16' | '1/8' | '1/4' | '1/2' | '1/1' | '2/1' | '4/1'
+
+export interface ClipboardEntry {
+  clips: Array<{ clip: Clip; trackId: string }>
+  minStartBar: number   // smallest startBar in the copied set (used as paste anchor)
+}
 
 export interface ARViewState {
   tool: ARTool
@@ -18,6 +24,7 @@ export interface ARViewState {
   automationMode: AutomationMode
   showAutomation: boolean
   expandedAutomationTracks: Set<string>
+  clipboard: ClipboardEntry | null
 }
 
 export interface ARViewActions {
@@ -37,6 +44,8 @@ export interface ARViewActions {
   setAutomationMode(mode: AutomationMode): void
   toggleShowAutomation(): void
   toggleAutomationTrack(trackId: string): void
+  copyClips(clips: Array<{ clip: Clip; trackId: string }>): void
+  clearClipboard(): void
 }
 
 export const useArrangementViewStore: UseBoundStore<StoreApi<ARViewState & ARViewActions>> =
@@ -52,6 +61,7 @@ export const useArrangementViewStore: UseBoundStore<StoreApi<ARViewState & ARVie
     automationMode: 'read',
     showAutomation: false,
     expandedAutomationTracks: new Set<string>(),
+    clipboard: null,
     markers: [
       { id: 'm1', bar:  1, label: 'Intro',  color: '#f59e0b' },
       { id: 'm2', bar:  9, label: 'Drop',   color: '#06b6d4' },
@@ -100,4 +110,11 @@ export const useArrangementViewStore: UseBoundStore<StoreApi<ARViewState & ARVie
       else next.add(trackId)
       return { expandedAutomationTracks: next }
     }),
+    copyClips: (clips) => set({
+      clipboard: {
+        clips,
+        minStartBar: clips.reduce((min, { clip }) => Math.min(min, clip.startBar), Infinity),
+      },
+    }),
+    clearClipboard: () => set({ clipboard: null }),
   }))
