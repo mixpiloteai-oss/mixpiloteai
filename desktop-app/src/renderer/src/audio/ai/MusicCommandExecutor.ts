@@ -10,13 +10,23 @@ import {
   generateHihatPattern,
   generateBuildup,
   generateDrop,
+  generateHardtekKick,
+  generateHardtekBass,
+  generateHardtekHihat,
+  generateHardtekFull,
 } from './PatternGenerator'
 
 export interface ExecutionResult {
-  success:  boolean
-  message:  string           // human-readable description (FR)
-  changes:  CommandChange[]
-  warnings: string[]
+  success:     boolean
+  message:     string           // human-readable description (FR)
+  changes:     CommandChange[]
+  warnings:    string[]
+  /** MIDI notes produced by this result, if any. */
+  notes?:      MidiNote[]
+  /** Logical pattern type: 'kick' | 'bass' | 'hihat' | 'buildup' | 'drop' etc. */
+  patternType?: string
+  /** Suggested track name for insertion. */
+  trackName?:  string
 }
 
 export interface CommandChange {
@@ -48,9 +58,69 @@ export function applyHumanization(notes: MidiNote[], amount: number): MidiNote[]
  * Returns a structured result describing what should be done.
  * Does NOT mutate state directly.
  */
+/**
+ * Handle hardtek/mentalcore-specific pattern commands.
+ * Detected by raw text keyword match before the main intent switch.
+ */
+export function executeHardtekCommand(
+  raw: string,
+  analysis: ProjectAnalysis,
+): ExecutionResult | null {
+  const t    = raw.toLowerCase()
+  const bars = analysis.loopLength > 0 ? Math.min(4, analysis.loopLength) : 4
+
+  // Detect subtype: kick / bass / hihat / full (default)
+  let pattern
+  let patternType: string
+  let trackName: string
+
+  if (/(kick|grosse caisse)/.test(t)) {
+    pattern     = generateHardtekKick(bars)
+    patternType = 'kick'
+    trackName   = 'AI Hardtek Kick'
+  } else if (/(bass|basse)/.test(t)) {
+    pattern     = generateHardtekBass(bars)
+    patternType = 'bass'
+    trackName   = 'AI Hardtek Bass'
+  } else if (/(hat|hihat|cymbale)/.test(t)) {
+    pattern     = generateHardtekHihat(bars)
+    patternType = 'hihat'
+    trackName   = 'AI Hardtek Hihat'
+  } else {
+    pattern     = generateHardtekFull(bars)
+    patternType = 'full'
+    trackName   = 'AI Hardtek Full'
+  }
+
+  const midiNotes: MidiNote[] = pattern.notes.map((n, i) => ({
+    id:          `ai-note-${Date.now()}-${i}`,
+    pitch:       n.pitch,
+    startBeat:   n.startBeat,
+    lengthBeats: n.lengthBeats,
+    velocity:    n.velocity,
+  }))
+
+  return {
+    success:     true,
+    message:     `Pattern hardtek "${pattern.name}" généré avec ${pattern.notes.length} notes sur ${bars} bars. Style: 160+ BPM, kicks accentués, basse distorsée.`,
+    changes:     [{ type: 'add_notes', detail: `${pattern.notes.length} notes — ${pattern.name}` }],
+    warnings:    [],
+    notes:       midiNotes,
+    patternType,
+    trackName,
+  }
+}
+
 export function executeCommand(cmd: ParsedCommand, analysis: ProjectAnalysis): ExecutionResult {
   const changes:  CommandChange[] = []
   const warnings: string[]        = []
+
+  // Hardtek / mentalcore: check raw text before standard intent dispatch
+  const rawLower = cmd.raw.toLowerCase()
+  if (/(hardtek|hard tek|mentalcore|mental core|hard core hardcore)/.test(rawLower)) {
+    const result = executeHardtekCommand(cmd.raw, analysis)
+    if (result) return result
+  }
 
   switch (cmd.intent) {
     case 'generate_pattern': {
@@ -70,16 +140,28 @@ export function executeCommand(cmd: ParsedCommand, analysis: ProjectAnalysis): E
         warnings.push(`Cible "${target}" non reconnue, génération d'un kick par défaut.`)
       }
 
+      // Convert GeneratedNote[] → MidiNote[] for project insertion
+      const midiNotes: MidiNote[] = pattern.notes.map((n, i) => ({
+        id:          `ai-note-${Date.now()}-${i}`,
+        pitch:       n.pitch,
+        startBeat:   n.startBeat,
+        lengthBeats: n.lengthBeats,
+        velocity:    n.velocity,
+      }))
+
       changes.push({
         type:   'add_notes',
         detail: `Généré ${pattern.notes.length} notes — pattern "${pattern.name}" (${bars} bars)`,
       })
 
       return {
-        success: true,
-        message: `Pattern ${pattern.name} généré avec ${pattern.notes.length} notes en style ${style}.`,
+        success:     true,
+        message:     `Pattern ${pattern.name} généré avec ${pattern.notes.length} notes en style ${style}.`,
         changes,
         warnings,
+        notes:       midiNotes,
+        patternType: target,
+        trackName:   `AI ${target.charAt(0).toUpperCase() + target.slice(1)}`,
       }
     }
 
@@ -87,16 +169,27 @@ export function executeCommand(cmd: ParsedCommand, analysis: ProjectAnalysis): E
       const bars    = analysis.loopLength > 0 ? Math.min(4, analysis.loopLength) : 4
       const pattern = generateBuildup(bars)
 
+      const midiNotes: MidiNote[] = pattern.notes.map((n, i) => ({
+        id:          `ai-note-${Date.now()}-${i}`,
+        pitch:       n.pitch,
+        startBeat:   n.startBeat,
+        lengthBeats: n.lengthBeats,
+        velocity:    n.velocity,
+      }))
+
       changes.push({
         type:   'add_notes',
         detail: `Montée générée: ${pattern.notes.length} notes sur ${bars} bars`,
       })
 
       return {
-        success: true,
-        message: `Montée générée sur ${bars} bars avec crescendo de vélocité 60→127.`,
+        success:     true,
+        message:     `Montée générée sur ${bars} bars avec crescendo de vélocité 60→127.`,
         changes,
         warnings,
+        notes:       midiNotes,
+        patternType: 'buildup',
+        trackName:   'AI Buildup',
       }
     }
 
@@ -104,16 +197,27 @@ export function executeCommand(cmd: ParsedCommand, analysis: ProjectAnalysis): E
       const bars    = analysis.loopLength > 0 ? Math.min(4, analysis.loopLength) : 4
       const pattern = generateDrop(bars)
 
+      const midiNotes: MidiNote[] = pattern.notes.map((n, i) => ({
+        id:          `ai-note-${Date.now()}-${i}`,
+        pitch:       n.pitch,
+        startBeat:   n.startBeat,
+        lengthBeats: n.lengthBeats,
+        velocity:    n.velocity,
+      }))
+
       changes.push({
         type:   'add_notes',
         detail: `Drop généré: ${pattern.notes.length} notes sur ${bars} bars`,
       })
 
       return {
-        success: true,
-        message: `Drop généré: silence en bar 1 puis kicks à pleine vélocité sur ${bars - 1} bars.`,
+        success:     true,
+        message:     `Drop généré: silence en bar 1 puis kicks à pleine vélocité sur ${bars - 1} bars.`,
         changes,
         warnings,
+        notes:       midiNotes,
+        patternType: 'drop',
+        trackName:   'AI Drop',
       }
     }
 
