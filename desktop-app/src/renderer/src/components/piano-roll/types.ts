@@ -55,6 +55,12 @@ export function snapCeil(beat: number, grid: SnapGrid): number {
   return s === 0 ? beat : Math.ceil(beat / s) * s
 }
 
+export interface AutomationPoint {
+  id: string
+  beat: number   // x-axis: beat position
+  value: number  // y-axis: within param.min..param.max
+}
+
 export type AutomationParam = {
   id: string
   label: string
@@ -63,14 +69,15 @@ export type AutomationParam = {
   defaultValue: number
   color: string
   visible: boolean
+  points: AutomationPoint[]
 }
 
 export const DEFAULT_AUTO_PARAMS: AutomationParam[] = [
-  { id: 'volume',   label: 'Volume',       min: 0,    max: 127, defaultValue: 100, color: '#06b6d4', visible: false },
-  { id: 'pan',      label: 'Pan',          min: -64,  max: 64,  defaultValue: 0,   color: '#a855f7', visible: false },
-  { id: 'pitch',    label: 'Pitch Bend',   min: -8192, max: 8191, defaultValue: 0, color: '#f59e0b', visible: false },
-  { id: 'filter',   label: 'Filter Cutoff',min: 0,    max: 127, defaultValue: 64,  color: '#10b981', visible: false },
-  { id: 'resonance',label: 'Resonance',    min: 0,    max: 127, defaultValue: 0,   color: '#ec4899', visible: false },
+  { id: 'volume',   label: 'Volume',       min: 0,    max: 127, defaultValue: 100, color: '#06b6d4', visible: false, points: [] },
+  { id: 'pan',      label: 'Pan',          min: -64,  max: 64,  defaultValue: 0,   color: '#a855f7', visible: false, points: [] },
+  { id: 'pitch',    label: 'Pitch Bend',   min: -8192, max: 8191, defaultValue: 0, color: '#f59e0b', visible: false, points: [] },
+  { id: 'filter',   label: 'Filter Cutoff',min: 0,    max: 127, defaultValue: 64,  color: '#10b981', visible: false, points: [] },
+  { id: 'resonance',label: 'Resonance',    min: 0,    max: 127, defaultValue: 0,   color: '#ec4899', visible: false, points: [] },
 ]
 
 // ─── Scale / Mode types (mirrored from musicTheory for use inside piano-roll) ─
