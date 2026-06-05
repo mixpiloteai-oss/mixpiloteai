@@ -1,16 +1,61 @@
 // ─── MasterStripUI.tsx ────────────────────────────────────────────────────────
 // Standalone master channel strip component.
 
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useMixerStore } from './useMixerStore'
 import { MeterBar }      from './MeterBar'
 import { useTrackLevel } from '../../hooks/useTrackLevel'
+import { getAudioEngine, getLoudnessMeter } from '../../audio'
+import type { LoudnessMeasurement } from '../../audio'
+
+const LUFS_INIT: LoudnessMeasurement = {
+  momentary:  -Infinity,
+  shortTerm:  -Infinity,
+  integrated: -Infinity,
+  range:      0,
+  truePeak:   -Infinity,
+}
+
+function fmtLufs(v: number): string {
+  return isFinite(v) ? v.toFixed(1) : '-∞'
+}
+
+function fmtTp(v: number): string {
+  return isFinite(v) ? v.toFixed(1) : '-∞'
+}
 
 export const MasterStripUI: React.FC = () => {
   const { masterLimiter, masterLimiterThreshold, setMasterLimiter, setMasterLimiterThreshold } = useMixerStore()
-  // Use master bus level ('master' is the master bus id by convention)
   const level = useTrackLevel?.('master') ?? { rms: 0, peak: 0, dbfs: -Infinity }
-  const lufs  = level.rms > 0 ? (-0.691 + 10 * Math.log10(level.rms * level.rms)).toFixed(1) : '-∞'
+  const [lufs, setLufs] = useState<LoudnessMeasurement>(LUFS_INIT)
+  const rafRef  = useRef<number>(0)
+  const stopRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    const engine = getAudioEngine()
+    const meter  = getLoudnessMeter()
+    const analyser = engine.masterAnalyser
+    const buf    = new Float32Array(analyser.fftSize)
+
+    // Start realtime metering — feeds from master analyser time-domain data
+    const stop = meter.startRealtime(
+      () => {
+        analyser.getFloatTimeDomainData(buf)
+        return buf.slice()
+      },
+      engine.sampleRate,
+      (measurement) => {
+        setLufs(measurement)
+      },
+    )
+    stopRef.current = stop
+
+    return () => {
+      stop()
+      stopRef.current = null
+      cancelAnimationFrame(rafRef.current)
+    }
+  }, [])
 
   return (
     <div
@@ -37,8 +82,12 @@ export const MasterStripUI: React.FC = () => {
         <MeterBar peak={level.peak} rms={level.rms} isClipping={level.peak >= 1} height={100} width={10} />
       </div>
 
-      {/* LUFS */}
-      <div style={{ fontSize: 10, color: '#64748b' }}>LUFS: {lufs}</div>
+      {/* LUFS display — real ITU-R BS.1770 values */}
+      <div style={{ fontSize: 9, color: '#64748b', textAlign: 'left', width: '100%', lineHeight: 1.6 }}>
+        <div>M: {fmtLufs(lufs.momentary)} LUFS</div>
+        <div>S: {fmtLufs(lufs.shortTerm)} LUFS</div>
+        <div>TP: {fmtTp(lufs.truePeak)} dBTP</div>
+      </div>
 
       {/* Master gain fader */}
       <label style={{ fontSize: 10, color: '#94a3b8', width: '100%', textAlign: 'center' }}>
