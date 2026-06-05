@@ -192,6 +192,11 @@ export class BusRouter {
     const bus = this.buses.get(cfg.toId)
     if (!bus) { console.warn(`[BusRouter] bus "${cfg.toId}" not found`); return }
 
+    // Cycle detection — prevent audio feedback loops
+    if (this._detectsCycle(cfg.fromId, cfg.toId)) {
+      throw new Error(`Routing cycle detected: ${cfg.fromId} → ${cfg.toId} would create a loop`)
+    }
+
     if (!this.sends.has(cfg.fromId)) this.sends.set(cfg.fromId, new Map())
     const fromSends = this.sends.get(cfg.fromId)!
 
@@ -222,12 +227,50 @@ export class BusRouter {
     if (entry) entry.send.setEnabled(enabled, entry.gainDb)
   }
 
+  /**
+   * Return the enabled/gainDb state for a specific send, or undefined if the
+   * send has not been registered.  Used by RoutingMatrix to avoid double-adding
+   * sends that TrackManager has already wired.
+   */
+  getSendState(fromId: string, toId: string): { enabled: boolean; gainDb: number } | undefined {
+    const entry = this.sends.get(fromId)?.get(toId)
+    if (!entry) return undefined
+    return { enabled: entry.send.enabled, gainDb: entry.gainDb }
+  }
+
   // ── Metering ─────────────────────────────────────────────────────────────
 
   getAllBusLevels(): Record<string, BusLevel> {
     const out: Record<string, BusLevel> = {}
     for (const [id, bus] of this.buses) out[id] = bus.getLevel()
     return out
+  }
+
+  // ── Cycle detection (Task 3) ──────────────────────────────────────────────
+
+  /**
+   * DFS walk: starting from `startId`, follow all outgoing sends.
+   * Returns true if `targetId` is reachable — meaning adding fromId→toId
+   * (where startId=toId, targetId=fromId) would create a cycle.
+   */
+  private _detectsCycle(fromId: string, toId: string): boolean {
+    // We want to know: does a path already exist from toId back to fromId?
+    // If yes, adding fromId→toId closes a loop.
+    const visited = new Set<string>()
+
+    const dfs = (nodeId: string): boolean => {
+      if (nodeId === fromId) return true   // found the source — cycle!
+      if (visited.has(nodeId)) return false
+      visited.add(nodeId)
+      const outgoing = this.sends.get(nodeId)
+      if (!outgoing) return false
+      for (const [nextId] of outgoing) {
+        if (dfs(nextId)) return true
+      }
+      return false
+    }
+
+    return dfs(toId)
   }
 
   dispose(): void {
