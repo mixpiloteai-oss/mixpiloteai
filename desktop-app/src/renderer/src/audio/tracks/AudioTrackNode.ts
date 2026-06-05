@@ -37,6 +37,15 @@ function defaultEqBands(): EQBand[] {
   ]
 }
 
+export interface CompressorParams {
+  enabled:   boolean
+  threshold: number   // dBFS, -60..0
+  ratio:     number   // 1..20
+  attack:    number   // ms 0.1..200
+  release:   number   // ms 10..2000
+  knee:      number   // dB 0..12
+}
+
 export class AudioTrackNode {
   readonly id:             string
   readonly name:           string
@@ -54,6 +63,7 @@ export class AudioTrackNode {
   readonly fx:  FxInsertChain
 
   private readonly engine: AudioEngine
+  private _compressor:     DynamicsCompressorNode
   private _gainDb          = 0
   private _pan             = 0
   private _muted           = false
@@ -85,16 +95,45 @@ export class AudioTrackNode {
     this.eq = new EqChain(ctx, defaultEqBands())
     this.fx = new FxInsertChain(ctx)
 
-    // Chain: input → EQ → FX → preFaderNode → gainNode → panNode → analyser → destination
+    // Per-track compressor (bypass by default: ratio=1, knee=0)
+    this._compressor = ctx.createDynamicsCompressor()
+    this._compressor.threshold.value = -18
+    this._compressor.knee.value      = 0
+    this._compressor.ratio.value     = 1    // bypass
+    this._compressor.attack.value    = 0.01
+    this._compressor.release.value   = 0.2
+
+    // Chain: input → EQ → FX → compressor → preFaderNode → gainNode → panNode → analyser → destination
     this.input.connect(this.eq.input)
     this.eq.output.connect(this.fx.input)
-    this.fx.output.connect(this.preFaderNode)
+    this.fx.output.connect(this._compressor)
+    this._compressor.connect(this.preFaderNode)
     this.preFaderNode.connect(this.gainNode) // fader
     this.gainNode.connect(this.panNode)
     this.panNode.connect(this.analyserNode)
     this.analyserNode.connect(destination)
 
     this._analyserBuf = new Float32Array(this.analyserNode.fftSize) as Float32Array<ArrayBuffer>
+  }
+
+  // ── Compressor ────────────────────────────────────────────────────────────
+
+  setCompressor(state: CompressorParams): void {
+    const ctx  = this.engine.ctx
+    const t    = ctx.currentTime
+    const comp = this._compressor
+
+    if (state.enabled) {
+      comp.threshold.setTargetAtTime(state.threshold,         t, 0.005)
+      comp.ratio.setTargetAtTime(state.ratio,                 t, 0.005)
+      comp.attack.setTargetAtTime(state.attack  / 1000,       t, 0.005)
+      comp.release.setTargetAtTime(state.release / 1000,      t, 0.005)
+      comp.knee.setTargetAtTime(state.knee,                   t, 0.005)
+    } else {
+      // Bypass: ratio=1, knee=0 makes it transparent
+      comp.ratio.setTargetAtTime(1,  t, 0.005)
+      comp.knee.setTargetAtTime(0,   t, 0.005)
+    }
   }
 
   // ── Fader / pan ───────────────────────────────────────────────────────────
@@ -245,6 +284,7 @@ export class AudioTrackNode {
     this.input.disconnect()
     this.eq.dispose()
     this.fx.dispose()
+    this._compressor.disconnect()
     this.preFaderNode.disconnect()
     this.gainNode.disconnect()
     this.panNode.disconnect()

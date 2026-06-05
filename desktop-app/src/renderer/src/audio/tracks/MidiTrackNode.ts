@@ -14,6 +14,7 @@
 import { AudioEngine, dbToGain, gainToDb, clamp } from '../AudioEngine'
 import type { ChannelLevel }                       from '../types'
 import type { MidiNote }                           from '../../types/project'
+import type { CompressorParams }                   from './AudioTrackNode'
 
 // ─── MIDI event types ─────────────────────────────────────────────────────────
 
@@ -42,6 +43,7 @@ export class MidiTrackNode {
   readonly synthInput:   GainNode
 
   private readonly engine: AudioEngine
+  private _compressor:   DynamicsCompressorNode
   private _gainDb    = 0
   private _pan       = 0
   private _muted     = false
@@ -76,12 +78,42 @@ export class MidiTrackNode {
     this.analyserNode.fftSize               = 256
     this.analyserNode.smoothingTimeConstant = 0
 
-    this.synthInput.connect(this.gainNode)
+    // Per-track compressor (bypass by default: ratio=1, knee=0)
+    this._compressor = ctx.createDynamicsCompressor()
+    this._compressor.threshold.value = -18
+    this._compressor.knee.value      = 0
+    this._compressor.ratio.value     = 1    // bypass
+    this._compressor.attack.value    = 0.01
+    this._compressor.release.value   = 0.2
+
+    // Chain: synthInput → compressor → gainNode → panNode → analyser → destination
+    this.synthInput.connect(this._compressor)
+    this._compressor.connect(this.gainNode)
     this.gainNode.connect(this.panNode)
     this.panNode.connect(this.analyserNode)
     this.analyserNode.connect(destination)
 
     this._analyserBuf = new Float32Array(this.analyserNode.fftSize) as Float32Array<ArrayBuffer>
+  }
+
+  // ── Compressor ────────────────────────────────────────────────────────────
+
+  setCompressor(state: CompressorParams): void {
+    const ctx  = this.engine.ctx
+    const t    = ctx.currentTime
+    const comp = this._compressor
+
+    if (state.enabled) {
+      comp.threshold.setTargetAtTime(state.threshold,         t, 0.005)
+      comp.ratio.setTargetAtTime(state.ratio,                 t, 0.005)
+      comp.attack.setTargetAtTime(state.attack  / 1000,       t, 0.005)
+      comp.release.setTargetAtTime(state.release / 1000,      t, 0.005)
+      comp.knee.setTargetAtTime(state.knee,                   t, 0.005)
+    } else {
+      // Bypass: ratio=1, knee=0 makes it transparent
+      comp.ratio.setTargetAtTime(1,  t, 0.005)
+      comp.knee.setTargetAtTime(0,   t, 0.005)
+    }
   }
 
   // ── Channel strip ─────────────────────────────────────────────────────────
@@ -215,6 +247,7 @@ export class MidiTrackNode {
   dispose(): void {
     this.allNotesOff()
     this.synthInput.disconnect()
+    this._compressor.disconnect()
     this.gainNode.disconnect()
     this.panNode.disconnect()
     this.analyserNode.disconnect()
