@@ -138,12 +138,150 @@ export class NullVst3Adapter implements IVst3Adapter {
   savePreset(_id: string, _p: string): Promise<void> { this.notAvailable('savePreset') }
 }
 
-// Adapter loader — tries to load native addon, falls back to NullVst3Adapter:
+// Native addon wrapper — adapts the flat C++ exports to IVst3Adapter
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AddonModule = Record<string, (...args: unknown[]) => unknown>
+
+class NativeVst3Adapter implements IVst3Adapter {
+  private readonly addon: AddonModule
+  constructor(addon: AddonModule) { this.addon = addon }
+
+  scanPlugin(pluginPath: string): Promise<Vst3PluginInfo | null> {
+    return Promise.resolve(
+      (this.addon['scanPlugin'] as (p: string) => Vst3PluginInfo | null)(pluginPath)
+    )
+  }
+  getPluginCategories(pluginPath: string): Promise<string[]> {
+    const info = (this.addon['scanPlugin'] as (p: string) => Vst3PluginInfo | null)(pluginPath)
+    return Promise.resolve(info ? info.subCategories : [])
+  }
+  createInstance(pluginPath: string, componentId: string): Promise<string> {
+    return Promise.resolve(
+      (this.addon['createInstance'] as (p: string, c: string) => string)(pluginPath, componentId)
+    )
+  }
+  destroyInstance(instanceId: string): Promise<void> {
+    ;(this.addon['destroyInstance'] as (id: string) => void)(instanceId)
+    return Promise.resolve()
+  }
+  setupProcessing(instanceId: string, setup: Vst3ProcessSetup): Promise<boolean> {
+    return Promise.resolve(
+      (this.addon['setupProcessing'] as (id: string, s: Vst3ProcessSetup) => boolean)(instanceId, setup)
+    )
+  }
+  activateInstance(instanceId: string, active: boolean): Promise<void> {
+    ;(this.addon['activateInstance'] as (id: string, a: boolean) => void)(instanceId, active)
+    return Promise.resolve()
+  }
+  processBlock(instanceId: string, inputs: Float32Array[][], outputs: Float32Array[][], events: Vst3Event[]): Promise<void> {
+    // Flatten stereo: pass first channel of each bus
+    const inFlat  = inputs.map(bus => bus[0] ?? new Float32Array(0))
+    const outFlat = outputs.map(bus => bus[0] ?? new Float32Array(0))
+    ;(this.addon['processBlock'] as (id: string, i: Float32Array[], o: Float32Array[], e: unknown[]) => void)(
+      instanceId, inFlat, outFlat, events
+    )
+    return Promise.resolve()
+  }
+  getParameterCount(instanceId: string): Promise<number> {
+    return Promise.resolve(
+      (this.addon['getParameterCount'] as (id: string) => number)(instanceId)
+    )
+  }
+  getParameterInfo(instanceId: string, paramIndex: number): Promise<Vst3ParamInfo> {
+    return Promise.resolve(
+      (this.addon['getParameterInfo'] as (id: string, i: number) => Vst3ParamInfo)(instanceId, paramIndex)
+    )
+  }
+  getParameterValue(instanceId: string, paramId: number): Promise<number> {
+    return Promise.resolve(
+      (this.addon['getParameterValue'] as (id: string, p: number) => number)(instanceId, paramId)
+    )
+  }
+  setParameterValue(instanceId: string, paramId: number, value: number): Promise<void> {
+    ;(this.addon['setParameterValue'] as (id: string, p: number, v: number) => void)(instanceId, paramId, value)
+    return Promise.resolve()
+  }
+  getParameterStringByValue(instanceId: string, paramId: number, value: number): Promise<string> {
+    return Promise.resolve(
+      (this.addon['getParameterStringByValue'] as (id: string, p: number, v: number) => string)(instanceId, paramId, value)
+    )
+  }
+  getAllParameterValues(instanceId: string): Promise<Array<{ paramId: number; value: number; normalized: number; display: string }>> {
+    return Promise.resolve(
+      (this.addon['getAllParameterValues'] as (id: string) => Array<{ paramId: number; value: number; normalized: number; display: string }>)(instanceId)
+    )
+  }
+  getState(instanceId: string): Promise<Buffer> {
+    return Promise.resolve(
+      (this.addon['getState'] as (id: string) => Buffer)(instanceId)
+    )
+  }
+  setState(instanceId: string, state: Buffer): Promise<void> {
+    ;(this.addon['setState'] as (id: string, s: Buffer) => void)(instanceId, state)
+    return Promise.resolve()
+  }
+  attachEditor(instanceId: string, parentWindowHandle: Buffer): Promise<{ width: number; height: number }> {
+    return Promise.resolve(
+      (this.addon['attachEditor'] as (id: string, h: Buffer) => { width: number; height: number })(instanceId, parentWindowHandle)
+    )
+  }
+  detachEditor(instanceId: string): Promise<void> {
+    ;(this.addon['detachEditor'] as (id: string) => void)(instanceId)
+    return Promise.resolve()
+  }
+  resizeEditor(instanceId: string, width: number, height: number): Promise<void> {
+    ;(this.addon['resizeEditor'] as (id: string, w: number, h: number) => void)(instanceId, width, height)
+    return Promise.resolve()
+  }
+  sendMidiEvent(instanceId: string, event: Vst3MidiEvent): Promise<void> {
+    ;(this.addon['sendMidiEvent'] as (id: string, e: Vst3MidiEvent) => void)(instanceId, event)
+    return Promise.resolve()
+  }
+  getPresetCount(instanceId: string): Promise<number> {
+    return Promise.resolve(
+      (this.addon['getPresetCount'] as (id: string) => number)(instanceId)
+    )
+  }
+  getPresetName(instanceId: string, index: number): Promise<string> {
+    return Promise.resolve(
+      (this.addon['getPresetName'] as (id: string, i: number) => string)(instanceId, index)
+    )
+  }
+  loadPreset(instanceId: string, presetPath: string): Promise<void> {
+    ;(this.addon['loadPreset'] as (id: string, p: string) => void)(instanceId, presetPath)
+    return Promise.resolve()
+  }
+  savePreset(instanceId: string, presetPath: string): Promise<void> {
+    ;(this.addon['savePreset'] as (id: string, p: string) => void)(instanceId, presetPath)
+    return Promise.resolve()
+  }
+}
+
+// Adapter loader — tries to load the compiled native addon, falls back to NullVst3Adapter.
+// The native addon is built with: cd desktop-app/native/vst3-node && npm install && npm run build
 export function loadVst3Adapter(): IVst3Adapter {
-  // NATIVE-ADDON: try to require('vst3-node') or the custom napi-rs build
-  // When the native addon is available:
-  //   const addon = require('../../native/vst3-node/index.node')
-  //   return addon.createAdapter()
+  const candidatePaths = [
+    // Compiled by node-gyp (development)
+    '../../../native/vst3-node/build/Release/vst3-node.node',
+    // Packaged in Electron app (production)
+    '../../native/vst3-node/build/Release/vst3-node.node',
+  ]
+
+  for (const addonPath of candidatePaths) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const addon = require(addonPath) as AddonModule
+      if (typeof addon['scanPlugin'] === 'function') {
+        console.log('[vst3] Native addon loaded from:', addonPath)
+        return new NativeVst3Adapter(addon)
+      }
+    } catch {
+      // Not found at this path — try next
+    }
+  }
+
+  console.warn('[vst3] Native addon not available — VST3 hosting disabled. Build with: cd desktop-app/native/vst3-node && npm install && npm run build')
   return new NullVst3Adapter()
 }
 
