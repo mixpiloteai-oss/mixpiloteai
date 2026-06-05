@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback, memo } from 'react'
 import { TrackContextMenu } from '../context-menu/TrackContextMenu'
 import { useProjectStore }          from '../../store/projectStore'
+import { useTransportStore }        from '../../store/transportStore'
 import { useArrangementViewStore }  from './useArrangementViewStore'
 import { useAutomationStore }       from './useAutomationStore'
 import { freezeEngine }             from '../../audio/FreezeEngine'
@@ -386,7 +387,7 @@ export default function TrackHeaders({ scrollY, rulerHeight }: Props) {
       const clipEndBar = track && track.clips.length > 0
         ? Math.max(...track.clips.map(c => c.startBar + c.lengthBars - 1))
         : 32
-      const bpm = 145
+      const bpm = useTransportStore.getState().bpm
       const durationSec = clipEndBar * 4 * (60 / bpm) + 2
       const { ctx: offCtx } = freezeEngine.prepareContext({ durationSec })
       freezeEngine.renderAndFreeze(trackId, offCtx).then(() => {
