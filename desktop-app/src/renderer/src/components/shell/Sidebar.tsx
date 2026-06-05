@@ -1,6 +1,7 @@
 import { useUIStore, type ViewId } from '../../store/uiStore'
 import PremiumBadge from '../shell/PremiumBadge'
 
+
 const NAV_ITEMS: { id: ViewId; label: string; icon: string }[] = [
   { id: 'arrangement', label: 'Arrangement', icon: '≡' },
   { id: 'mixer',       label: 'Mixer',       icon: '⊟' },
@@ -17,7 +18,7 @@ const NAV_ITEMS: { id: ViewId; label: string; icon: string }[] = [
 ]
 
 export default function Sidebar() {
-  const { activeView, setView } = useUIStore()
+  const { activeView, setView, openSettings } = useUIStore()
 
   return (
     <aside
@@ -53,6 +54,17 @@ export default function Sidebar() {
         )
       })}
       </div>
+
+      {/* Settings gear */}
+      <button
+        onClick={openSettings}
+        className="sidebar-nav-btn w-9 h-9 rounded-xl flex items-center justify-center text-base gpu"
+        style={{ background: 'transparent', color: '#475569', border: '1px solid transparent' }}
+        aria-label="Settings"
+      >
+        ⚙
+        <span className="sidebar-tooltip">Settings (Ctrl+,)</span>
+      </button>
 
       {/* Premium badge / upgrade prompt */}
       <PremiumBadge />

@@ -99,6 +99,18 @@ export const ipc = {
     api()?.getAudioSettings() ?? Promise.resolve({}),
   setAudioSettings: (s: unknown): Promise<void> =>
     api()?.setAudioSettings(s) ?? resolveVoid(),
+  audioDetectDrivers: (): Promise<unknown[]> =>
+    api()?.audioDetectDrivers() ?? Promise.resolve([]),
+  audioDetectDevices: (): Promise<unknown[]> =>
+    api()?.audioDetectDevices() ?? Promise.resolve([]),
+  audioSetDriver: (driver: string, device: string): Promise<void> =>
+    api()?.audioSetDriver(driver, device) ?? resolveVoid(),
+  audioSetBufferSize: (frames: number): Promise<void> =>
+    api()?.audioSetBufferSize(frames) ?? resolveVoid(),
+  audioSetSampleRate: (rate: number): Promise<void> =>
+    api()?.audioSetSampleRate(rate) ?? resolveVoid(),
+  audioQueryDevices: (): Promise<void> =>
+    api()?.audioQueryDevices() ?? resolveVoid(),
 
   // ── File dialogs / file I/O ────────────────────────────────────────────────
   openFileDialog: (opts: unknown): Promise<string[] | null> =>

@@ -21,6 +21,9 @@ import MarketplaceBrowser from './components/marketplace/MarketplaceBrowser'
 import RecoveryDialog        from './components/save/RecoveryDialog'
 import SnapshotHistoryPanel  from './components/save/SnapshotHistoryPanel'
 import OnboardingWelcome     from './components/onboarding/OnboardingWelcome'
+import SplashScreen          from './components/shell/SplashScreen'
+import ToastContainer        from './components/notifications/ToastContainer'
+import SettingsModal         from './components/settings/SettingsModal'
 import DawLayout             from './components/layout/DawLayout'
 import WelcomeDashboard      from './components/welcome/WelcomeDashboard'
 import { useOnboardingStore } from './store/onboardingStore'
@@ -345,6 +348,7 @@ async function fetchSubscription() {
 }
 
 export default function App() {
+  const [appReady, setAppReady] = useState(false)
   const [token, setToken] = useState<string | null>(() => {
     const stored = localStorage.getItem('token')
     // Electron desktop app — auto-authenticate in local mode so the workspace
@@ -361,6 +365,24 @@ export default function App() {
   useEffect(() => {
     const { monitoring, startMonitoring } = usePerfMonitorStore.getState()
     if (!monitoring) startMonitoring()
+  }, [])
+
+  // Mark app as ready after a short boot window (stores init synchronously)
+  useEffect(() => {
+    const id = setTimeout(() => setAppReady(true), 800)
+    return () => clearTimeout(id)
+  }, [])
+
+  // Global Ctrl+, → open Settings
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === ',' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        useUIStore.getState().openSettings()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   // Boot logging + auto DevTools in development
@@ -409,6 +431,7 @@ export default function App() {
   if (!token) return <LoginScreen onAuth={setToken} />
   return (
     <>
+      <SplashScreen ready={appReady} />
       <UpdateBanner />
       <DAWShell />
       {/* Crash recovery dialog — rendered as overlay above DAWShell */}
@@ -419,6 +442,10 @@ export default function App() {
       <PerformanceOverlay />
       {/* Onboarding wizard — shown on first launch */}
       {!hasSeenWelcome && <OnboardingWelcome />}
+      {/* Settings modal — Ctrl+, or sidebar gear */}
+      <SettingsModal />
+      {/* Global toast notifications */}
+      <ToastContainer />
     </>
   )
 }

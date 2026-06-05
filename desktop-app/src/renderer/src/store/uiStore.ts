@@ -19,6 +19,7 @@ interface UIStore {
   beginnerMode: boolean
   shortcutsPanelOpen: boolean
   welcomeOpen: boolean
+  settingsOpen: boolean
   setView: (v: ViewId) => void
   openWelcome: () => void
   closeWelcome: () => void
@@ -34,6 +35,9 @@ interface UIStore {
   scrollBy: (deltaBars: number) => void
   toggleBeginnerMode: () => void
   toggleShortcutsPanel: () => void
+  toggleSettings: () => void
+  openSettings: () => void
+  closeSettings: () => void
 }
 
 export const useUIStore = create<UIStore>((set) => ({
@@ -50,6 +54,7 @@ export const useUIStore = create<UIStore>((set) => ({
   beginnerMode: false,
   shortcutsPanelOpen: false,
   welcomeOpen: false,
+  settingsOpen: false,
 
   setView:               (v) => set({ activeView: v }),
   openWelcome:           () => set({ welcomeOpen: true }),
@@ -66,4 +71,7 @@ export const useUIStore = create<UIStore>((set) => ({
   scrollBy:              (delta) => set(s => ({ scrollOffsetBars: Math.max(0, s.scrollOffsetBars + delta) })),
   toggleBeginnerMode:    () => set(s => ({ beginnerMode: !s.beginnerMode })),
   toggleShortcutsPanel:  () => set(s => ({ shortcutsPanelOpen: !s.shortcutsPanelOpen })),
+  toggleSettings:        () => set(s => ({ settingsOpen: !s.settingsOpen })),
+  openSettings:          () => set({ settingsOpen: true }),
+  closeSettings:         () => set({ settingsOpen: false }),
 }))

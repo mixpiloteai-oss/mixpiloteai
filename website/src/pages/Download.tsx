@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
 import './Download.css'
 
-const VERSION = '1.0.0-beta.1'
-const RELEASE_DATE = 'May 14, 2025'
+const VERSION = '0.5.0-alpha.1'
+const RELEASE_DATE = 'June 5, 2026'
 const INSTALLER_NAME = `NeuroTek-AI-Setup-${VERSION}.exe`
 const INSTALLER_SIZE = '~120 MB'
 const PORTABLE_NAME = `NeuroTek-AI-Portable-${VERSION}.exe`

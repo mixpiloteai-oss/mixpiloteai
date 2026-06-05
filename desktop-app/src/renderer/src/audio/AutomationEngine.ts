@@ -291,4 +291,14 @@ export class AutomationEngine {
     this.touchActive.clear()
     this.applicator = null
   }
+
+  // ── Transport / bus integration stubs (called by audio/index.ts) ─────────────
+
+  connectToTransport(_transport: unknown): void {
+    // No-op in base engine: beat-driven evaluation not yet wired to Transport.
+  }
+
+  setSendGainCallback(_cb: (trackId: string, busId: string, gainDb: number) => void): void {
+    // No-op in base engine: send automation not yet routed to BusRouter here.
+  }
 }

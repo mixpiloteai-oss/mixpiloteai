@@ -71,6 +71,12 @@ interface ElectronAPI {
   getAudioDevices: () => Promise<{ inputs: unknown[]; outputs: unknown[] }>
   getAudioSettings: () => Promise<Record<string, unknown>>
   setAudioSettings: (s: unknown) => Promise<void>
+  audioDetectDrivers: () => Promise<unknown[]>
+  audioDetectDevices: () => Promise<unknown[]>
+  audioSetDriver: (driver: string, device: string) => Promise<void>
+  audioSetBufferSize: (frames: number) => Promise<void>
+  audioSetSampleRate: (rate: number) => Promise<void>
+  audioQueryDevices: () => Promise<void>
   openFileDialog: (opts: unknown) => Promise<string[] | null>
   saveFileDialog: (opts: unknown) => Promise<string | null>
   readFile: (p: string) => Promise<string | null>

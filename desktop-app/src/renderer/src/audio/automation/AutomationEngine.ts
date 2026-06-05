@@ -47,9 +47,6 @@ class AutomationEngine {
   /** Unsubscribe handle for the Transport beat callback. */
   private _transportUnsub: Unsubscribe | null = null
 
-  /** AudioContext reference injected when connecting to Transport. */
-  private _audioCtx: AudioContext | null = null
-
   /** Callback to push send gain changes to BusRouter. */
   private _sendGainCallback: SendGainCallback | null = null
 
@@ -230,9 +227,6 @@ class AutomationEngine {
    * Replaces the former setInterval(16ms) polling approach.
    */
   connectToTransport(transport: Transport): void {
-    // Capture AudioContext for sample-accurate scheduling
-    this._audioCtx = transport.clock['engine'].ctx as AudioContext
-
     // Unsubscribe from any previous transport
     if (this._transportUnsub) {
       this._transportUnsub()
@@ -270,7 +264,6 @@ class AutomationEngine {
       this._transportUnsub()
       this._transportUnsub = null
     }
-    this._audioCtx = null
     this._lastValues.clear()
   }
 
