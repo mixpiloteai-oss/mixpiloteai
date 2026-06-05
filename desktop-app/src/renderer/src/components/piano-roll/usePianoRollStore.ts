@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { PRNote, PRTool, SnapGrid, AutomationParam, ScaleMode, ScaleRoot } from './types'
+import type { PRNote, PRTool, SnapGrid, AutomationParam, AutomationPoint, ScaleMode, ScaleRoot } from './types'
 import { DEFAULT_AUTO_PARAMS, SNAP_BEATS } from './types'
 import { getScalePitches, snapPitchToScale, buildChord, getDiatonicChords, generateMelody } from '../../lib/musicTheory'
 import type { ChordType } from '../../lib/musicTheory'
@@ -7,6 +7,19 @@ import { PreviewScheduler } from '../../audio/ClipPlaybackCoordinator'
 import { MidiTrackNode } from '../../audio/tracks/MidiTrackNode'
 import { getTrackManager, getTransport, getClipPlaybackCoordinator } from '../../audio'
 import { transpose, invert, reverse, legato, staccato } from '../../audio/midi/MidiNoteTransformer'
+import { MidiQuantize } from '../../audio/midi/MidiQuantize'
+import type { GridDivision } from '../../audio/midi/MidiQuantize'
+import { useHistoryStore } from '../../store/historyStore'
+
+// Map SnapGrid values to MidiQuantize GridDivision values
+const SNAP_TO_GRID_DIVISION: Partial<Record<SnapGrid, GridDivision>> = {
+  '1/32': '1/32',
+  '1/16': '1/16',
+  '1/8':  '1/8',
+  '1/4':  '1/4',
+  '1/2':  '1/4',   // no 1/2 in GridDivision, use 1/4 as closest
+  '1/1':  '1/4',   // no 1/1 in GridDivision, use 1/4 as closest
+}
 
 let _uid = 1
 const uid = () => `pr${_uid++}`
@@ -107,6 +120,9 @@ export interface PianoRollState {
   setVelocity(id: string, v: number): void
   loadNotes(notes: PRNote[]): void
   toggleAutoParam(id: string): void
+  addAutoPoint(paramId: string, beat: number, value: number): void
+  moveAutoPoint(paramId: string, pointId: string, beat: number, value: number): void
+  removeAutoPoint(paramId: string, pointId: string): void
   // Scale
   setScaleEnabled(on: boolean): void
   setScaleRoot(root: ScaleRoot): void
@@ -181,13 +197,29 @@ export const usePianoRollStore = create<PianoRollState>((set, get) => ({
   swingAmount:     0,
 
   addNote(data) {
+    const before = get().notes
     const note: PRNote = { ...data, id: uid(), selected: false, muted: false }
-    set(s => ({ notes: [...s.notes, note] }))
+    const after = [...before, note]
+    set({ notes: after })
+    useHistoryStore.getState().push({
+      label:  'Add note',
+      domain: 'midi',
+      undo:   () => usePianoRollStore.getState().loadNotes(before),
+      redo:   () => usePianoRollStore.getState().loadNotes(after),
+    })
     return note
   },
 
   removeNote(id) {
-    set(s => ({ notes: s.notes.filter(n => n.id !== id) }))
+    const before = get().notes
+    const after = before.filter(n => n.id !== id)
+    set({ notes: after })
+    useHistoryStore.getState().push({
+      label:  'Remove note',
+      domain: 'midi',
+      undo:   () => usePianoRollStore.getState().loadNotes(before),
+      redo:   () => usePianoRollStore.getState().loadNotes(after),
+    })
   },
 
   removeNotes(ids) {
@@ -240,7 +272,17 @@ export const usePianoRollStore = create<PianoRollState>((set, get) => ({
 
   selectAll()    { set(s => ({ notes: s.notes.map(n => ({ ...n, selected: true  })) })) },
   deselectAll()  { set(s => ({ notes: s.notes.map(n => ({ ...n, selected: false })) })) },
-  deleteSelected(){ set(s => ({ notes: s.notes.filter(n => !n.selected) })) },
+  deleteSelected() {
+    const before = get().notes
+    const after = before.filter(n => !n.selected)
+    set({ notes: after })
+    useHistoryStore.getState().push({
+      label:  'Delete notes',
+      domain: 'midi',
+      undo:   () => usePianoRollStore.getState().loadNotes(before),
+      redo:   () => usePianoRollStore.getState().loadNotes(after),
+    })
+  },
 
   duplicateSelected() {
     const { notes } = get()
@@ -281,6 +323,43 @@ export const usePianoRollStore = create<PianoRollState>((set, get) => ({
     }))
   },
 
+  addAutoPoint(paramId, beat, value) {
+    const pointId = `ap${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const newPoint: AutomationPoint = { id: pointId, beat, value }
+    set(s => ({
+      autoParams: s.autoParams.map(p =>
+        p.id === paramId
+          ? { ...p, points: [...p.points, newPoint].sort((a, b) => a.beat - b.beat) }
+          : p,
+      ),
+    }))
+  },
+
+  moveAutoPoint(paramId, pointId, beat, value) {
+    set(s => ({
+      autoParams: s.autoParams.map(p =>
+        p.id === paramId
+          ? {
+              ...p,
+              points: p.points
+                .map(pt => pt.id === pointId ? { ...pt, beat, value } : pt)
+                .sort((a, b) => a.beat - b.beat),
+            }
+          : p,
+      ),
+    }))
+  },
+
+  removeAutoPoint(paramId, pointId) {
+    set(s => ({
+      autoParams: s.autoParams.map(p =>
+        p.id === paramId
+          ? { ...p, points: p.points.filter(pt => pt.id !== pointId) }
+          : p,
+      ),
+    }))
+  },
+
   // ── Scale ────────────────────────────────────────────────────────────────
   setScaleEnabled(on)   { set({ scaleEnabled: on }) },
   setScaleRoot(root)    { set({ scaleRoot: root }) },
@@ -301,37 +380,54 @@ export const usePianoRollStore = create<PianoRollState>((set, get) => ({
 
   // ── Quantize ─────────────────────────────────────────────────────────────
   quantize(grid, strength) {
-    const snapVal = SNAP_BEATS[grid]
-    if (snapVal === 0) return
-    set(s => ({
-      notes: s.notes.map(n => {
-        if (!n.selected) return n
-        const snapped   = Math.round(n.startBeat / snapVal) * snapVal
-        const newStart  = n.startBeat + (snapped - n.startBeat) * strength
-        return { ...n, startBeat: Math.max(0, newStart) }
-      }),
-    }))
+    if (grid === 'off') return
+    const gridDiv = SNAP_TO_GRID_DIVISION[grid]
+    if (!gridDiv) return
+    const { notes: before, swingAmount } = get()
+    const hasSelection = before.some(n => n.selected)
+    const quantized = MidiQuantize.apply(before, {
+      grid:          gridDiv,
+      strength,
+      swing:         swingAmount,
+      quantizeStart: true,
+      quantizeEnd:   false,
+      selectedOnly:  hasSelection,
+    })
+    set({ notes: quantized })
+    const after = quantized
+    useHistoryStore.getState().push({
+      label:  'Quantize notes',
+      domain: 'midi',
+      undo:   () => usePianoRollStore.getState().loadNotes(before),
+      redo:   () => usePianoRollStore.getState().loadNotes(after),
+    })
   },
 
   // ── Humanize ─────────────────────────────────────────────────────────────
   humanize(amount) {
+    const before = get().notes
     const maxTimeDev = amount * 0.1   // ±0.1 beats max
     const maxVelDev  = amount * 15    // ±15 velocity max
-    set(s => ({
-      notes: s.notes.map((n, i) => {
-        if (!n.selected) return n
-        let seed = (i * 1664525 + 1013904223) | 0
-        seed = (seed * 1664525 + 1013904223) | 0
-        const tRand = ((seed >>> 0) / 0xFFFFFFFF - 0.5) * 2 * maxTimeDev
-        seed = (seed * 1664525 + 1013904223) | 0
-        const vRand = ((seed >>> 0) / 0xFFFFFFFF - 0.5) * 2 * maxVelDev
-        return {
-          ...n,
-          startBeat: Math.max(0, n.startBeat + tRand),
-          velocity:  Math.max(1, Math.min(127, Math.round(n.velocity + vRand))),
-        }
-      }),
-    }))
+    const after = before.map((n, i) => {
+      if (!n.selected) return n
+      let seed = (i * 1664525 + 1013904223) | 0
+      seed = (seed * 1664525 + 1013904223) | 0
+      const tRand = ((seed >>> 0) / 0xFFFFFFFF - 0.5) * 2 * maxTimeDev
+      seed = (seed * 1664525 + 1013904223) | 0
+      const vRand = ((seed >>> 0) / 0xFFFFFFFF - 0.5) * 2 * maxVelDev
+      return {
+        ...n,
+        startBeat: Math.max(0, n.startBeat + tRand),
+        velocity:  Math.max(1, Math.min(127, Math.round(n.velocity + vRand))),
+      }
+    })
+    set({ notes: after })
+    useHistoryStore.getState().push({
+      label:  'Humanize notes',
+      domain: 'midi',
+      undo:   () => usePianoRollStore.getState().loadNotes(before),
+      redo:   () => usePianoRollStore.getState().loadNotes(after),
+    })
   },
 
   // ── Randomize ────────────────────────────────────────────────────────────
@@ -456,18 +552,24 @@ export const usePianoRollStore = create<PianoRollState>((set, get) => ({
   paste(atBeat) {
     const { clipboard } = get()
     if (!clipboard || clipboard.length === 0) return
+    const before = get().notes
     const pasted: PRNote[] = clipboard.map(n => ({
       ...n,
       id:        uid(),
       startBeat: atBeat + n.startBeat,
       selected:  true,
     }))
-    set(s => ({
-      notes: [
-        ...s.notes.map(n => ({ ...n, selected: false })),
-        ...pasted,
-      ],
-    }))
+    const after = [
+      ...before.map(n => ({ ...n, selected: false })),
+      ...pasted,
+    ]
+    set({ notes: after })
+    useHistoryStore.getState().push({
+      label:  'Paste notes',
+      domain: 'midi',
+      undo:   () => usePianoRollStore.getState().loadNotes(before),
+      redo:   () => usePianoRollStore.getState().loadNotes(after),
+    })
   },
 
   // ── Velocity curves ──────────────────────────────────────────────────────
@@ -519,11 +621,19 @@ export const usePianoRollStore = create<PianoRollState>((set, get) => ({
   // ── Transformers ─────────────────────────────────────────────────────────
   transposeSelected(semitones) {
     const { notes } = get()
+    const before = notes
     const sel = notes.filter(n => n.selected)
     if (!sel.length) return
     const transformed = transpose(sel, semitones)
     const map = new Map(transformed.map(n => [n.id, n]))
-    set(s => ({ notes: s.notes.map(n => map.has(n.id) ? map.get(n.id)! : n) }))
+    const after = notes.map(n => map.has(n.id) ? map.get(n.id)! : n)
+    set({ notes: after })
+    useHistoryStore.getState().push({
+      label:  'Transpose notes',
+      domain: 'midi',
+      undo:   () => usePianoRollStore.getState().loadNotes(before),
+      redo:   () => usePianoRollStore.getState().loadNotes(after),
+    })
   },
 
   invertSelected(pivotPitch) {
