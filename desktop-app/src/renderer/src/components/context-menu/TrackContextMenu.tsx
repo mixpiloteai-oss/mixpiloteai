@@ -19,11 +19,10 @@ export function TrackContextMenu({ x, y, trackId, onClose }: TrackContextMenuPro
       label: 'Rename',
       icon: '✏️',
       action: () => {
-        const name = window.prompt('Track name:')
-        if (name) {
-          // renameTrack not yet wired to projectStore; name collected for future integration
-          void name
-          void trackId
+        const current = useProjectStore.getState().project.tracks.find(t => t.id === trackId)?.name ?? ''
+        const name = window.prompt('Track name:', current)
+        if (name && name.trim()) {
+          useProjectStore.getState().renameTrack(trackId, name.trim())
         }
       },
     },

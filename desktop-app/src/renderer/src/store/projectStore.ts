@@ -100,6 +100,7 @@ interface ProjectStore {
   consolidateClips: (clipIds: string[]) => void
   stretchClip: (clipId: string, playbackRate: number) => void
   rippleShiftClips: (trackId: string, pivotBar: number, barDelta: number, excludeClipIds: string[]) => void
+  renameTrack: (trackId: string, name: string) => void
 }
 
 export const useProjectStore = create<ProjectStore>((set) => ({
@@ -120,6 +121,10 @@ export const useProjectStore = create<ProjectStore>((set) => ({
 
   toggleArm: (trackId) => set(s => ({
     project: { ...s.project, tracks: s.project.tracks.map(t => t.id === trackId ? { ...t, armed: !t.armed } : t) },
+  })),
+
+  renameTrack: (trackId, name) => set(s => ({
+    project: { ...s.project, tracks: s.project.tracks.map(t => t.id === trackId ? { ...t, name } : t) },
   })),
 
   setTrackGain: (trackId, db) => set(s => ({
