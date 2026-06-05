@@ -1,6 +1,7 @@
 import { useCallback, useEffect }  from 'react'
 import { usePianoRollStore }       from './usePianoRollStore'
 import { useProjectStore }         from '../../store/projectStore'
+import { useHistoryStore }         from '../../store/historyStore'
 import PianoKeys                   from './PianoKeys'
 import NoteGrid                    from './NoteGrid'
 import VelocityLane                from './VelocityLane'
@@ -102,6 +103,29 @@ export default function PianoRollView() {
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
   }, [isPreviewPlaying, startPreview, stopPreview, selectedTrackId])
+
+  // Ctrl+Z / Ctrl+Y (and Ctrl+Shift+Z) for undo/redo
+  useEffect(() => {
+    const handleUndoRedo = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+      if (!e.ctrlKey && !e.metaKey) return
+      if (e.key === 'z' || e.key === 'Z') {
+        if (e.shiftKey) {
+          e.preventDefault()
+          useHistoryStore.getState().redo()
+        } else {
+          e.preventDefault()
+          useHistoryStore.getState().undo()
+        }
+      } else if (e.key === 'y' || e.key === 'Y') {
+        e.preventDefault()
+        useHistoryStore.getState().redo()
+      }
+    }
+    window.addEventListener('keydown', handleUndoRedo)
+    return () => window.removeEventListener('keydown', handleUndoRedo)
+  }, [])
 
   const zoomXIdx  = ZOOM_STEPS.findIndex(z => Math.abs(z - zoomX / 64) < 0.01)
   const zoomXNorm = zoomXIdx >= 0 ? zoomXIdx : 2
