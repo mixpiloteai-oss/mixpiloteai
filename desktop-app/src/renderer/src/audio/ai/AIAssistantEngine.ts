@@ -8,6 +8,7 @@ import { parseCommand } from './CommandParser'
 import { executeCommand } from './MusicCommandExecutor'
 import type { ExecutionResult } from './MusicCommandExecutor'
 import { buildContext } from './ProjectContextBuilder'
+import { useTransportStore } from '../../store/transportStore'
 
 export interface AIResponse {
   text:     string              // natural language response (FR)
@@ -43,11 +44,97 @@ class AIAssistantEngine {
   }
 
   /**
+   * Handle direct DAW transport/BPM commands via string matching.
+   * Returns a result if the command was handled, null otherwise.
+   */
+  private handleDawCommand(text: string): ExecutionResult | null {
+    const t = text.toLowerCase().trim()
+
+    // Play
+    if (t === 'play' || t === 'jouer') {
+      useTransportStore.getState().play()
+      return {
+        success:  true,
+        message:  'Lecture démarrée.',
+        changes:  [{ type: 'no_op', detail: 'play()' }],
+        warnings: [],
+      }
+    }
+
+    // Stop / Pause
+    if (t === 'stop' || t === 'pause' || t === 'arrêt' || t === 'arret') {
+      useTransportStore.getState().stop()
+      return {
+        success:  true,
+        message:  'Lecture arrêtée.',
+        changes:  [{ type: 'no_op', detail: 'stop()' }],
+        warnings: [],
+      }
+    }
+
+    // Double BPM
+    if (t === 'double bpm' || t === 'double le bpm' || t === 'doubler le bpm') {
+      const current = useTransportStore.getState().bpm
+      const next    = Math.min(300, current * 2)
+      useTransportStore.getState().setBpm(next)
+      return {
+        success:  true,
+        message:  `BPM doublé: ${current} → ${next}.`,
+        changes:  [{ type: 'set_bpm', detail: `BPM → ${next}` }],
+        warnings: [],
+      }
+    }
+
+    // Half BPM
+    if (t === 'half bpm' || t === 'divise bpm' || t === 'divise le bpm' || t === 'moitié bpm' || t === 'demi bpm') {
+      const current = useTransportStore.getState().bpm
+      const next    = Math.max(40, Math.round(current / 2))
+      useTransportStore.getState().setBpm(next)
+      return {
+        success:  true,
+        message:  `BPM divisé: ${current} → ${next}.`,
+        changes:  [{ type: 'set_bpm', detail: `BPM → ${next}` }],
+        warnings: [],
+      }
+    }
+
+    // Set BPM to N: "set bpm 140", "bpm 140", "bpm à 140"
+    const bpmMatch = t.match(/(?:set\s+bpm|bpm\s+[aà]?)\s+(\d+(?:\.\d+)?)/)
+      ?? t.match(/^bpm\s+(\d+(?:\.\d+)?)$/)
+    if (bpmMatch) {
+      const value = parseFloat(bpmMatch[1])
+      if (!isNaN(value) && value >= 40 && value <= 300) {
+        useTransportStore.getState().setBpm(value)
+        return {
+          success:  true,
+          message:  `Tempo réglé à ${value} BPM.`,
+          changes:  [{ type: 'set_bpm', detail: `BPM → ${value}` }],
+          warnings: [],
+        }
+      }
+    }
+
+    return null
+  }
+
+  /**
    * Process a natural-language command against the current project.
    * Falls back to local processing if cloud is unavailable or fails.
    */
   async processCommand(text: string, project: Project): Promise<AIResponse> {
     const analysis = analyzeProject(project)
+
+    // Fast-path: handle direct DAW transport/BPM commands without going through AI pipeline
+    const dawResult = this.handleDawCommand(text)
+    if (dawResult) {
+      return {
+        text:     dawResult.message,
+        result:   dawResult,
+        analysis,
+        source:   'local',
+      }
+    }
+
     const cmd      = parseCommand(text)
 
     // Try cloud path if available
@@ -103,7 +190,7 @@ function buildFrenchResponse(
 
   // Add musical context
   if (intent === 'generate_pattern') {
-    response += ' Ajoutez-le à une piste MIDI pour l\'entendre.'
+    response += ' Le clip a été inséré dans le projet.'
   } else if (intent === 'analyze') {
     // Message already contains full analysis
   }
